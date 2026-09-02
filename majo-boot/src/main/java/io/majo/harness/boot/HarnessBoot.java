@@ -16,6 +16,9 @@ import io.majo.harness.session.SessionProjectionsPlugin;
 import io.majo.harness.interaction.InteractionPlugin;
 import io.majo.harness.interaction.ToolApprovalPlugin;
 import io.majo.harness.sandbox.SandboxPlugin;
+import io.majo.harness.skill.FileSkillPlugin;
+import io.majo.harness.skill.SkillPlugin;
+import io.majo.harness.skill.SkillToolsPlugin;
 import io.majo.harness.shell.ShellPlugin;
 import io.majo.harness.shell.ShellToolPlugin;
 import io.majo.harness.subprocess.SubprocessPlugin;
@@ -53,6 +56,9 @@ public final class HarnessBoot {
     public static final String PLUGIN_SANDBOX = SandboxPlugin.NAME;
     public static final String PLUGIN_INTERACTIONS = InteractionPlugin.NAME;
     public static final String PLUGIN_TOOL_APPROVAL = ToolApprovalPlugin.NAME;
+    public static final String PLUGIN_SKILLS = SkillPlugin.NAME;
+    public static final String PLUGIN_SKILL_FILES = FileSkillPlugin.NAME;
+    public static final String PLUGIN_SKILL_TOOLS = SkillToolsPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
 
     private final Context ctx;
@@ -80,6 +86,9 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_SANDBOX, new SandboxPlugin());
         loader.builtin(PLUGIN_INTERACTIONS, new InteractionPlugin());
         loader.builtin(PLUGIN_TOOL_APPROVAL, new ToolApprovalPlugin());
+        loader.builtin(PLUGIN_SKILLS, new SkillPlugin());
+        loader.builtin(PLUGIN_SKILL_FILES, new FileSkillPlugin());
+        loader.builtin(PLUGIN_SKILL_TOOLS, new SkillToolsPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
     }
 

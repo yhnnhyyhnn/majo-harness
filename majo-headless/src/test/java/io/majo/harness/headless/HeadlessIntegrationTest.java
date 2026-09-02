@@ -322,6 +322,36 @@ class HeadlessIntegrationTest {
     }
 
     @Test
+    void skillRowsBootFromProfile(@TempDir java.nio.file.Path skillsDir) throws IOException {
+        java.nio.file.Path alpha = skillsDir.resolve("alpha");
+        java.nio.file.Files.createDirectories(alpha);
+        java.nio.file.Files.writeString(alpha.resolve("SKILL.md"), "alpha instructions");
+        String profile = """
+                - id: tools
+                  name: tools
+                - id: skills
+                  name: skills
+                - id: skill-files
+                  name: skill-files
+                  config:
+                    path: %s
+                - id: skill-tools
+                  name: skill-tools
+                """.formatted(skillsDir.toString().replace("\\", "\\\\"));
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root);
+        boot.launch(boot.readProfileText(profile, "skill.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SKILLS).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.skill.SkillRegistry skills = boot.service("skills");
+        assertThat(skills.skills()).extracting(s -> s.name()).containsExactly("alpha");
+        io.majo.harness.tools.ToolRegistry tools = boot.service("tools");
+        assertThat(tools.specs()).extracting(spec -> spec.name())
+                .containsExactly("list_skills", "load_skill");
+        boot.dispose();
+    }
+
+    @Test
     void profileNamingAnUnknownPluginFailsLoud() {
         Context root = Context.create();
         HarnessBoot boot = new HarnessBoot(root);
