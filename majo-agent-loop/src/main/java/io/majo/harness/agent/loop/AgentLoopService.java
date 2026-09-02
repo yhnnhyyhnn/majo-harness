@@ -12,6 +12,7 @@ import io.majo.harness.session.SessionService;
 import io.majo.harness.tools.ToolCall;
 import io.majo.harness.tools.ToolRegistry;
 import io.majo.harness.tools.ToolResult;
+import io.majo.harness.tools.ToolSpec;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -87,6 +88,14 @@ public final class AgentLoopService extends Service {
             }
             ChatRequest request = new ChatRequest(buildMessages(sessionId),
                     tools.specs(), null);
+            // log the request composition before it reaches the model so the
+            // header (model, system prompt, offered tool names) is durable
+            // even when the completion itself fails
+            sessions.append(sessionId, SessionEventType.REQUEST_HEADER, Map.of(
+                    SessionEvent.FIELD_MODEL, llm.modelNameOf(request),
+                    SessionEvent.FIELD_SYSTEM_PROMPT, systemPrompt,
+                    SessionEvent.FIELD_TOOL_NAMES,
+                    request.tools().stream().map(ToolSpec::name).toList()));
             ChatResponse response = llm.complete(request);
             appendAssistantRound(sessionId, response);
             if (!response.isToolRound()) {

@@ -18,5 +18,7 @@ public enum SessionEventType {
     /** One tool execution result, referencing its assistant tool call. */
     TOOL_RESULT,
     /** The turn closed: nothing further is owed. */
-    TURN_END
+    TURN_END,
+    /** One model request as composed: model, system prompt, offered tool names. */
+    REQUEST_HEADER
 }

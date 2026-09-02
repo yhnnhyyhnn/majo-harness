@@ -51,4 +51,27 @@ class MessageDeriverTest {
         assertThat(messages.get(2).content()).isEqualTo("3");
         assertThat(messages.get(3).content()).isEqualTo("calculated: 3");
     }
+
+    @Test
+    void requestHeadersAreNotModelMessages() {
+        List<SessionEvent> events = List.of(
+                event(1, SessionEventType.TURN_START, Map.of()),
+                event(2, SessionEventType.REQUEST_HEADER, Map.of(
+                        SessionEvent.FIELD_MODEL, "mock",
+                        SessionEvent.FIELD_SYSTEM_PROMPT, "you are helpful",
+                        SessionEvent.FIELD_TOOL_NAMES, List.of("calc"))),
+                event(3, SessionEventType.USER_MESSAGE, Map.of(SessionEvent.FIELD_CONTENT, "hi")),
+                event(4, SessionEventType.REQUEST_HEADER, Map.of(
+                        SessionEvent.FIELD_MODEL, "mock",
+                        SessionEvent.FIELD_SYSTEM_PROMPT, "you are helpful",
+                        SessionEvent.FIELD_TOOL_NAMES, List.of("calc"))),
+                event(5, SessionEventType.ASSISTANT_MESSAGE,
+                        Map.of(SessionEvent.FIELD_CONTENT, "hello")));
+
+        List<ChatMessage> messages = MessageDeriver.derive(events);
+        assertThat(messages).extracting(ChatMessage::role)
+                .containsExactly(
+                        io.majo.harness.llm.ChatRole.USER,
+                        io.majo.harness.llm.ChatRole.ASSISTANT);
+    }
 }

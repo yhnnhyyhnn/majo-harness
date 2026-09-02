@@ -43,17 +43,19 @@ rm majo-headless/cp.txt
 启动后打印插件树记录的会话转写：
 
 ```text
-== session 2cff8adc-... ==
+== session 0e75e45e-... ==
   1 TURN_START {}
   2 USER_MESSAGE content="1+2"
-  3 ASSISTANT_MESSAGE toolCalls=[{arguments={"expression":"1+2"}, toolCallId=..., name=calc}]
-  4 TOOL_RESULT content="3"
-  5 ASSISTANT_MESSAGE content="calculated: 3"
-  6 TURN_END {}
+  3 REQUEST_HEADER model="mock" tools=[calc] systemPrompt="You are a small calculator harness. Use the calc tool whenever asked for arithmetic."
+  4 ASSISTANT_MESSAGE toolCalls=[{name=calc, arguments={"expression":"1+2"}, toolCallId=...}]
+  5 TOOL_RESULT content="3"
+  6 REQUEST_HEADER model="mock" tools=[calc] systemPrompt="You are a small calculator harness. Use the calc tool whenever asked for arithmetic."
+  7 ASSISTANT_MESSAGE content="calculated: 3"
+  8 TURN_END {}
 answer: calculated: 3
 ```
 
-同样的运行完全由 `majo-headless/src/main/resources/headless.yml` 驱动：每一行都是插件 entry，loader 在其注入依赖就绪后按依赖顺序激活——没有任何应用代码把 loop 拼起来。
+同样的运行完全由 `majo-headless/src/main/resources/headless.yml` 驱动：每一行都是插件 entry，loader 在其注入依赖就绪后按依赖顺序激活——没有任何应用代码把 loop 拼起来。注意其中的 `REQUEST_HEADER` 行：每次模型请求都会把 model、system prompt 与所提供的工具名持久化，因此请求组合始终可从日志重建。
 
 ## 自带模型端点
 

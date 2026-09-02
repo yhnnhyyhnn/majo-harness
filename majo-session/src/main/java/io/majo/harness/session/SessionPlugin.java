@@ -11,7 +11,8 @@ import java.util.Map;
  * <p>Config:
  * <pre>
  * store: memory            # "memory" (default) | "file"
- * path: /var/lib/majo      # directory for the file store (required with file)
+ * path: /var/lib/majo      # directory for the file store; when unset, file
+ *                          # stores default to &lt;user.home&gt;/.majo/sessions
  * </pre>
  */
 public final class SessionPlugin implements Plugin {
@@ -19,6 +20,7 @@ public final class SessionPlugin implements Plugin {
     public static final String NAME = "session";
     public static final String STORE_MEMORY = "memory";
     public static final String STORE_FILE = "file";
+    public static final String DEFAULT_FILE_DIR = ".majo/sessions";
 
     @Override
     public Object apply(Context ctx, Object config) {
@@ -37,7 +39,7 @@ public final class SessionPlugin implements Plugin {
         SessionStore impl;
         if (STORE_FILE.equals(store)) {
             if (path == null) {
-                throw new IllegalArgumentException("session plugin: store \"file\" requires a config path");
+                path = Path.of(System.getProperty("user.home"), DEFAULT_FILE_DIR).toString();
             }
             impl = new FileSessionStore(Path.of(path));
         } else if (STORE_MEMORY.equals(store)) {

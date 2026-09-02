@@ -43,17 +43,19 @@ rm majo-headless/cp.txt
 The boot prints the session transcript recorded by the plugin tree:
 
 ```text
-== session 2cff8adc-... ==
+== session 0e75e45e-... ==
   1 TURN_START {}
   2 USER_MESSAGE content="1+2"
-  3 ASSISTANT_MESSAGE toolCalls=[{arguments={"expression":"1+2"}, toolCallId=..., name=calc}]
-  4 TOOL_RESULT content="3"
-  5 ASSISTANT_MESSAGE content="calculated: 3"
-  6 TURN_END {}
+  3 REQUEST_HEADER model="mock" tools=[calc] systemPrompt="You are a small calculator harness. Use the calc tool whenever asked for arithmetic."
+  4 ASSISTANT_MESSAGE toolCalls=[{name=calc, arguments={"expression":"1+2"}, toolCallId=...}]
+  5 TOOL_RESULT content="3"
+  6 REQUEST_HEADER model="mock" tools=[calc] systemPrompt="You are a small calculator harness. Use the calc tool whenever asked for arithmetic."
+  7 ASSISTANT_MESSAGE content="calculated: 3"
+  8 TURN_END {}
 answer: calculated: 3
 ```
 
-The same run, fully driven by `majo-headless/src/main/resources/headless.yml`: every row is a plugin entry the loader activates when its injections are satisfied, in dependency order — no application code wires the loop together.
+The same run, fully driven by `majo-headless/src/main/resources/headless.yml`: every row is a plugin entry the loader activates when its injections are satisfied, in dependency order — no application code wires the loop together. Note the `REQUEST_HEADER` rows: every model request durably records its model, system prompt, and offered tool names, so the composition is always reconstructable from the log.
 
 ## Bring your own model endpoint
 

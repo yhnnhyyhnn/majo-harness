@@ -82,6 +82,7 @@ Misconfiguration fails loud: an unknown profile row name is rejected at `Harness
 TURN_START
 USER_MESSAGE content=userText
   step 1..n (one model request per step):
+REQUEST_HEADER model, systemPrompt, toolNames   # logged ahead of the completion
 ASSISTANT_MESSAGE content? toolCalls?      # logged verbatim
 TOOL_RESULT    toolCallId, name, ok, content  # one per executed call
   ...repeat until the model answers without tool calls...
@@ -89,14 +90,16 @@ ASSISTANT_MESSAGE content=final
 TURN_END
 ```
 
-Per step the loop derives model history from the log (`MessageDeriver`), prepends the system message, offers every registered tool spec, completes the request through `ctx.llm`, logs the assistant round **exactly as it was model-visible**, then executes requested calls through `ctx.tools` (which routes `tools/pre-execute` → tool → `tools/post-execute`).
+Per step the loop derives model history from the log (`MessageDeriver`), prepends the system message, offers every registered tool spec, logs the **request header** (the resolved model, the system prompt, and the offered tool names — so the composition is durable even when a completion fails), completes the request through `ctx.llm`, logs the assistant round **exactly as it was model-visible**, then executes requested calls through `ctx.tools` (which routes `tools/pre-execute` → tool → `tools/post-execute`).
 
 ## Model-visible implies logged
 
-Anything that reaches a model request must be reconstructable from the session log. The M1 loop enforces the shape: each request's history is derived solely from events, and each assistant round is logged before its tool calls execute. Two M1 boundaries are documented trade-offs, not exceptions to hide behind:
+Anything that reaches a model request must be reconstructable from the session log. The loop enforces the shape: each request's history is derived solely from events, each request **header** (model, system prompt, offered tool names) is durable ahead of the completion, and each assistant round is logged before its tool calls execute.
 
-- The system message is config-derived (it lives in the profile), not a session event; a durable `request/header`-style event arrives with the typed-projection milestone.
-- `SessionEvent.fields` is an open JSON map; typed projections over the log (mirroring dsh's merge-extensible `SessionEventMap`) are the next milestone before transcript UI or replay tooling depends on schemas.
+Two M2 boundaries are documented trade-offs, not exceptions to hide behind:
+
+- Tool *schemas* are offered by the live registry at request time; the header records their names only. Replaying a request needs the same tool registry mounted (identical plugin composition); snapshotting full schemas per header is deferred to typed projections.
+- `SessionEvent.fields` is an open JSON map; typed projections over the log (mirroring dsh's merge-extensible `SessionEventMap`) arrive before transcript UI or replay tooling depends on schemas.
 
 ## Conventions
 
@@ -110,6 +113,6 @@ Anything that reaches a model request must be reconstructable from the session l
 ## Roadmap
 
 - **M1 (done)** — all-plugin vertical slice: profile-driven boot, session log, tools pipeline, mock LLM, agent loop, removal cascade. No network.
-- **M2 (in progress)** — provider swaps behind `ctx.llm`: generic OpenAI-compatible provider (`majo-provider-openai`, done, offline wire-tested against a local HTTP stub); file-backed session store by default; typed session projections (`request/header` events); tool-schema-driven prompt assembly hardening.
-- **M3** — capability seams one by one mirroring dsh: fs/shell/subprocess, sandbox and approval policy, skills, subagents, interaction (ask-user/approval), settings/credentials, session titles; each as a Service Definition + Provider + Consumer trio plus profile rows and e2e.
+- **M2 (done)** — model-provider swaps behind `ctx.llm` (generic OpenAI-compatible provider `majo-provider-openai`, offline wire-tested against a local HTTP stub); durable request headers (`REQUEST_HEADER` events log model/system prompt/tool names per step, closing the M1 composition boundary); file session store default directory (`<user.home>/.majo/sessions`) with memory stores for hermetic tests.
+- **M3** — typed session projections over the log (`SessionEventMap`-style); capability seams one by one mirroring dsh: fs/shell/subprocess, sandbox and approval policy, skills, subagents, interaction (ask-user/approval), settings/credentials, session titles; each as a Service Definition + Provider + Consumer trio plus profile rows and e2e.
 - **M4** — packaging & distribution: plugin jars loaded via jcordis loader SPI/HMR, profile/bundle layering and patches on top of `HarnessBoot`, CLI and SDK surfaces.

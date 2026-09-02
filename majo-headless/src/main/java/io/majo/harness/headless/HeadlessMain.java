@@ -70,6 +70,11 @@ public final class HeadlessMain {
         if (event.fields().containsKey(SessionEvent.FIELD_TOOL_CALLS)) {
             return "toolCalls=" + event.fields().get(SessionEvent.FIELD_TOOL_CALLS);
         }
+        if (event.type() == io.majo.harness.session.SessionEventType.REQUEST_HEADER) {
+            return "model=\"" + event.fields().get(SessionEvent.FIELD_MODEL)
+                    + "\" tools=" + event.fields().get(SessionEvent.FIELD_TOOL_NAMES)
+                    + " systemPrompt=\"" + event.fields().get(SessionEvent.FIELD_SYSTEM_PROMPT) + "\"";
+        }
         return event.fields().toString();
     }
 

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.jcordis.core.context.Context;
 import io.jcordis.core.util.Disposable;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,10 +85,19 @@ class SessionServiceTest {
     }
 
     @Test
-    void missingFileStorePathFailsLoud() {
-        Context root = Context.create();
-        assertThatThrownBy(() -> root.plugin(new SessionPlugin(),
-                Map.of("store", "file")).await().join())
-                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+    void fileStoreDefaultsToUserHome(@TempDir Path home) {
+        String previous = System.getProperty("user.home");
+        System.setProperty("user.home", home.toString());
+        try {
+            Context root = Context.create();
+            root.plugin(new SessionPlugin(), Map.of("store", "file")).await().join();
+            SessionService sessions = root.get(SessionService.NAME);
+            String sessionId = sessions.createSession();
+            sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
+            assertThat(Files.exists(home.resolve(".majo/sessions").resolve(sessionId + ".jsonl"))).isTrue();
+            root.fiber().disposeAsync().join();
+        } finally {
+            System.setProperty("user.home", previous);
+        }
     }
 }

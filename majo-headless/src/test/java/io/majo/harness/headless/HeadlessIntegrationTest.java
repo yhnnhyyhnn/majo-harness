@@ -85,23 +85,37 @@ class HeadlessIntegrationTest {
         String sessionId = sessions.sessionIds().get(0);
         List<SessionEvent> events = sessions.events(sessionId);
 
-        // durable log order mirrors the turn: markers + model-visible facts
+        // durable log order mirrors the turn: markers, one request header per
+        // model step, and the model-visible facts
         assertThat(events).extracting(SessionEvent::type).containsExactly(
                 SessionEventType.TURN_START,
                 SessionEventType.USER_MESSAGE,
+                SessionEventType.REQUEST_HEADER,
                 SessionEventType.ASSISTANT_MESSAGE, // tool round
                 SessionEventType.TOOL_RESULT,
+                SessionEventType.REQUEST_HEADER,
                 SessionEventType.ASSISTANT_MESSAGE, // final answer
                 SessionEventType.TURN_END);
-        assertThat(events).extracting(SessionEvent::seq).containsExactly(1L, 2L, 3L, 4L, 5L, 6L);
+        assertThat(events).extracting(SessionEvent::seq).containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L);
         assertThat(broadcasts).hasSize(events.size());
 
-        SessionEvent toolRound = events.get(2);
+        // headers record the request composition durably (model, system
+        // prompt, offered tool names) ahead of each completion
+        for (int i : new int[] {2, 5}) {
+            SessionEvent header = events.get(i);
+            assertThat(header.fields().get(SessionEvent.FIELD_MODEL)).isEqualTo("mock");
+            assertThat(header.fields().get(SessionEvent.FIELD_SYSTEM_PROMPT))
+                    .isEqualTo("You are a small calculator harness. Use the calc tool whenever asked for arithmetic.");
+            assertThat(header.fields().get(SessionEvent.FIELD_TOOL_NAMES)).asList()
+                    .containsExactly("calc");
+        }
+
+        SessionEvent toolRound = events.get(3);
         assertThat(toolRound.fields().get(SessionEvent.FIELD_TOOL_CALLS)).asList().hasSize(1);
-        SessionEvent toolResult = events.get(3);
+        SessionEvent toolResult = events.get(4);
         assertThat(toolResult.fields().get(SessionEvent.FIELD_OK)).isEqualTo(true);
         assertThat(toolResult.content()).isEqualTo("3");
-        assertThat(events.get(4).content()).isEqualTo("calculated: 3");
+        assertThat(events.get(6).content()).isEqualTo("calculated: 3");
 
         // model-visible input was derived from the log: request 1 carries the
         // system prompt + user text + the calc schema; request 2 adds the
@@ -242,11 +256,13 @@ class HeadlessIntegrationTest {
             assertThat(events).extracting(SessionEvent::type).containsExactly(
                     SessionEventType.TURN_START,
                     SessionEventType.USER_MESSAGE,
+                    SessionEventType.REQUEST_HEADER,
                     SessionEventType.ASSISTANT_MESSAGE,
                     SessionEventType.TOOL_RESULT,
+                    SessionEventType.REQUEST_HEADER,
                     SessionEventType.ASSISTANT_MESSAGE,
                     SessionEventType.TURN_END);
-            assertThat(events.get(4).content()).isEqualTo("calculated: 3");
+            assertThat(events.get(6).content()).isEqualTo("calculated: 3");
             boot.dispose();
         } finally {
             stub.stop(0);

@@ -21,6 +21,12 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_ARGUMENTS = "arguments";
     /** Whether the tool execution succeeded. */
     public static final String FIELD_OK = "ok";
+    /** The model id of a {@link SessionEventType#REQUEST_HEADER}. */
+    public static final String FIELD_MODEL = "model";
+    /** The system prompt of a {@link SessionEventType#REQUEST_HEADER}. */
+    public static final String FIELD_SYSTEM_PROMPT = "systemPrompt";
+    /** Tool names offered by a {@link SessionEventType#REQUEST_HEADER}. */
+    public static final String FIELD_TOOL_NAMES = "toolNames";
 
     public SessionEvent {
         fields = fields == null ? Map.of() : Map.copyOf(fields);

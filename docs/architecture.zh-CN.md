@@ -82,6 +82,7 @@ waterfall 监听器必须调用 `next()` 让权（jcordis 约定）。事件即�
 TURN_START
 USER_MESSAGE content=userText
   step 1..n（每步一次模型请求）：
+REQUEST_HEADER model, systemPrompt, toolNames  # 在补全前落日志
 ASSISTANT_MESSAGE content? toolCalls?       # 原样记录
 TOOL_RESULT    toolCallId, name, ok, content  # 每次调用一条
   ...直到模型不带工具调用作答...
@@ -89,14 +90,16 @@ ASSISTANT_MESSAGE content=final
 TURN_END
 ```
 
-每步 loop 从日志派生模型历史（`MessageDeriver`），前置 system 消息，提供全部已注册工具 spec，经 `ctx.llm` 完成请求，**按模型可见的原样**记录 assistant 轮次，再经 `ctx.tools` 执行其请求的调用（走 `tools/pre-execute` → tool → `tools/post-execute`）。
+每步 loop 从日志派生模型历史（`MessageDeriver`），前置 system 消息，提供全部已注册工具 spec，先记录**请求头**（解析后的 model、system prompt 与所提供的工具名——即使本次补全失败，组合信息也已持久化），再经 `ctx.llm` 完成请求，**按模型可见的原样**记录 assistant 轮次，最后经 `ctx.tools` 执行其请求的调用（走 `tools/pre-execute` → tool → `tools/post-execute`）。
 
 ## 模型可见 ⟺ 被记录
 
-任何到达模型请求的内容都必须能从会话日志重建。M1 的 loop 在形态上落实了该约束：每个请求的历史完全由事件派生，每条 assistant 轮次在其工具调用执行前先落日志。两处 M1 边界是明示的取舍，而不是可藏在背后的例外：
+任何到达模型请求的内容都必须能从会话日志重建。loop 在形态上落实了该约束：每个请求的历史完全由事件派生，每次请求的**请求头**（model、system prompt、所提供的工具名）在补全前持久化，每条 assistant 轮次在其工具调用执行前先落日志。
 
-- system 消息由配置派生（存在于 profile），不是 session 事件；持久的 `request/header` 类事件随 typed projection 里程碑引入。
-- `SessionEvent.fields` 是开放 JSON map；对日志的 typed projection（镜像 dsh 的 merge-extensible `SessionEventMap`）是下一个里程碑，应在任何转写 UI 或回放工具依赖 schema 之前落地。
+两处 M2 边界是明示的取舍，而不是可藏在背后的例外：
+
+- 工具 *schema* 在请求时由活动注册表提供；请求头只记录其名称。回放某次请求需要挂载相同的工具注册表（即相同的插件组合）；每个请求头快照完整 schema 留给 typed projections。
+- `SessionEvent.fields` 是开放 JSON map；对日志的 typed projection（镜像 dsh 的 merge-extensible `SessionEventMap`）应在任何转写 UI 或回放工具依赖 schema 之前落地。
 
 ## 约定
 
@@ -110,6 +113,6 @@ TURN_END
 ## 路线图
 
 - **M1（已完成）** — 全插件垂直切片：profile 驱动启动、会话日志、工具管道、mock LLM、agent loop、删除级联。全程无网络。
-- **M2（进行中）** — `ctx.llm` 之后的 provider 可换：通用 OpenAI-compatible provider（`majo-provider-openai`，已完成，本地 HTTP stub 离线 wire 测试）；默认启用文件会话存储；typed 会话投影（`request/header` 事件）；基于工具 schema 的 prompt 组装加固。
-- **M3** — 逐一镜像 dsh 的能力接缝：fs/shell/subprocess、沙箱与审批策略、skills、subagent、交互（ask-user/approval）、settings/credentials、会话标题；每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。
+- **M2（已完成）** — `ctx.llm` 之后的模型 provider 可换（通用 OpenAI-compatible provider `majo-provider-openai`，本地 HTTP stub 离线 wire 测试）；持久请求头（每步以 `REQUEST_HEADER` 事件记录 model/system prompt/工具名，补齐 M1 的组合边界）；文件会话存储默认目录（`<user.home>/.majo/sessions`），hermetic 测试仍用内存存储。
+- **M3** — 对日志做 typed session projection（`SessionEventMap` 风格）；逐一镜像 dsh 的能力接缝：fs/shell/subprocess、沙箱与审批策略、skills、subagent、交互（ask-user/approval）、settings/credentials、会话标题；每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。
 - **M4** — 打包与分发：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、CLI 与 SDK 面。

@@ -45,15 +45,24 @@ public final class LLMService extends Service {
     }
 
     /**
-     * Completes one request against {@code request.model()} or the configured
-     * default, broadcasting {@link LlmEvents#REQUEST} and
-     * {@link LlmEvents#RESPONSE} around the adapter call.
+     * Resolves the model name of a request: {@code request.model()} or the
+     * configured default. Fails loudly when neither is set.
      */
-    public ChatResponse complete(ChatRequest request) {
+    public String modelNameOf(ChatRequest request) {
         String modelName = request.model() != null ? request.model() : defaultModel;
         if (modelName == null) {
             throw new IllegalStateException("no model selected: request carries no model and llm.defaultModel is unset");
         }
+        return modelName;
+    }
+
+    /**
+     * Completes one request against {@link #modelNameOf}, broadcasting
+     * {@link LlmEvents#REQUEST} and {@link LlmEvents#RESPONSE} around the
+     * adapter call.
+     */
+    public ChatResponse complete(ChatRequest request) {
+        String modelName = modelNameOf(request);
         ChatModel model = models.get(modelName);
         if (model == null) {
             throw new IllegalStateException("unknown model \"" + modelName + "\"; registered: " + models.keySet());
