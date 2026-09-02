@@ -73,10 +73,13 @@ answer: calculated: 3
 ```text
 majo --profiles                                # list built-in profiles
 majo --profile ./my-profile.yml "task"        # any YAML file of builtin rows
+majo --plugin ext=./ext-plugin.jar "task"     # mount an external plugin jar
 majo "task"                                   # = --profile headless
 ```
 
 The `run` row is appended automatically when absent; swap the model provider in a copied profile to point at your own endpoint (below). `REQUEST_HEADER` rows record each request's model/system prompt/tool names durably. During development you can also run `mvn -pl majo-headless exec:java -Dexec.args="1+2"`.
+
+External plugin jars follow the jcordis contract: an SPI manifest `META-INF/services/io.jcordis.core.registry.Plugin` and an isolated class loader. Mount one with `--plugin name=./path.jar` and reference `name` from profile rows; hot replacement (`replaceJar`) and unload go through `HarnessBoot.loader()`. The `PluginJarTest` in majo-boot is a ready recipe for building such a jar.
 
 ## Bring your own model endpoint
 

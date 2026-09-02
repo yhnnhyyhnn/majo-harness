@@ -24,6 +24,7 @@ import java.util.Map;
  * majo "task"                                   # built-in headless profile (mock model)
  * majo --profile headless "task"                # same, explicit
  * majo --profile ./my-profile.yml "task"        # any file of builtin-name rows
+ * majo --plugin ext=./ext-plugin.jar "task"     # mount an external plugin jar
  * majo --profiles                               # list built-in profiles
  * </pre>
  *
@@ -67,7 +68,7 @@ public final class MajoCli {
                 printUsage(err);
                 return 2;
             }
-            execute(task, options.profile);
+            execute(task, options.profile, options.plugins);
             return 0;
         } catch (UsageException e) {
             err.println("majo: " + e.getMessage());
@@ -81,7 +82,7 @@ public final class MajoCli {
     }
 
     /** Boots the profile, runs the task, prints the transcript, disposes. */
-    private void execute(String task, String profile) throws IOException {
+    private void execute(String task, String profile, List<String> plugins) throws IOException, UsageException {
         String profileText;
         String hint;
         if (profile.equals(BUILTIN_HEADLESS)) {
@@ -98,6 +99,13 @@ public final class MajoCli {
         HarnessBoot boot = new HarnessBoot(root)
                 .register(CalculatorToolPlugin.NAME, new CalculatorToolPlugin())
                 .register(RunnerPlugin.NAME, new RunnerPlugin());
+        for (String plugin : plugins) {
+            int equals = plugin.indexOf('=');
+            if (equals <= 0) {
+                throw new UsageException("--plugin expects name=path, got \"" + plugin + "\"");
+            }
+            boot.loadPluginJar(Path.of(plugin.substring(equals + 1)), plugin.substring(0, equals));
+        }
 
         List<EntryOptions> entries = new ArrayList<>(boot.readProfileText(profileText, hint));
         if (entries.stream().noneMatch(entry -> RunnerPlugin.NAME.equals(entry.id))) {
@@ -124,13 +132,15 @@ public final class MajoCli {
                 usage: majo [options] "task"
 
                 options:
-                  --profile <name|path>   profile to boot; built-in: headless (default)
-                  --profiles              list built-in profiles and exit
-                  -h, --help              show this help
+                  -p, --profile <name|path>   profile to boot; built-in: headless (default)
+                  -P, --plugin <name=path>     mount an external plugin jar (repeatable)
+                  --profiles                   list built-in profiles and exit
+                  -h, --help                   show this help
 
                 examples:
-                  majo "1+2"                              # built-in headless profile
-                  majo --profile ./my-profile.yml "task"  # custom profile of builtin rows
+                  majo "1+2"                                 # built-in headless profile
+                  majo --profile ./my-profile.yml "task"    # custom profile of builtin rows
+                  majo --plugin ext=./ext.jar "task"        # jar plugin + profile rows
                 """);
     }
 
@@ -140,6 +150,7 @@ public final class MajoCli {
         boolean listProfiles;
         String profile = BUILTIN_HEADLESS;
         String task;
+        List<String> plugins = new ArrayList<>();
 
         static Options parse(List<String> args) {
             Options options = new Options();
@@ -155,8 +166,14 @@ public final class MajoCli {
                         }
                         options.profile = args.get(++i);
                     }
+                    case "--plugin", "-P" -> {
+                        if (i + 1 >= args.size()) {
+                            throw new UsageException("missing value for " + arg);
+                        }
+                        options.plugins.add(args.get(++i));
+                    }
                     default -> {
-                        if (arg.startsWith("--") || arg.startsWith("-p")) {
+                        if (arg.startsWith("--") || arg.startsWith("-p") || arg.startsWith("-P")) {
                             throw new UsageException("unknown option: " + arg);
                         }
                         positional.add(arg);

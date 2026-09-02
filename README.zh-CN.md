@@ -73,10 +73,13 @@ answer: calculated: 3
 ```text
 majo --profiles                                # 列出内置 profile
 majo --profile ./my-profile.yml "task"        # 任何由内置行组成的 YAML
+majo --plugin ext=./ext-plugin.jar "task"     # 挂载外部插件 jar
 majo "task"                                   # = --profile headless
 ```
 
 `run` 行在缺失时自动追加；把模型 provider 换成你自己的端点只需复制 profile 并修改（见下）。`REQUEST_HEADER` 行持久记录每次请求的 model/system prompt/工具名。开发期也可用 `mvn -pl majo-headless exec:java -Dexec.args="1+2"`。
+
+外部插件 jar 遵循 jcordis 契约：SPI 清单 `META-INF/services/io.jcordis.core.registry.Plugin` + 隔离类加载器。用 `--plugin name=./path.jar` 挂载，并在 profile 行里引用 `name`；热替换（`replaceJar`）与卸载走 `HarnessBoot.loader()`。`majo-boot` 里的 `PluginJarTest` 就是构建此类 jar 的现成配方。
 
 ## 自带模型端点
 

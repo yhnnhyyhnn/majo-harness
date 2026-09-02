@@ -122,6 +122,16 @@ public final class HarnessBoot {
         return this;
     }
 
+    /**
+     * Loads an external plugin jar under {@code name} (SPI manifest
+     * {@code META-INF/services/io.jcordis.core.registry.Plugin}, isolated class
+     * loader): profile rows may then reference {@code name}. Hot replacement
+     * and removal go through {@link #loader()} ({@code replaceJar}/{@code unload}).
+     */
+    public Plugin loadPluginJar(java.nio.file.Path jar, String name) {
+        return loader.loadJar(jar, name);
+    }
+
     /** Parses a profile file (YAML/JSON by extension) into entry options. */
     public List<EntryOptions> readProfile(Path file) {
         try {

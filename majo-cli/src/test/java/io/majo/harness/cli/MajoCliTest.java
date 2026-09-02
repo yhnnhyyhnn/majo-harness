@@ -48,6 +48,21 @@ class MajoCliTest {
     }
 
     @Test
+    void pluginFlagRequiresNameEqualsPath() {
+        Result missingValue = run("--plugin");
+        assertThat(missingValue.code()).isEqualTo(2);
+        assertThat(missingValue.stderr()).contains("missing value for --plugin");
+
+        Result malformed = run("--plugin", "barejar", "x");
+        assertThat(malformed.code()).isEqualTo(2);
+        assertThat(malformed.stderr()).contains("--plugin expects name=path");
+
+        Result badJarPath = run("--plugin", "ext=./no-such-plugin.jar", "x");
+        assertThat(badJarPath.code()).isEqualTo(1);
+        assertThat(badJarPath.stderr()).contains("ext");
+    }
+
+    @Test
     void runsTheBuiltinHeadlessProfileEndToEnd() {
         // offline: the built-in profile composes the mock model + calc tool
         Result result = run("1+2");
