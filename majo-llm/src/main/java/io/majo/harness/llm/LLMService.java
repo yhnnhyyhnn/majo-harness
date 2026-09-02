@@ -3,6 +3,7 @@ package io.majo.harness.llm;
 import io.jcordis.core.context.Context;
 import io.jcordis.core.service.Service;
 import io.jcordis.core.util.Disposable;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,13 +23,35 @@ public final class LLMService extends Service {
     public static final String NAME = "llm";
 
     private final Map<String, ChatModel> models = new ConcurrentHashMap<>();
-    private final String defaultModel;
+    private volatile String defaultModel;
 
     public LLMService(Context ctx, Object config) {
         super(ctx, NAME);
         this.defaultModel = config instanceof Map<?, ?> map && map.get("defaultModel") != null
                 ? String.valueOf(map.get("defaultModel"))
                 : null;
+    }
+
+    /** The currently configured default model (may be null). */
+    public String currentDefault() {
+        return defaultModel;
+    }
+
+    /** Registered model names, sorted. */
+    public List<String> registeredModels() {
+        return List.copyOf(models.keySet()).stream().sorted().toList();
+    }
+
+    /**
+     * Switches the default model at runtime (user preference); unknown names
+     * fail loudly, {@code null} clears it. Returns this service for chaining.
+     */
+    public LLMService defaultModel(String name) {
+        if (name != null && !models.containsKey(name)) {
+            throw new IllegalArgumentException("unknown model \"" + name + "\"; registered: " + registeredModels());
+        }
+        this.defaultModel = name;
+        return this;
     }
 
     /**

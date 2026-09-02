@@ -348,3 +348,21 @@ li.message.user { align-self: flex-end; }
   cursor: pointer;
 }
 .icon-actions button:hover { color: var(--text); border-color: var(--text); }
+
+/* model picker */
+.model-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.model-picker select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: ui-monospace, Consolas, monospace;
+  padding: 2px 8px;
+}

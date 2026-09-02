@@ -1,7 +1,8 @@
 # majo web profile (dsh-style chat UI)
 #
-# Model: kilo free tier via the OpenAI-compatible gateway — no API key
-# required.
+# Two models are offered by the picker: `mock` (offline, default) and the kilo
+# free tier via the OpenAI-compatible gateway (no API key required). The
+# choice is persisted in ctx.settings (settings.web.model).
 - id: session
   name: session
   config:
@@ -10,10 +11,14 @@
   name: session-projections
 - id: tools
   name: tools
+- id: settings
+  name: settings
 - id: llm
   name: llm
   config:
-    defaultModel: kilo-free
+    defaultModel: mock
+- id: llm-mock
+  name: llm-mock
 - id: llm-openai
   name: llm-openai
   config:

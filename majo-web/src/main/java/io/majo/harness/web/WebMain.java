@@ -9,9 +9,11 @@ import io.jcordis.core.util.Disposable;
 import io.majo.harness.agent.loop.AgentLoopService;
 import io.majo.harness.boot.HarnessBoot;
 import io.majo.harness.headless.CalculatorToolPlugin;
+import io.majo.harness.llm.LLMService;
 import io.majo.harness.session.SessionEvent;
 import io.majo.harness.session.SessionEventType;
 import io.majo.harness.session.SessionService;
+import io.majo.harness.settings.SettingsService;
 import io.majo.harness.title.SessionTitleService;
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,6 +67,7 @@ public final class WebMain {
             profileText = java.nio.file.Files.readString(java.nio.file.Path.of(profile));
         }
         boot.launch(boot.readProfileText(profileText, hint));
+        restoreModelPreference();
 
         try {
             server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -91,7 +94,11 @@ public final class WebMain {
     private void route(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
         try {
-            if ("GET".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
+            if ("GET".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
+                json(exchange, 200, modelState());
+            } else if ("PUT".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
+                json(exchange, 200, setModel(exchange));
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
                 json(exchange, 200, sessionsIndex());
             } else if ("POST".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
                 json(exchange, 200, createSession());
@@ -143,6 +150,49 @@ public final class WebMain {
     private Map<String, Object> createSession() {
         SessionService sessions = boot.service(SessionService.NAME);
         return Map.of("id", sessions.createSession());
+    }
+
+    /** Restores a persisted model choice ({@code settings.web.model}) if valid. */
+    private void restoreModelPreference() {
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings == null) {
+            return;
+        }
+        String saved = settings.get("web.model");
+        if (saved != null) {
+            LLMService llm = boot.service(LLMService.NAME);
+            if (llm.registeredModels().contains(saved)) {
+                llm.defaultModel(saved);
+            }
+        }
+    }
+
+    private Map<String, Object> modelState() {
+        LLMService llm = boot.service(LLMService.NAME);
+        List<String> models = llm.registeredModels();
+        String current = llm.currentDefault() != null && models.contains(llm.currentDefault())
+                ? llm.currentDefault()
+                : models.isEmpty() ? null : models.get(0);
+        return Map.of("model", current, "models", models);
+    }
+
+    private Map<String, Object> setModel(HttpExchange exchange) throws IOException {
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        Object modelValue = request.get("model");
+        if (modelValue == null || String.valueOf(modelValue).isBlank()) {
+            throw new IllegalArgumentException("model must not be blank");
+        }
+        String model = String.valueOf(modelValue);
+        LLMService llm = boot.service(LLMService.NAME);
+        if (!llm.registeredModels().contains(model)) {
+            throw new IllegalArgumentException("unknown model \"" + model + "\"");
+        }
+        llm.defaultModel(model);
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings != null) {
+            settings.set("web.model", model);
+        }
+        return modelState();
     }
 
     /**

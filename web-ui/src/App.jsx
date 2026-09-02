@@ -247,11 +247,37 @@ export default function App() {
   const [sessionId, setSessionId] = useState(null);
   const [events, setEvents] = useState([]);
   const [title, setTitle] = useState("New chat");
+  const [model, setModel] = useState(null);
+  const [models, setModels] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   const [live, setLive] = useState(null);
   const sourceRef = useRef(null);
+
+  const loadModel = useCallback(async () => {
+    try {
+      const state = await api("/api/settings/model");
+      setModels(state.models || []);
+      setModel(state.model);
+    } catch {
+      // settings endpoint absent on older profiles: keep defaults
+    }
+  }, []);
+
+  const changeModel = async (event) => {
+    const next = event.target.value;
+    try {
+      const state = await api("/api/settings/model", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: next }),
+      });
+      setModel(state.model);
+    } catch (error) {
+      console.error("model switch failed", error);
+    }
+  };
 
   const loadSessions = useCallback(async () => {
     const index = await api("/api/sessions");
@@ -289,7 +315,8 @@ export default function App() {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    loadModel();
+  }, [refresh, loadModel]);
 
   const select = async (id) => {
     closeStream();
@@ -400,7 +427,17 @@ export default function App() {
       <main>
         <header id="chat-header">
           <span id="current-title">{title}</span>
-          <span id="model-badge" className="badge">model: profile</span>
+          <label className="model-picker">
+            model
+            <select value={model || ""} onChange={changeModel} disabled={busy}>
+              {models.length === 0 && <option value="">—</option>}
+              {models.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
         </header>
         <ChatView events={events} live={busy ? live : null} />
         <form id="composer" onSubmit={send}>

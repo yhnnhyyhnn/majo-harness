@@ -62,6 +62,31 @@ class LLMServiceTest {
     }
 
     @Test
+    void registryListsModelsAndSwitchesDefaultAtRuntime() {
+        Context root = Context.create();
+        LLMService llm = booted(root, Map.of("defaultModel", MockChatModel.MODEL_NAME));
+        llm.registerModel("fake", request -> ChatResponse.text("from-fake"));
+
+        assertThat(llm.registeredModels()).containsExactly("fake", "mock");
+        assertThat(llm.currentDefault()).isEqualTo("mock");
+
+        llm.defaultModel("fake");
+        assertThat(llm.currentDefault()).isEqualTo("fake");
+        assertThat(llm.complete(ChatRequest.of(List.of(ChatMessage.user("hi")))).content())
+                .isEqualTo("from-fake");
+
+        assertThatThrownBy(() -> llm.defaultModel("ghost"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ghost");
+        llm.defaultModel(null);
+        assertThat(llm.currentDefault()).isNull();
+        assertThatThrownBy(() -> llm.complete(ChatRequest.of(List.of(ChatMessage.user("hi")))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no model selected");
+        root.fiber().disposeAsync().join();
+    }
+
+    @Test
     void duplicateModelRegistrationFailsLoud() {
         Context root = Context.create();
         LLMService llm = booted(root, Map.of("defaultModel", MockChatModel.MODEL_NAME));
