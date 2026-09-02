@@ -4,16 +4,14 @@ import io.jcordis.core.context.Context;
 import io.jcordis.core.registry.Plugin;
 import io.jcordis.core.util.Disposable;
 import io.majo.harness.tools.ToolRegistry;
+import io.majo.harness.util.Disposables;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
  * The fs tool consumer: registers the model-facing {@code read_file} tool on
  * {@code ctx.tools} once the tools and fs services are live (the consumer role
- * of the fs seam — a write/glob tool can be added beside it the same way).
- * The combined disposer is returned from {@code apply}, so unregistering
- * reverts with this plugin.
+ * of the fs seam — further tools compose beside it via {@link Disposables}).
  */
 public final class FsToolPlugin implements Plugin {
 
@@ -23,8 +21,8 @@ public final class FsToolPlugin implements Plugin {
     public Object apply(Context ctx, Object config) {
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
         FileSystemService fs = ctx.get(FileSystemService.NAME);
-        Disposable read = tools.register(new ReadFileTool(fs));
-        return (Disposable) () -> read.dispose();
+        Disposable readFile = tools.register(new ReadFileTool(fs));
+        return Disposables.composite(readFile);
     }
 
     @Override

@@ -17,6 +17,11 @@
   <dependencies>
     <dependency>
       <groupId>io.majo.harness</groupId>
+      <artifactId>majo-util</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
       <artifactId>majo-tools</artifactId>
       <version>${project.version}</version>
     </dependency>

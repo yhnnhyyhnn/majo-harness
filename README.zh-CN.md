@@ -19,12 +19,13 @@
 | `majo-provider-openai` | OpenAI-compatible 的 `ChatModel` provider——自带端点（LM Studio / Ollama / vLLM / 网关），`apiKey` 可选 | 注册到 `ctx.llm` | `llm-openai` |
 | `majo-fs` | 文件系统能力接缝：`FsProvider` 之上的 `ctx.fs`、`fs/*` 策略事件、`read_file` 工具消费者 | `ctx.fs`（+ `ctx.tools`） | `fs`、`fs-tools` |
 | `majo-subprocess` | 子进程能力接缝：`SubprocessProvider` 之上的 `ctx.subprocess`（纯 argv、无 shell）、`subprocess/pre-execute` 策略事件、`run_command` 工具消费者 | `ctx.subprocess`（+ `ctx.tools`） | `subprocess`、`subprocess-tools` |
+| `majo-shell` | subprocess 之上的 shell 能力接缝：`ctx.shell` 经 Strategy 选择的 shell 家族、由 `ShellProvider`（对 `ctx.subprocess` 的 Adapter）执行脚本，`shell/pre-execute` 策略事件、`run_shell` 工具消费者 | `ctx.shell`（+ `ctx.tools`、`ctx.subprocess`） | `shell`、`shell-tools` |
 | `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
 | `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
 
 文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md)
 
-出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
+出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`shell`、`shell-tools`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
 
 ```yaml
 - id: fs

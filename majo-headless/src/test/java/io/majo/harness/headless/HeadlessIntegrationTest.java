@@ -251,6 +251,34 @@ class HeadlessIntegrationTest {
     }
 
     @Test
+    void shellCapabilityRowsBootFromProfile() throws IOException {
+        String profile = """
+                - id: tools
+                  name: tools
+                - id: subprocess
+                  name: subprocess
+                - id: shell
+                  name: shell
+                - id: shell-tools
+                  name: shell-tools
+                """;
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root);
+        boot.launch(boot.readProfileText(profile, "shell.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SHELL).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.shell.ShellService shell = boot.service("shell");
+        boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
+        io.majo.harness.shell.ShellCommand echo = io.majo.harness.shell.ShellCommand.of(
+                windows ? "Write-Output boot-ok" : "echo boot-ok").withTimeoutSeconds(30);
+        assertThat(shell.run(echo).stdout()).contains("boot-ok");
+
+        io.majo.harness.tools.ToolRegistry tools = boot.service("tools");
+        assertThat(tools.specs()).extracting(spec -> spec.name()).containsExactly("run_shell");
+        boot.dispose();
+    }
+
+    @Test
     void profileNamingAnUnknownPluginFailsLoud() {
         Context root = Context.create();
         HarnessBoot boot = new HarnessBoot(root);

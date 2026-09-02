@@ -19,12 +19,13 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-provider-openai` | OpenAI-compatible `ChatModel` provider — bring your own endpoint (LM Studio / Ollama / vLLM / gateway); `apiKey` optional | registers on `ctx.llm` | `llm-openai` |
 | `majo-fs` | filesystem capability seam: `ctx.fs` over a swappable `FsProvider`, `fs/*` policy events, `read_file` tool consumer | `ctx.fs` (+ `ctx.tools`) | `fs`, `fs-tools` |
 | `majo-subprocess` | subprocess capability seam: `ctx.subprocess` over a swappable `SubprocessProvider` (argv only, no shell), `subprocess/pre-execute` policy event, `run_command` tool consumer | `ctx.subprocess` (+ `ctx.tools`) | `subprocess`, `subprocess-tools` |
+| `majo-shell` | shell capability seam over subprocess: `ctx.shell` runs scripts via Strategy-selected shell families through a `ShellProvider` (Adapter over `ctx.subprocess`), `shell/pre-execute` policy event, `run_shell` tool consumer | `ctx.shell` (+ `ctx.tools`, `ctx.subprocess`) | `shell`, `shell-tools` |
 | `majo-boot` | profile-to-loader glue: ships plugins as builtins and boots an entry tree from YAML profiles | — | — |
 | `majo-headless` | one-shot headless app: sample `calc` tool, `run` entry, `headless.yml` profile, e2e tests | — | `calc`, `run` |
 
 Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md)
 
-The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
+The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
 
 ```yaml
 - id: fs

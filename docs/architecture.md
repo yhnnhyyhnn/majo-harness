@@ -16,6 +16,7 @@ majo-harness is an **all-plugin agent harness**: every product capability is a p
 | package `llm/llm` — vocabulary + adapter seam | `Service` registry | `majo-llm` (`ctx.llm`) + provider plugins (`majo-llm` mock today, `majo-provider-openai` bring-your-own-endpoint next) |
 | fs capability (dsh `fs/` + tools) | service + waterfall policy events | `majo-fs` (`ctx.fs`, `fs/*` events, `read_file` tool) |
 | subprocess capability (dsh `subprocess/`) | service + waterfall policy event + tool | `majo-subprocess` (`ctx.subprocess`, argv only, `run_command` tool) |
+| shell capability (dsh `shell/`) | service over subprocess + strategy-selected families | `majo-shell` (`ctx.shell`, `run_shell` tool) |
 | package `core/agent-loop` — default driver | plugin with declared injections | `majo-agent-loop` (`ctx.agentLoop`) |
 | package `boot/app-boot` — profile glue | loader builtins registration | `majo-boot` |
 | shipped profiles (`web`, `headless`, …) | profile files + app plugins | `majo-headless` + `headless.yml` |
@@ -25,6 +26,8 @@ Model providers are swappable behind `ctx.llm` by profile row alone. The shipped
 The fs capability follows the same trio: `FileSystemService` (`ctx.fs`) runs every operation through `fs/*` waterfalls where policy and observability plugins attach (they reject by throwing `FsException`); the `LocalFsProvider` implements the provider seam; `fs-tools` registers the `read_file` tool consumer on `ctx.tools`. A profile adds the capability with two rows.
 
 Subprocess is the second process-world seam: `SubprocessService` (`ctx.subprocess`) executes argv lists (never a shell command line — no interpolation happens here) through the `subprocess/pre-execute` waterfall; `LocalSubprocessProvider` drains output on virtual threads and enforces the timeout by destroy; a command without an explicit timeout is resolved against the service's configured `defaultTimeoutSeconds` (the explicit resolve step); `subprocess-tools` registers the `run_command` consumer.
+
+Shell layers on top of subprocess: `ShellService` (`ctx.shell`) is a facade that runs command-line scripts through `shell/pre-execute`; a `ShellLauncher` strategy (chosen by `ShellFamily` factory: bash/PowerShell/cmd, platform default, config-overridable) turns the script into argv; `LocalShellProvider` adapts that argv to `ctx.subprocess`; `run_shell` is the tool consumer. Command-line syntax enters here and here only.
 
 There is deliberately **no privileged core module** in M1: like dsh's independent packages under `packages/core/`, each capability owns its interfaces next to its implementation and plugin, and consumers (the agent loop, the boot) depend on those modules only through their service seams. If a neutral "API spine" module ever becomes justified (typed event dictionary shared across modules), extract it the same way.
 
@@ -44,6 +47,9 @@ majo-fs/          FsProvider + LocalFsProvider / FileSystemService / FsPlugin / 
                   / ReadFileTool (fs capability seam)
 majo-subprocess/  Command / ProcessResult / SubprocessProvider + LocalSubprocessProvider
                   / SubprocessService / SubprocessPlugin / SubprocessToolPlugin / RunCommandTool
+majo-shell/       ShellCommand / ShellResult / ShellProvider / LocalShellProvider (Adapter)
+                  / ShellLauncher + ShellFamily (Strategy/Factory) / ShellService / RunShellTool
+majo-util/        Disposables (composite disposer factory)
 majo-boot/        HarnessBoot (builtins registration, profile parsing, launch)
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
 docs/             this document (EN + zh-CN)
@@ -59,6 +65,7 @@ docs/             this document (EN + zh-CN)
 | `agentLoop` | `agent-loop` | `AgentLoopService` | `runTurn(sessionId, userText)` |
 | `sessionProjections` | `session-projections` | `SessionProjections` | registered units fold committed events; hosts read typed state |
 | `subprocess` | `subprocess` | `SubprocessService` | runs argv commands through `subprocess/pre-execute` |
+| `shell` | `shell` | `ShellService` | runs scripts through `shell/pre-execute` over a strategy shell |
 | `fs` | `fs` | `FileSystemService` | text read/write/glob through `fs/*` waterfalls |
 
 | event | kind | args | semantics |
@@ -70,6 +77,7 @@ docs/             this document (EN + zh-CN)
 | `tools/post-execute` | waterfall | `(ToolCall, ToolResult)` | observe or transform the result |
 | `fs/read` `fs/write` `fs/glob` | waterfall | `(path…)` | per-operation policy/observability; throwing `FsException` rejects |
 | `subprocess/pre-execute` | waterfall | `(Command)` | policy before every run; throwing `SubprocessException` rejects |
+| `shell/pre-execute` | waterfall | `(ShellCommand)` | policy before every run; throwing `ShellException` rejects |
 
 Waterfall listeners MUST call `next()` to delegate (the jcordis convention). Events are the extension points: policy, approval, telemetry, and guard plugins attach here without importing the loop.
 
@@ -138,9 +146,27 @@ Two M2 boundaries are documented trade-offs, not exceptions to hide behind:
 - Fail loudly: throw at the earliest resolvable point; never silently skip a missing referent.
 - Tests describe behavior. Every seam in M1 has a focused test plus the headless end-to-end that boots the shipped profile and asserts the durable event sequence, the model-visible request history, and the removal/re-activation cascade.
 
+## Design-pattern map
+
+Patterns are used where they delete duplication or keep seams honest — never pattern-for-pattern's sake. Current map:
+
+| Pattern | Where | Why it fits |
+|---|---|---|
+| Strategy | `ChatModel`/`FsProvider`/`SubprocessProvider`/`ShellProvider` provider seams; `ShellLauncher` shell families | a capability swappable behind one interface, chosen by profile row/config |
+| Factory Method | `ShellFamily.detect/ofConfig` launchers; `HarnessBoot` plugin builtins | object creation localized where selection policy lives |
+| Adapter | `LocalShellProvider` over `ctx.subprocess` | script→argv worlds map without leaking subprocess types into shell consumers |
+| Facade | `ShellService`, `HarnessBoot` | narrow entry point over a richer subsystem |
+| Composite | `Disposables` (`majo-util`) | multi-registration plugins return one reverting disposer |
+| Observer | `session/event`, `llm/*`, waterfalls' listeners | registrations are fiber effects, so observers auto-revert on unload |
+| Chain of Responsibility | `tools/pre-execute`, `fs/*`, `subprocess/pre-execute`, `shell/pre-execute` | each listener rewrites/rejects or delegates via `next()` |
+| Template Method (planned) | sealed typed dispatch in `TypedSessionEvent` consumers | one traversal, kind-specific steps |
+| Visitor-like (built-in) | sealed-interface switches (`TypedSessionEvent`, event enums) | exhaustive, compile-checked kind dispatch without instanceof chains |
+
+Guiding rule: a new capability seam keeps this shape — Service (Facade) + Provider interface (Strategy) + policy waterfall (Chain of Responsibility) + tool consumer + Composite disposers returned from the contributing plugin.
+
 ## Roadmap
 
 - **M1 (done)** — all-plugin vertical slice: profile-driven boot, session log, tools pipeline, mock LLM, agent loop, removal cascade. No network.
 - **M2 (done)** — model-provider swaps behind `ctx.llm` (generic OpenAI-compatible provider `majo-provider-openai`, offline wire-tested against a local HTTP stub); durable request headers (`REQUEST_HEADER` events log model/system prompt/tool names per step, closing the M1 composition boundary); file session store default directory (`<user.home>/.majo-harness/sessions`) with memory stores for hermetic tests.
-- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem (`majo-fs`), typed session projections (`TypedSessionEvent` + `ctx.sessionProjections` with the agent-loop `turnSummary` unit), and subprocess (`majo-subprocess`: `ctx.subprocess`, argv-only, `run_command`). Next: shell (over subprocess), sandbox and approval policy, skills, subagents, interaction, settings/credentials, session titles.
+- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem (`majo-fs`), typed session projections (`TypedSessionEvent` + `ctx.sessionProjections` with the agent-loop `turnSummary` unit), subprocess (`majo-subprocess`), and shell (`majo-shell` over subprocess). Next: sandbox and approval policy, skills, subagents, interaction, settings/credentials, session titles.
 - **M4** — packaging & distribution: plugin jars loaded via jcordis loader SPI/HMR, profile/bundle layering and patches on top of `HarnessBoot`, CLI and SDK surfaces.

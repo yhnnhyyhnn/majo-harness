@@ -1,4 +1,4 @@
-package io.majo.harness.subprocess;
+package io.majo.harness.shell;
 
 import io.jcordis.core.context.Context;
 import io.jcordis.core.registry.Plugin;
@@ -9,28 +9,27 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The subprocess tool consumer: registers the {@code run_command} tool on
- * {@code ctx.tools} once the tools and subprocess services are live (the
- * consumer role of the seam — further tools compose beside it via
- * {@link Disposables}).
+ * The shell tool consumer: registers the {@code run_shell} tool on
+ * {@code ctx.tools} once the tools and shell services are live (the consumer
+ * role of the seam — further tools compose beside it via {@link Disposables}).
  */
-public final class SubprocessToolPlugin implements Plugin {
+public final class ShellToolPlugin implements Plugin {
 
-    public static final String NAME = "subprocess-tools";
+    public static final String NAME = "shell-tools";
 
     @Override
     public Object apply(Context ctx, Object config) {
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
-        SubprocessService subprocess = ctx.get(SubprocessService.NAME);
-        Disposable runCommand = tools.register(new RunCommandTool(subprocess));
-        return Disposables.composite(runCommand);
+        ShellService shell = ctx.get(ShellService.NAME);
+        Disposable runShell = tools.register(new RunShellTool(shell));
+        return Disposables.composite(runShell);
     }
 
     @Override
     public Map<String, Object> inject() {
         Map<String, Object> inject = new HashMap<>();
         inject.put(ToolRegistry.NAME, null);
-        inject.put(SubprocessService.NAME, null);
+        inject.put(ShellService.NAME, null);
         return inject;
     }
 
