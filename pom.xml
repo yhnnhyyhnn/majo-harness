@@ -33,6 +33,7 @@
     <module>majo-subagent</module>
     <module>majo-settings</module>
     <module>majo-credentials</module>
+    <module>majo-title</module>
     <module>majo-shell</module>
     <module>majo-subprocess</module>
     <module>majo-boot</module>

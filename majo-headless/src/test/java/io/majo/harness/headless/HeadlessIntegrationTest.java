@@ -422,6 +422,30 @@ class HeadlessIntegrationTest {
     }
 
     @Test
+    void sessionTitleRowsBootFromProfile() throws IOException {
+        String profile = """
+                - id: session
+                  name: session
+                - id: session-title
+                  name: session-title
+                - id: session-title-heuristic
+                  name: session-title-heuristic
+                """;
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root);
+        boot.launch(boot.readProfileText(profile, "title.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SESSION_TITLE).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.title.SessionTitleService titles = boot.service("sessionTitle");
+        io.majo.harness.session.SessionService sessions = boot.service("sessions");
+        String sessionId = sessions.createSession();
+        sessions.append(sessionId, io.majo.harness.session.SessionEventType.USER_MESSAGE,
+                java.util.Map.of(io.majo.harness.session.SessionEvent.FIELD_CONTENT, "boot tree title"));
+        assertThat(titles.title(sessionId)).isEqualTo("boot tree title");
+        boot.dispose();
+    }
+
+    @Test
     void profileNamingAnUnknownPluginFailsLoud() {
         Context root = Context.create();
         HarnessBoot boot = new HarnessBoot(root);

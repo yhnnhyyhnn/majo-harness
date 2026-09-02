@@ -23,6 +23,7 @@ majo-harness 是一个**全插件式 agent harness**：每一项产品能力都�
 | subagent 能力（dsh `subagent/`） | 子会话委派 + 深度受限 | `majo-subagent`（`ctx.subagent`、`delegate_task`） |
 | settings 能力（dsh `settings/`） | 用户设置存储 + 文件 provider | `majo-settings`（`ctx.settings`） |
 | credentials 能力（dsh `credentials/`） | 密钥解析 + env/.env provider | `majo-credentials`（`ctx.credentials`） |
+| 会话标题能力（dsh `session-title/`） | 唯一 provider + heuristic 默认 | `majo-title`（`ctx.sessionTitle`） |
 | 包 `core/agent-loop` — 默认驱动器 | 声明注入的插件 | `majo-agent-loop`（`ctx.agentLoop`） |
 | 包 `boot/app-boot` — profile 胶水 | loader builtins 注册 | `majo-boot` |
 | 内置 profile（`web`、`headless`、…） | profile 文件 + 应用插件 | `majo-headless` + `headless.yml` |
@@ -44,6 +45,8 @@ skill 向模型提供可复用流程：`SkillRegistry`（`ctx.skills`）聚合 `
 subagent 在同一棵树内委派：`SubagentService`（`ctx.subagent`）开启新子会话并由同一个 `ctx.agentLoop` 驱动，返回子代理最终文本（子代理 = 历史隔离的新会话，而非第二个 loop）。嵌套深度按配置受限（`maxDepth`，默认 3），超限 loud 失败；`delegate_task` 工具向模型暴露委派。
 
 settings 与 credentials 为宿主与 provider 提供免硬编码的配置：`SettingsService`（`ctx.settings`）是校验过的字符串键值存储，配置 `path` 即启用 JSON 文件 provider（每次 set 直写、原子替换、损坏文件 loud）。`CredentialsService`（`ctx.credentials`）按序经注册的 `CredentialProvider` 解析密钥；出厂 env provider 把 `.env`（KEY=VALUE、注释、引号）合并到真实环境变量之下。凭据值绝不进入异常或消息。
+
+会话标题补全日志主轴：`SessionTitleService`（`ctx.sessionTitle`）持有**唯一**注册的 `SessionTitleProvider`（重复注册 loud），由持久事件派生会话标题；heuristic provider 用首条用户消息起标题（折叠空白、截断），LLM provider 可同一接缝替换。标题在会话有可命名内容前为 `null`。
 
 M1 **刻意不设特权核心模块**：与 dsh 在 `packages/core/` 下彼此独立的包一样，每个能力在自己的模块里同时拥有接口、实现与插件；消费者（agent loop、boot）只通过服务接缝依赖这些模块。若未来确实需要一个中立的"API 主轴"模块（例如跨模块共享的 typed 事件字典），同样以抽模块的方式引入。
 
@@ -77,6 +80,8 @@ majo-subagent/    SubagentService / SubagentPlugin / DelegateTaskTool / Subagent
 majo-settings/    SettingsService / SettingsPlugin（JSON 文件 provider）
 majo-credentials/ CredentialProvider 接缝 + EnvCredentialProvider（.env 解析）
                   / CredentialsService / CredentialsPlugin
+majo-title/       SessionTitleProvider 接缝 + HeuristicSessionTitleProvider
+                  / SessionTitleService / SessionTitlePlugin / HeuristicTitlePlugin
 majo-util/        Disposables（组合 disposer 工厂）
 majo-boot/        HarnessBoot（builtins 注册、profile 解析、launch）
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
@@ -100,6 +105,7 @@ docs/             本文档（中英双语）
 | `subagent` | `subagent` | `SubagentService` | 把任务委派给深度受限的子会话 |
 | `settings` | `settings` | `SettingsService` | 校验键值存储（配置 path 时 JSON 文件持久化） |
 | `credentials` | `credentials` | `CredentialsService` | 经注册 provider 解析密钥 |
+| `sessionTitle` | `session-title` | `SessionTitleService` | 经唯一注册 provider 派生标题 |
 | `fs` | `fs` | `FileSystemService` | 经 `fs/*` waterfall 做文本读/写/glob |
 
 | 事件 | 类型 | 参数 | 语义 |
@@ -205,5 +211,5 @@ TURN_END
 
 - **M1（已完成）** — 全插件垂直切片：profile 驱动启动、会话日志、工具管道、mock LLM、agent loop、删除级联。全程无网络。
 - **M2（已完成）** — `ctx.llm` 之后的模型 provider 可换（通用 OpenAI-compatible provider `majo-provider-openai`，本地 HTTP stub 离线 wire 测试）；持久请求头（每步以 `REQUEST_HEADER` 事件记录 model/system prompt/工具名，补齐 M1 的组合边界）；文件会话存储默认目录（`<user.home>/.majo-harness/sessions`），hermetic 测试仍用内存存储。
-- **M3（进行中）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。已完成：文件系统、typed 会话投影、subprocess、shell、sandbox、交互/审批、skills、subagents、settings/credentials。后续：会话标题（以及用于 prompt 分段组装的 system-prompt 接缝）。
-- **M4** — 打包与分发：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、CLI 与 SDK 面。
+- **M3（已完成）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e：文件系统、typed 会话投影、subprocess、shell、sandbox、交互/审批、skills、subagents、settings/credentials、会话标题。system-prompt 分段组装接缝（插件贡献 prompt section、loop 折入 system 消息）随 M4 的 prompt 工作一并落地。
+- **M4** — 打包与分发：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、CLI 与 SDK 面；system-prompt 分段组装；并发 subagent 的 per-agent ctx。

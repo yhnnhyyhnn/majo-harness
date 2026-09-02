@@ -15,6 +15,8 @@ import io.majo.harness.credentials.CredentialsPlugin;
 import io.majo.harness.session.SessionPlugin;
 import io.majo.harness.session.SessionProjectionsPlugin;
 import io.majo.harness.settings.SettingsPlugin;
+import io.majo.harness.title.HeuristicTitlePlugin;
+import io.majo.harness.title.SessionTitlePlugin;
 import io.majo.harness.interaction.InteractionPlugin;
 import io.majo.harness.interaction.ToolApprovalPlugin;
 import io.majo.harness.sandbox.SandboxPlugin;
@@ -67,6 +69,8 @@ public final class HarnessBoot {
     public static final String PLUGIN_SUBAGENT_TOOLS = SubagentToolPlugin.NAME;
     public static final String PLUGIN_SETTINGS = SettingsPlugin.NAME;
     public static final String PLUGIN_CREDENTIALS = CredentialsPlugin.NAME;
+    public static final String PLUGIN_SESSION_TITLE = SessionTitlePlugin.NAME;
+    public static final String PLUGIN_SESSION_TITLE_HEURISTIC = HeuristicTitlePlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
 
     private final Context ctx;
@@ -101,6 +105,8 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_SUBAGENT_TOOLS, new SubagentToolPlugin());
         loader.builtin(PLUGIN_SETTINGS, new SettingsPlugin());
         loader.builtin(PLUGIN_CREDENTIALS, new CredentialsPlugin());
+        loader.builtin(PLUGIN_SESSION_TITLE, new SessionTitlePlugin());
+        loader.builtin(PLUGIN_SESSION_TITLE_HEURISTIC, new HeuristicTitlePlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
     }
 
