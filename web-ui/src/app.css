@@ -244,3 +244,107 @@ li.tool-line .chip {
 
 #status.error { color: var(--err); }
 #status.online { color: var(--ok); }
+
+/* markdown-lite + copy + streaming */
+.rich code {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0 4px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.rich pre.code {
+  background: #0c0f14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 6px 0;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12.5px;
+  white-space: pre;
+}
+
+.rich strong { color: #fff; }
+
+.msg-row { display: flex; flex-direction: column; gap: 4px; }
+
+.copy {
+  align-self: flex-end;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.copy:hover { color: var(--text); }
+
+.message.streaming .bubble::after {
+  content: "▍";
+  color: var(--accent);
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+
+/* dsh-style message groups & markdown */
+li.group { list-style: none; }
+li.message.user { align-self: flex-end; }
+
+#conversation .rich h1, #conversation .rich h2,
+#conversation .rich h3, #conversation .rich h4 {
+  margin: 10px 0 4px;
+  line-height: 1.3;
+}
+#conversation .rich h1 { font-size: 1.25rem; }
+#conversation .rich h2 { font-size: 1.15rem; }
+#conversation .rich h3 { font-size: 1.05rem; }
+
+#conversation .rich blockquote {
+  margin: 6px 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+}
+
+#conversation .rich ul, #conversation .rich ol { margin: 4px 0; padding-left: 22px; }
+#conversation .rich a { color: var(--accent); }
+#conversation .rich hr { border: 0; border-top: 1px solid var(--border); margin: 8px 0; }
+
+.tool-block { display: flex; flex-direction: column; gap: 6px; max-width: 86%; }
+.tool-block .tool-head { color: var(--muted); font-size: 12px; }
+.tool-block .tool-name { color: var(--text); font-weight: 600; font-family: ui-monospace, Consolas, monospace; }
+.tool-block pre.args {
+  margin: 0;
+  background: #0c0f14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+.tool-block.result {
+  flex-direction: row;
+  align-items: center;
+  color: var(--text);
+  gap: 8px;
+}
+.tool-block.result .result-text { word-break: break-all; }
+
+.icon-actions { display: inline-flex; margin-top: 4px; }
+.icon-actions button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  border-radius: 6px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.icon-actions button:hover { color: var(--text); border-color: var(--text); }

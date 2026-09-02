@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.jcordis.core.context.Context;
 import io.jcordis.core.logger.ConsoleExporter;
+import io.jcordis.core.util.Disposable;
 import io.majo.harness.agent.loop.AgentLoopService;
 import io.majo.harness.boot.HarnessBoot;
 import io.majo.harness.headless.CalculatorToolPlugin;
@@ -52,9 +53,9 @@ public final class WebMain {
                 .register(CalculatorToolPlugin.NAME, new CalculatorToolPlugin());
         String profileText;
         String hint = profile;
-        if ("web".equals(profile)) {
-            hint = BUILTIN_PROFILE;
-            try (InputStream stream = WebMain.class.getClassLoader().getResourceAsStream(BUILTIN_PROFILE)) {
+        if ("web".equals(profile) || "web-mock".equals(profile)) {
+            hint = profile + ".yml";
+            try (InputStream stream = WebMain.class.getClassLoader().getResourceAsStream(hint)) {
                 if (stream == null) {
                     throw new IOException("built-in profile missing: " + BUILTIN_PROFILE);
                 }
@@ -92,6 +93,10 @@ public final class WebMain {
         try {
             if ("GET".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
                 json(exchange, 200, sessionsIndex());
+            } else if ("POST".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
+                json(exchange, 200, createSession());
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/turn/stream".equals(path)) {
+                streamTurn(exchange);
             } else if ("GET".equals(exchange.getRequestMethod())
                     && path.startsWith("/api/sessions/")) {
                 String sessionId = path.substring("/api/sessions/".length());
@@ -133,6 +138,92 @@ public final class WebMain {
                 "id", sessionId,
                 "title", titles.title(sessionId),
                 "events", eventsJson(sessions.events(sessionId)));
+    }
+
+    private Map<String, Object> createSession() {
+        SessionService sessions = boot.service(SessionService.NAME);
+        return Map.of("id", sessions.createSession());
+    }
+
+    /**
+     * Server-Sent Events turn: durable appends (except the final assistant
+     * text, which streams as chunks) relay as {@code log} frames, text tokens
+     * as {@code chunk}, completion as {@code done}, failures as {@code fail}.
+     */
+    private void streamTurn(HttpExchange exchange) throws IOException {
+        Map<String, String> query = query(exchange);
+        String sessionId = query.get("sessionId");
+        String task = query.get("task");
+        exchange.getResponseHeaders().set("Content-Type", "text/event-stream; charset=utf-8");
+        exchange.getResponseHeaders().set("Cache-Control", "no-cache");
+        exchange.sendResponseHeaders(200, 0);
+        var out = exchange.getResponseBody();
+        try {
+            if (task == null || task.isBlank() || sessionId == null || sessionId.isBlank()) {
+                frame(out, "fail", Map.of("message", "sessionId and task query parameters are required"));
+                return;
+            }
+            SessionService sessions = boot.service(SessionService.NAME);
+            AgentLoopService loop = boot.service(AgentLoopService.NAME);
+            Disposable listener = boot.ctx().on(SessionService.EVENT, (thisArg, args) -> {
+                String seen = (String) args[0];
+                io.majo.harness.session.SessionEvent event = (io.majo.harness.session.SessionEvent) args[1];
+                if (!sessionId.equals(seen)) {
+                    return null;
+                }
+                boolean finalText = event.type() == SessionEventType.ASSISTANT_MESSAGE
+                        && event.content() != null
+                        && !event.fields().containsKey(SessionEvent.FIELD_TOOL_CALLS);
+                if (!finalText) {
+                    frame(out, "log", eventsJson(List.of(event)).get(0));
+                }
+                return null;
+            });
+            try {
+                turnLock.lock();
+                try {
+                    String answer = loop.runTurn(sessionId, task, delta ->
+                            frame(out, "chunk", Map.of("text", delta)));
+                    frame(out, "done", Map.of("sessionId", sessionId, "answer", answer));
+                } finally {
+                    turnLock.unlock();
+                }
+            } finally {
+                listener.dispose();
+            }
+        } catch (Throwable failure) {
+            frame(out, "fail", Map.of("message", String.valueOf(failure.getMessage())));
+        } finally {
+            out.close();
+        }
+    }
+
+    private static Map<String, String> query(HttpExchange exchange) {
+        Map<String, String> values = new java.util.LinkedHashMap<>();
+        String raw = exchange.getRequestURI().getRawQuery();
+        if (raw == null) {
+            return values;
+        }
+        for (String pair : raw.split("&")) {
+            int equals = pair.indexOf('=');
+            if (equals <= 0) {
+                continue;
+            }
+            String key = java.net.URLDecoder.decode(pair.substring(0, equals), StandardCharsets.UTF_8);
+            String value = java.net.URLDecoder.decode(pair.substring(equals + 1), StandardCharsets.UTF_8);
+            values.put(key, value);
+        }
+        return values;
+    }
+
+    private static void frame(java.io.OutputStream out, String event, Object value) {
+        try {
+            out.write(("event: " + event + "\n").getBytes(StandardCharsets.UTF_8));
+            out.write(("data: " + JSON.writeValueAsString(value) + "\n\n").getBytes(StandardCharsets.UTF_8));
+            out.flush();
+        } catch (IOException e) {
+            // client disconnected mid-stream; the turn keeps its durable log
+        }
     }
 
     private Map<String, Object> turn(HttpExchange exchange) throws IOException {

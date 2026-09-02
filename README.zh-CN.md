@@ -32,7 +32,21 @@
 | `majo-cli` | 可执行 dsh 风格启动器（shaded jar）：`majo "task" [--profile …]`，打印转写与退出码 | — | — |
 | `majo-web` | web profile 应用（dsh 风格聊天 UI）：JDK HTTP 服务器承载已启动树，静态会话/对话页 + JSON turn API | — | （应用） |
 
-文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md)
+文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md) · [web 对齐](docs/web-parity.zh-CN.md)
+
+## 应用入口（一个 harness、多个入口）
+
+```
+能力库(jar):  majo-session / tools / llm / agent-loop / fs / shell / sandbox /
+             interaction / skill / subagent / settings / credentials / title / …
+组装层:      majo-boot.HarnessBoot（出厂 builtins + profile 解析/launch）
+入口:        majo-cli → majo "task"      headless 一次性 runner（转写输出）
+             majo-web → java -jar …jar    Web App：JSON/SSE API + React 页面托管
+             HeadlessMain                 demo（mvn exec）
+前端源码:    web-ui（React/Vite；产物拷入 majo-web 的 resources/static）
+```
+
+`majo-web` 是面向浏览器的入口（既作为后端服务在已启动的插件树上运行，又托管编译好的 React 页面）。`majo-cli` 是脚本/一次性任务入口。两者共享同一棵可组合插件树——没有特权内核。
 
 出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`shell`、`shell-tools`、`sandbox`、`interactions`、`tool-approval`、`skills`、`skill-files`、`skill-tools`、`subagent`、`subagent-tools`、`settings`、`credentials`、`session-title`、`session-title-heuristic`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
 

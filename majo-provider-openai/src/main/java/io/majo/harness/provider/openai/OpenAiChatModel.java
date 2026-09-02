@@ -11,7 +11,11 @@ import io.majo.harness.llm.ChatRole;
 import io.majo.harness.llm.ModelException;
 import io.majo.harness.tools.ToolCall;
 import io.majo.harness.tools.ToolSpec;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -45,7 +49,7 @@ import java.util.UUID;
  *   <li>{@code timeoutSeconds} — optional HTTP timeout (default 60).</li>
  * </ul>
  */
-public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel {
+public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel, io.majo.harness.llm.StreamingChatModel {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -135,11 +139,54 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel {
 
     @Override
     public ChatResponse complete(ChatRequest request) {
+        return completeInternal(request, null);
+    }
+
+    @Override
+    public ChatResponse completeStream(ChatRequest request, java.util.function.Consumer<String> onText) {
+        return completeInternal(request, onText == null ? ignored -> {} : onText);
+    }
+
+    private ChatResponse completeInternal(ChatRequest request, java.util.function.Consumer<String> onText) {
+        try {
+            HttpRequest.Builder builder = HttpRequest.newBuilder(endpoint)
+                    .timeout(requestTimeout)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(
+                            MAPPER.writeValueAsString(buildBody(request, onText != null))));
+            if (apiKey != null) {
+                builder.header("Authorization", "Bearer " + apiKey);
+            }
+            extraHeaders.forEach(builder::header);
+            if (onText == null) {
+                HttpResponse<String> response = client.send(builder.build(),
+                        HttpResponse.BodyHandlers.ofString());
+                return parse(response);
+            }
+            HttpResponse<InputStream> response = client.send(builder.build(),
+                    HttpResponse.BodyHandlers.ofInputStream());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new ModelException("provider returned HTTP " + response.statusCode() + ": "
+                        + snippet(readBody(response.body())));
+            }
+            return readStream(response.body(), onText);
+        } catch (ModelException e) {
+            throw e;
+        } catch (IOException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ModelException("provider request to " + endpoint + " failed: " + e, e);
+        }
+    }
+
+    private ObjectNode buildBody(ChatRequest request, boolean stream) {
         ObjectNode body = MAPPER.createObjectNode();
         body.put("model", model);
         body.set("messages", messages(request.messages()));
         if (!request.tools().isEmpty()) {
             body.set("tools", tools(request.tools()));
+        }
+        if (stream) {
+            body.put("stream", true);
         }
         if (temperature != null) {
             body.put("temperature", temperature);
@@ -147,24 +194,82 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel {
         if (maxTokens != null) {
             body.put("max_tokens", maxTokens);
         }
-        try {
-            HttpRequest.Builder builder = HttpRequest.newBuilder(endpoint)
-                    .timeout(requestTimeout)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body)));
-            if (apiKey != null) {
-                builder.header("Authorization", "Bearer " + apiKey);
+        return body;
+    }
+
+    /**
+     * Reads an SSE stream: text deltas flow to {@code onText}; tool-call
+     * deltas accumulate by index into the final {@link ChatResponse}.
+     */
+    private ChatResponse readStream(InputStream body, java.util.function.Consumer<String> onText)
+            throws IOException {
+        StringBuilder text = new StringBuilder();
+        java.util.TreeMap<Integer, MutableCall> calls = new java.util.TreeMap<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(body, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("data:")) {
+                    continue;
+                }
+                String payload = line.substring(5).strip();
+                if (payload.isEmpty() || "[DONE]".equals(payload)) {
+                    continue;
+                }
+                JsonNode root = MAPPER.readTree(payload);
+                JsonNode error = root.path("error");
+                if (!error.isMissingNode()) {
+                    throw new ModelException("provider stream error: " + error.path("message").asText());
+                }
+                JsonNode choice = root.path("choices").path(0);
+                if (choice.isMissingNode()) {
+                    continue;
+                }
+                JsonNode delta = choice.path("delta");
+                if (delta.hasNonNull("content")) {
+                    String token = delta.get("content").asText();
+                    text.append(token);
+                    onText.accept(token);
+                }
+                for (JsonNode call : delta.path("tool_calls")) {
+                    int index = call.path("index").asInt(0);
+                    MutableCall entry = calls.computeIfAbsent(index, ignored -> new MutableCall());
+                    JsonNode function = call.path("function");
+                    if (call.hasNonNull("id") && entry.id == null) {
+                        entry.id = call.get("id").asText();
+                    }
+                    if (function.hasNonNull("name") && entry.name == null) {
+                        entry.name = function.get("name").asText();
+                    }
+                    if (function.hasNonNull("arguments")) {
+                        entry.arguments.append(function.get("arguments").asText());
+                    }
+                }
             }
-            extraHeaders.forEach(builder::header);
-            HttpResponse<String> response = client.send(builder.build(),
-                    HttpResponse.BodyHandlers.ofString());
-            return parse(response);
-        } catch (ModelException e) {
-            throw e;
-        } catch (IOException | InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ModelException("provider request to " + endpoint + " failed: " + e, e);
         }
+        String content = text.length() == 0 ? null : text.toString();
+        if (calls.isEmpty()) {
+            return ChatResponse.text(content);
+        }
+        java.util.List<ToolCall> toolCalls = new java.util.ArrayList<>();
+        for (MutableCall call : calls.values()) {
+            toolCalls.add(new ToolCall(
+                    call.id != null ? call.id : UUID.randomUUID().toString(),
+                    call.name == null ? "" : call.name,
+                    call.arguments.toString()));
+        }
+        return new ChatResponse(content, java.util.List.copyOf(toolCalls));
+    }
+
+    private static String readBody(InputStream stream) throws IOException {
+        try (InputStream input = stream) {
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private static final class MutableCall {
+        String id;
+        String name;
+        final StringBuilder arguments = new StringBuilder();
     }
 
     private static ArrayNode messages(List<ChatMessage> messages) {

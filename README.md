@@ -32,7 +32,21 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-cli` | executable dsh-style launcher (shaded jar): `majo "task" [--profile …]`, prints the transcript, exit codes | — | — |
 | `majo-web` | web profile app (dsh-style chat UI): JDK HTTP server over the booted tree, static session/conversation page + JSON turn API | — | (app) |
 
-Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md)
+Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md) · [web 对齐](docs/web-parity.md)
+
+## App entries (one harness, several entries)
+
+```
+能力库(jar):  majo-session / tools / llm / agent-loop / fs / shell / sandbox /
+             interaction / skill / subagent / settings / credentials / title / …
+组装层:      majo-boot.HarnessBoot（出厂 builtins + profile 解析/launch）
+入口:        majo-cli → majo "task"      headless 一次性 runner（转写输出）
+             majo-web → java -jar …jar    Web App：JSON/SSE API + React 页面托管
+             HeadlessMain                 demo（mvn exec）
+前端源码:    web-ui（React/Vite；产物拷入 majo-web 的 resources/static）
+```
+
+`majo-web` is the browser-facing entry (it both runs the backend service over a booted plugin tree and serves the compiled React UI). `majo-cli` is the script/one-shot entry. They share the same composable plugin tree — there is no privileged core.
 
 The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `interactions`, `tool-approval`, `skills`, `skill-files`, `skill-tools`, `subagent`, `subagent-tools`, `settings`, `credentials`, `session-title`, `session-title-heuristic`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
 

@@ -1,0 +1,26 @@
+# majo web profile — offline mock variant (used for local dev/smoke)
+- id: session
+  name: session
+  config:
+    store: memory
+- id: session-projections
+  name: session-projections
+- id: tools
+  name: tools
+- id: llm
+  name: llm
+  config:
+    defaultModel: mock
+- id: llm-mock
+  name: llm-mock
+- id: agent-loop
+  name: agent-loop
+  config:
+    systemPrompt: "You are a small calculator harness. Use the calc tool whenever asked for arithmetic."
+    maxSteps: 6
+- id: session-title
+  name: session-title
+- id: session-title-heuristic
+  name: session-title-heuristic
+- id: calc
+  name: calc

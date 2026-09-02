@@ -74,10 +74,21 @@ public final class AgentLoopService extends Service {
     }
 
     /**
-     * Runs one turn: {@code userText} is logged and answered, returning the
-     * final assistant text (the last assistant round without tool calls).
+     * Runs one turn (see {@link #runTurn(String, String, java.util.function.Consumer)})
+     * without a text sink.
      */
     public String runTurn(String sessionId, String userText) {
+        return runTurn(sessionId, userText, null);
+    }
+
+    /**
+     * Runs one turn: {@code userText} is logged and answered, returning the
+     * final assistant text. When {@code textSink} is supplied, answer deltas
+     * flow through it (real tokens for streaming providers, one burst for
+     * plain ones); without a sink the completion is not forced to stream, so
+     * non-UI callers keep the plain path.
+     */
+    public String runTurn(String sessionId, String userText, java.util.function.Consumer<String> textSink) {
         sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
         sessions.append(sessionId, SessionEventType.USER_MESSAGE,
                 Map.of(SessionEvent.FIELD_CONTENT, userText));
@@ -96,7 +107,9 @@ public final class AgentLoopService extends Service {
                     SessionEvent.FIELD_SYSTEM_PROMPT, systemPrompt,
                     SessionEvent.FIELD_TOOL_NAMES,
                     request.tools().stream().map(ToolSpec::name).toList()));
-            ChatResponse response = llm.complete(request);
+            ChatResponse response = textSink == null
+                    ? llm.complete(request)
+                    : llm.completeStream(request, textSink);
             appendAssistantRound(sessionId, response);
             if (!response.isToolRound()) {
                 break;

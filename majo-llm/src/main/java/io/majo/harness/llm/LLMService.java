@@ -62,13 +62,41 @@ public final class LLMService extends Service {
      * adapter call.
      */
     public ChatResponse complete(ChatRequest request) {
+        return completeInternal(request, null);
+    }
+
+    /**
+     * Streaming completion: text deltas flow through {@code onText} as the
+     * adapter produces them. Streaming models emit real tokens; plain models
+     * fall back to one burst of the whole answer — callers cannot tell the
+     * difference, so the UI path is uniform.
+     */
+    public ChatResponse completeStream(ChatRequest request, java.util.function.Consumer<String> onText) {
+        if (onText == null) {
+            onText = ignored -> {};
+        }
+        return completeInternal(request, onText);
+    }
+
+    private ChatResponse completeInternal(ChatRequest request,
+            java.util.function.Consumer<String> onText) {
         String modelName = modelNameOf(request);
         ChatModel model = models.get(modelName);
         if (model == null) {
             throw new IllegalStateException("unknown model \"" + modelName + "\"; registered: " + models.keySet());
         }
         ctx.emit(LlmEvents.REQUEST, request, modelName);
-        ChatResponse response = model.complete(request);
+        ChatResponse response;
+        if (onText == null) {
+            response = model.complete(request);
+        } else if (model instanceof StreamingChatModel streaming) {
+            response = streaming.completeStream(request, onText);
+        } else {
+            response = model.complete(request);
+            if (response.content() != null) {
+                onText.accept(response.content());
+            }
+        }
         ctx.emit(LlmEvents.RESPONSE, request, response, modelName);
         return response;
     }

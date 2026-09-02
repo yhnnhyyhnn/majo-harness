@@ -146,6 +146,27 @@ Two effect rules make the tree safe to mutate:
 
 Misconfiguration fails loud: an unknown profile row name is rejected at `HarnessBoot.launch` before any entry is created; duplicate tool/model/service registrations throw; a missing `maxSteps` convergence throws instead of looping forever.
 
+## Application entries
+
+One harness, several entries, no privileged core:
+
+```
+capability jars:  majo-session/tools/llm/agent-loop/fs/shell/sandbox/interaction/
+                  skill/subagent/settings/credentials/title/…
+assembly:         majo-boot.HarnessBoot (shipped builtins + profile parse/launch)
+app entries:      majo-cli  → majo "task"            headless one-shot (transcript out)
+                  majo-web → java -jar majo-web…jar   Web app: JSON/SSE API + React host
+                  HeadlessMain                        demo (mvn exec)
+ui source:        web-ui (React/Vite; dist copied into majo-web resources/static)
+```
+
+`majo-web` is the browser entry: it boots the same plugin tree (its `web.yml`
+profile) and both serves the API and hosts the compiled React UI. Turns run
+serially per instance; the streaming endpoint (`/api/turn/stream`, SSE) relays
+durable log frames incrementally and text tokens as they are produced by
+streaming providers, so the page renders tools live and the answer
+incrementally without waiting for completion.
+
 ## Typed session events and projections
 
 `SessionEvent.fields` stays the durable, open wire format, but consumers no longer need to read it stringly. {@code TypedSessionEvent.of(event)} parses every kind into a closed sealed record (user text, assistant rounds with their serialized tool calls, tool results, request headers), failing loudly on malformed payloads.

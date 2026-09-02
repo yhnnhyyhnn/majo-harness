@@ -146,6 +146,22 @@ waterfall 监听器必须调用 `next()` 让权（jcordis 约定）。事件即�
 
 错误配置大声失败：未知 profile 行名在 `HarnessBoot.launch` 创建任何 entry 前即被拒绝；工具/模型/服务重复注册抛异常；turn 超过 `maxSteps` 抛异常而不是死循环。
 
+## 应用入口
+
+一个 harness、多个入口、没有特权内核：
+
+```
+能力 jar：      majo-session/tools/llm/agent-loop/fs/shell/sandbox/interaction/
+               skill/subagent/settings/credentials/title/…
+组装：          majo-boot.HarnessBoot（出厂 builtins + profile 解析/launch）
+应用入口：      majo-cli  → majo "task"            headless 一次性（转写输出）
+               majo-web → java -jar majo-web…jar   Web App：JSON/SSE API + React 托管
+               HeadlessMain                        demo（mvn exec）
+前端源码：      web-ui（React/Vite；产物拷入 majo-web resources/static）
+```
+
+`majo-web` 是浏览器入口：它启动同一棵插件树（其 `web.yml` profile），既提供 API 也托管编译好的 React 页面。turn 按实例串行；流式端点（`/api/turn/stream`，SSE）增量转发持久日志帧，并按流式 provider 的产生顺序转发文本 token——页面无需等待完成即可实时渲染工具与逐字答案。
+
 ## Typed 会话事件与投影
 
 `SessionEvent.fields` 仍是持久的开放 wire 格式，但消费者不再需要字符串化读取它。`TypedSessionEvent.of(event)` 把每一类事件解析成封闭的 sealed 记录（用户文本、带序列化工具调用的 assistant 轮次、工具结果、请求头），载荷畸形时大声失败。

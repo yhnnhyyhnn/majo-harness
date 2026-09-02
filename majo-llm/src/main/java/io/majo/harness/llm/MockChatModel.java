@@ -16,7 +16,7 @@ import java.util.List;
  *       {@code "calculated: <last tool result>"}.</li>
  * </ul>
  */
-public final class MockChatModel implements ChatModel {
+public final class MockChatModel implements ChatModel, StreamingChatModel {
 
     public static final String MODEL_NAME = "mock";
     public static final String TOOL_NAME = "calc";
@@ -25,6 +25,19 @@ public final class MockChatModel implements ChatModel {
 
     @Override
     public ChatResponse complete(ChatRequest request) {
+        return decide(request);
+    }
+
+    @Override
+    public ChatResponse completeStream(ChatRequest request, java.util.function.Consumer<String> onText) {
+        ChatResponse response = decide(request);
+        if (response.content() != null) {
+            onText.accept(response.content());
+        }
+        return response;
+    }
+
+    private static ChatResponse decide(ChatRequest request) {
         List<ChatMessage> messages = request.messages();
         ChatMessage lastTool = null;
         for (int i = messages.size() - 1; i >= 0; i--) {
