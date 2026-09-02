@@ -30,6 +30,7 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-boot` | profile-to-loader glue: ships plugins as builtins and boots an entry tree from YAML profiles | — | — |
 | `majo-headless` | one-shot headless app: sample `calc` tool, `run` entry, `headless.yml` profile, e2e tests | — | `calc`, `run` |
 | `majo-cli` | executable dsh-style launcher (shaded jar): `majo "task" [--profile …]`, prints the transcript, exit codes | — | — |
+| `majo-web` | web profile app (dsh-style chat UI): JDK HTTP server over the booted tree, static session/conversation page + JSON turn API | — | (app) |
 
 Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md)
 
@@ -80,6 +81,22 @@ majo "task"                                   # = --profile headless
 The `run` row is appended automatically when absent; swap the model provider in a copied profile to point at your own endpoint (below). `REQUEST_HEADER` rows record each request's model/system prompt/tool names durably. During development you can also run `mvn -pl majo-headless exec:java -Dexec.args="1+2"`.
 
 External plugin jars follow the jcordis contract: an SPI manifest `META-INF/services/io.jcordis.core.registry.Plugin` and an isolated class loader. Mount one with `--plugin name=./path.jar` and reference `name` from profile rows; hot replacement (`replaceJar`) and unload go through `HarnessBoot.loader()`. The `PluginJarTest` in majo-boot is a ready recipe for building such a jar.
+
+## Web UI (dsh-style)
+
+```bash
+mvn -DskipTests install
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --port 9000 --profile web.yml
+```
+
+Open http://localhost:8787: a session sidebar, a conversation of user/tool/assistant messages, and a composer. The offline mock drives the demo; point a copied `web.yml` at your own endpoint for real model work. JSON API for other clients:
+
+```bash
+curl -X POST -H 'Content-Type: application/json' -d '{"task":"1+2"}' http://localhost:8787/api/turn
+curl http://localhost:8787/api/sessions
+curl http://localhost:8787/api/sessions/<id>
+```
 
 ## Bring your own model endpoint
 

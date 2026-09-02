@@ -30,6 +30,7 @@
 | `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
 | `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
 | `majo-cli` | 可执行 dsh 风格启动器（shaded jar）：`majo "task" [--profile …]`，打印转写与退出码 | — | — |
+| `majo-web` | web profile 应用（dsh 风格聊天 UI）：JDK HTTP 服务器承载已启动树，静态会话/对话页 + JSON turn API | — | （应用） |
 
 文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md)
 
@@ -80,6 +81,22 @@ majo "task"                                   # = --profile headless
 `run` 行在缺失时自动追加；把模型 provider 换成你自己的端点只需复制 profile 并修改（见下）。`REQUEST_HEADER` 行持久记录每次请求的 model/system prompt/工具名。开发期也可用 `mvn -pl majo-headless exec:java -Dexec.args="1+2"`。
 
 外部插件 jar 遵循 jcordis 契约：SPI 清单 `META-INF/services/io.jcordis.core.registry.Plugin` + 隔离类加载器。用 `--plugin name=./path.jar` 挂载，并在 profile 行里引用 `name`；热替换（`replaceJar`）与卸载走 `HarnessBoot.loader()`。`majo-boot` 里的 `PluginJarTest` 就是构建此类 jar 的现成配方。
+
+## Web UI（dsh 风格）
+
+```bash
+mvn -DskipTests install
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --port 9000 --profile web.yml
+```
+
+打开 http://localhost:8787：会话侧栏、用户/工具/assistant 消息组成的对话流、提交器。离线 mock 驱动演示；把复制的 `web.yml` 指向你自己的端点即可接真实模型。其他客户端用 JSON API：
+
+```bash
+curl -X POST -H 'Content-Type: application/json' -d '{"task":"1+2"}' http://localhost:8787/api/turn
+curl http://localhost:8787/api/sessions
+curl http://localhost:8787/api/sessions/<id>
+```
 
 ## 自带模型端点
 

@@ -87,7 +87,9 @@ majo-boot/        HarnessBoot (builtins registration, profile parsing, launch)
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
                   / TranscriptPrinter (shared transcript rendering)
 majo-cli/         MajoCli (dsh-style launcher, shaded executable jar)
-docs/             this document (EN + zh-CN)
+majo-web/         WebMain (JDK HttpServer over the booted tree, static chat UI)
+                  / web.yml profile
+ docs/            this document (EN + zh-CN)
 ```
 
 ## ctx keys and the event dictionary
@@ -214,4 +216,4 @@ Guiding rule: a new capability seam keeps this shape — Service (Facade) + Prov
 - **M1 (done)** — all-plugin vertical slice: profile-driven boot, session log, tools pipeline, mock LLM, agent loop, removal cascade. No network.
 - **M2 (done)** — model-provider swaps behind `ctx.llm` (generic OpenAI-compatible provider `majo-provider-openai`, offline wire-tested against a local HTTP stub); durable request headers (`REQUEST_HEADER` events log model/system prompt/tool names per step, closing the M1 composition boundary); file session store default directory (`<user.home>/.majo-harness/sessions`) with memory stores for hermetic tests.
 - **M3 (done)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e: filesystem, typed session projections, subprocess, shell, sandbox, interaction/approval, skills, subagents, settings/credentials, session titles. The system-prompt section-assembly seam (plugins contributing prompt sections that the loop folds into the system message) is deferred to M4 alongside prompt work.
-- **M4 (in progress)** — distribution first step landed: the `majo-cli` shaded launcher boots a profile and runs one task, printing the transcript (`majo "task"`, `--profile`, exit codes). Remaining: plugin jars loaded via jcordis loader SPI/HMR, profile/bundle layering and patches on top of `HarnessBoot`, SDK surfaces; system-prompt section assembly; per-agent contexts for concurrent subagents.
+- **M4 (in progress)** — distribution: `majo-cli` shaded launcher (`majo "task"`, `--profile`, exit codes), external plugin jars (jcordis SPI + isolated classloader, hot `replaceJar`/`unload`, `--plugin`), and the `majo-web` profile app (dsh-style chat UI over a JSON turn API, served by the JDK HttpServer; exercise it like a browser with external clients). Remaining: profile/bundle layering and patches on top of `HarnessBoot`, SDK surfaces, system-prompt section assembly, per-agent contexts for concurrent subagents.

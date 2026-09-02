@@ -35,6 +35,7 @@
     <module>majo-credentials</module>
     <module>majo-title</module>
     <module>majo-cli</module>
+    <module>majo-web</module>
     <module>majo-shell</module>
     <module>majo-subprocess</module>
     <module>majo-boot</module>
@@ -124,6 +125,12 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven.surefire.plugin.version}</version>
+          <configuration>
+            <!-- long reactor classpaths make surefire fall back to a
+                 manifest-jar booter; JDK 21's URLClassPath check then aborts
+                 the forked VM when the manifest holds absolute paths -->
+            <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
