@@ -108,6 +108,63 @@ class ShellSeamTest {
     }
 
     @Test
+    void sandboxConfineWrapsArgvBeforeSpawning() throws Exception {
+        Context root = Context.create();
+        java.util.List<java.util.List<String>> confinedArgv = new java.util.ArrayList<>();
+        io.majo.harness.subprocess.SubprocessProvider recorder = new io.majo.harness.subprocess.SubprocessProvider() {
+            @Override
+            public io.majo.harness.subprocess.ProcessResult run(io.majo.harness.subprocess.Command command) {
+                confinedArgv.add(command.argv());
+                return new io.majo.harness.subprocess.LocalSubprocessProvider().run(command);
+            }
+        };
+        new io.majo.harness.subprocess.SubprocessService(root, recorder, null);
+        new io.majo.harness.sandbox.SandboxService(root, new io.majo.harness.sandbox.SandboxProvider() {
+            @Override
+            public String name() {
+                return "recording";
+            }
+
+            @Override
+            public java.util.List<String> confine(java.util.List<String> argv) {
+                return java.util.List.copyOf(argv);
+            }
+        });
+        root.plugin(new ShellPlugin(), Map.of("shell", WINDOWS ? "powershell" : "bash", "confine", true))
+                .await().join();
+        ShellService shell = root.get(ShellService.NAME);
+
+        ShellResult result = shell.run(ShellCommand.of(echoScript("sandboxed")).withTimeoutSeconds(30));
+        assertThat(result.stdout()).contains("sandboxed");
+        // the sandbox service was consulted before spawning: the argv reaching
+        // the subprocess world is the confined launcher argv
+        assertThat(confinedArgv).hasSize(1);
+        assertThat(confinedArgv.get(0)).contains(echoScript("sandboxed"));
+        assertThat(confinedArgv.get(0).get(0)).isEqualTo(WINDOWS ? "powershell" : "/bin/bash");
+        root.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void confineWithoutSandboxRowFailsLoud() {
+        Context root = Context.create();
+        root.plugin(new SubprocessPlugin(), null).await().join();
+        Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(() ->
+                root.plugin(new ShellPlugin(), Map.of("confine", true)).await().join());
+        assertThat(thrown).isNotNull();
+        assertThat(rootCause(thrown)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sandbox");
+        root.fiber().disposeAsync().join();
+    }
+
+    private static Throwable rootCause(Throwable throwable) {
+        Throwable cursor = throwable;
+        while (cursor.getCause() != null) {
+            cursor = cursor.getCause();
+        }
+        return cursor;
+    }
+
+    @Test
     void runShellToolConsumesTheSeam() throws Exception {
         Context root = Context.create();
         root.plugin(new ToolsPlugin(), null).await().join();

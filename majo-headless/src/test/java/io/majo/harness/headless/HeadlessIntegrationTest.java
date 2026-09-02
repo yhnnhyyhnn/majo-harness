@@ -279,6 +279,25 @@ class HeadlessIntegrationTest {
     }
 
     @Test
+    void sandboxRowBootsFromProfile() throws IOException {
+        String profile = """
+                - id: sandbox
+                  name: sandbox
+                  config:
+                    provider: identity
+                """;
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root);
+        boot.launch(boot.readProfileText(profile, "sandbox.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SANDBOX).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.sandbox.SandboxService sandbox = boot.service("sandbox");
+        assertThat(sandbox.provider().name()).isEqualTo("identity");
+        assertThat(sandbox.confine(java.util.List.of("ls", "-la"))).containsExactly("ls", "-la");
+        boot.dispose();
+    }
+
+    @Test
     void profileNamingAnUnknownPluginFailsLoud() {
         Context root = Context.create();
         HarnessBoot boot = new HarnessBoot(root);

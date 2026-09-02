@@ -17,6 +17,7 @@ majo-harness is an **all-plugin agent harness**: every product capability is a p
 | fs capability (dsh `fs/` + tools) | service + waterfall policy events | `majo-fs` (`ctx.fs`, `fs/*` events, `read_file` tool) |
 | subprocess capability (dsh `subprocess/`) | service + waterfall policy event + tool | `majo-subprocess` (`ctx.subprocess`, argv only, `run_command` tool) |
 | shell capability (dsh `shell/`) | service over subprocess + strategy-selected families | `majo-shell` (`ctx.shell`, `run_shell` tool) |
+| sandbox capability (dsh `sandbox/`) | argv-wrap provider seam + policy waterfall | `majo-sandbox` (`ctx.sandbox`, identity/bwrap providers) |
 | package `core/agent-loop` — default driver | plugin with declared injections | `majo-agent-loop` (`ctx.agentLoop`) |
 | package `boot/app-boot` — profile glue | loader builtins registration | `majo-boot` |
 | shipped profiles (`web`, `headless`, …) | profile files + app plugins | `majo-headless` + `headless.yml` |
@@ -28,6 +29,8 @@ The fs capability follows the same trio: `FileSystemService` (`ctx.fs`) runs eve
 Subprocess is the second process-world seam: `SubprocessService` (`ctx.subprocess`) executes argv lists (never a shell command line — no interpolation happens here) through the `subprocess/pre-execute` waterfall; `LocalSubprocessProvider` drains output on virtual threads and enforces the timeout by destroy; a command without an explicit timeout is resolved against the service's configured `defaultTimeoutSeconds` (the explicit resolve step); `subprocess-tools` registers the `run_command` consumer.
 
 Shell layers on top of subprocess: `ShellService` (`ctx.shell`) is a facade that runs command-line scripts through `shell/pre-execute`; a `ShellLauncher` strategy (chosen by `ShellFamily` factory: bash/PowerShell/cmd, platform default, config-overridable) turns the script into argv; `LocalShellProvider` adapts that argv to `ctx.subprocess`; `run_shell` is the tool consumer. Command-line syntax enters here and here only.
+
+Sandbox wraps process spawning: `SandboxService` (`ctx.sandbox`) confines an argv list through a swappable `SandboxProvider` (identity default — real confinement is a provider swap; Linux can assemble `bwrap` argv) behind the `sandbox/pre-confine` waterfall. Spawner consumers apply the wrap: the shell provider confines its argv before spawning when its row sets `confine: true` (which requires the sandbox row). Confinement never silently degrades: an unknown provider, blank bwrap options, or a missing sandbox row behind `confine: true` all fail loudly.
 
 There is deliberately **no privileged core module** in M1: like dsh's independent packages under `packages/core/`, each capability owns its interfaces next to its implementation and plugin, and consumers (the agent loop, the boot) depend on those modules only through their service seams. If a neutral "API spine" module ever becomes justified (typed event dictionary shared across modules), extract it the same way.
 
@@ -49,6 +52,8 @@ majo-subprocess/  Command / ProcessResult / SubprocessProvider + LocalSubprocess
                   / SubprocessService / SubprocessPlugin / SubprocessToolPlugin / RunCommandTool
 majo-shell/       ShellCommand / ShellResult / ShellProvider / LocalShellProvider (Adapter)
                   / ShellLauncher + ShellFamily (Strategy/Factory) / ShellService / RunShellTool
+majo-sandbox/     SandboxProvider (Strategy) + IdentitySandboxProvider / BwrapSandboxProvider
+                  / SandboxService / SandboxPlugin (Factory)
 majo-util/        Disposables (composite disposer factory)
 majo-boot/        HarnessBoot (builtins registration, profile parsing, launch)
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
@@ -66,6 +71,7 @@ docs/             this document (EN + zh-CN)
 | `sessionProjections` | `session-projections` | `SessionProjections` | registered units fold committed events; hosts read typed state |
 | `subprocess` | `subprocess` | `SubprocessService` | runs argv commands through `subprocess/pre-execute` |
 | `shell` | `shell` | `ShellService` | runs scripts through `shell/pre-execute` over a strategy shell |
+| `sandbox` | `sandbox` | `SandboxService` | confines argv through `sandbox/pre-confine` before spawning |
 | `fs` | `fs` | `FileSystemService` | text read/write/glob through `fs/*` waterfalls |
 
 | event | kind | args | semantics |
@@ -78,6 +84,7 @@ docs/             this document (EN + zh-CN)
 | `fs/read` `fs/write` `fs/glob` | waterfall | `(path…)` | per-operation policy/observability; throwing `FsException` rejects |
 | `subprocess/pre-execute` | waterfall | `(Command)` | policy before every run; throwing `SubprocessException` rejects |
 | `shell/pre-execute` | waterfall | `(ShellCommand)` | policy before every run; throwing `ShellException` rejects |
+| `sandbox/pre-confine` | waterfall | `(List<String> argv)` | policy before confinement; throwing `SandboxException` rejects |
 
 Waterfall listeners MUST call `next()` to delegate (the jcordis convention). Events are the extension points: policy, approval, telemetry, and guard plugins attach here without importing the loop.
 
@@ -168,5 +175,5 @@ Guiding rule: a new capability seam keeps this shape — Service (Facade) + Prov
 
 - **M1 (done)** — all-plugin vertical slice: profile-driven boot, session log, tools pipeline, mock LLM, agent loop, removal cascade. No network.
 - **M2 (done)** — model-provider swaps behind `ctx.llm` (generic OpenAI-compatible provider `majo-provider-openai`, offline wire-tested against a local HTTP stub); durable request headers (`REQUEST_HEADER` events log model/system prompt/tool names per step, closing the M1 composition boundary); file session store default directory (`<user.home>/.majo-harness/sessions`) with memory stores for hermetic tests.
-- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem (`majo-fs`), typed session projections (`TypedSessionEvent` + `ctx.sessionProjections` with the agent-loop `turnSummary` unit), subprocess (`majo-subprocess`), and shell (`majo-shell` over subprocess). Next: sandbox and approval policy, skills, subagents, interaction, settings/credentials, session titles.
+- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem (`majo-fs`), typed session projections (`TypedSessionEvent` + `ctx.sessionProjections` with the agent-loop `turnSummary` unit), subprocess (`majo-subprocess`), shell (`majo-shell` over subprocess), and sandbox (`majo-sandbox`, with the shell consumer confining argv on `confine: true`). Next: approval/interaction (approval requests + ask-user), skills, subagents, settings/credentials, session titles.
 - **M4** — packaging & distribution: plugin jars loaded via jcordis loader SPI/HMR, profile/bundle layering and patches on top of `HarnessBoot`, CLI and SDK surfaces.
