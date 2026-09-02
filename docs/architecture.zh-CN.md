@@ -85,6 +85,8 @@ majo-title/       SessionTitleProvider 接缝 + HeuristicSessionTitleProvider
 majo-util/        Disposables（组合 disposer 工厂）
 majo-boot/        HarnessBoot（builtins 注册、profile 解析、launch）
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
+                  / TranscriptPrinter（共享转写渲染）
+majo-cli/         MajoCli（dsh 风格启动器，shaded 可执行 jar）
 docs/             本文档（中英双语）
 ```
 
@@ -212,4 +214,4 @@ TURN_END
 - **M1（已完成）** — 全插件垂直切片：profile 驱动启动、会话日志、工具管道、mock LLM、agent loop、删除级联。全程无网络。
 - **M2（已完成）** — `ctx.llm` 之后的模型 provider 可换（通用 OpenAI-compatible provider `majo-provider-openai`，本地 HTTP stub 离线 wire 测试）；持久请求头（每步以 `REQUEST_HEADER` 事件记录 model/system prompt/工具名，补齐 M1 的组合边界）；文件会话存储默认目录（`<user.home>/.majo-harness/sessions`），hermetic 测试仍用内存存储。
 - **M3（已完成）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e：文件系统、typed 会话投影、subprocess、shell、sandbox、交互/审批、skills、subagents、settings/credentials、会话标题。system-prompt 分段组装接缝（插件贡献 prompt section、loop 折入 system 消息）随 M4 的 prompt 工作一并落地。
-- **M4** — 打包与分发：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、CLI 与 SDK 面；system-prompt 分段组装；并发 subagent 的 per-agent ctx。
+- **M4（进行中）** — 分发第一步已落地：`majo-cli` shaded 启动器加载 profile 并运行一次任务、打印转写（`majo "task"`、`--profile`、退出码）。剩余：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、SDK 面；system-prompt 分段组装；并发 subagent 的 per-agent ctx。

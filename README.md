@@ -29,6 +29,7 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-title` | session titles: `ctx.sessionTitle` holds the sole title provider (heuristic shipped), derived from the session log | `ctx.sessionTitle` | `session-title`, `session-title-heuristic` |
 | `majo-boot` | profile-to-loader glue: ships plugins as builtins and boots an entry tree from YAML profiles | — | — |
 | `majo-headless` | one-shot headless app: sample `calc` tool, `run` entry, `headless.yml` profile, e2e tests | — | `calc`, `run` |
+| `majo-cli` | executable dsh-style launcher (shaded jar): `majo "task" [--profile …]`, prints the transcript, exit codes | — | — |
 
 Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md)
 
@@ -47,19 +48,14 @@ The shipped plugins are already registered as loader builtins by `majo-boot.Harn
 - Maven 3.x
 - `io.jcordis:jcordis-all:1.0.0` in the local Maven repository
 
-## Quick start
+## Quick start (launch like a CLI, dsh-style)
 
 ```bash
-mvn test                     # unit + integration tests (mock model, no network)
-
-mvn -DskipTests install      # install modules so the demo below can resolve them
-mvn -pl majo-headless dependency:build-classpath -Dmdep.outputFile=cp.txt
-java -cp "majo-headless/target/classes;$(cat majo-headless/cp.txt)" \
-     io.majo.harness.headless.HeadlessMain "1+2"
-rm majo-headless/cp.txt
+mvn -DskipTests install                       # build & install the reactor
+java -jar majo-cli/target/majo-cli-0.1.0-SNAPSHOT.jar "1+2"
 ```
 
-The boot prints the session transcript recorded by the plugin tree:
+The launcher boots the built-in `headless` profile (all shipped plugins via profile rows) and runs one task — no API key needed, the deterministic mock model drives the tool turn:
 
 ```text
 == session 0e75e45e-... ==
@@ -74,7 +70,13 @@ The boot prints the session transcript recorded by the plugin tree:
 answer: calculated: 3
 ```
 
-The same run, fully driven by `majo-headless/src/main/resources/headless.yml`: every row is a plugin entry the loader activates when its injections are satisfied, in dependency order — no application code wires the loop together. Note the `REQUEST_HEADER` rows: every model request durably records its model, system prompt, and offered tool names, so the composition is always reconstructable from the log.
+```text
+majo --profiles                                # list built-in profiles
+majo --profile ./my-profile.yml "task"        # any YAML file of builtin rows
+majo "task"                                   # = --profile headless
+```
+
+The `run` row is appended automatically when absent; swap the model provider in a copied profile to point at your own endpoint (below). `REQUEST_HEADER` rows record each request's model/system prompt/tool names durably. During development you can also run `mvn -pl majo-headless exec:java -Dexec.args="1+2"`.
 
 ## Bring your own model endpoint
 

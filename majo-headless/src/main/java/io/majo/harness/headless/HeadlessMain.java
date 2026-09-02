@@ -4,7 +4,6 @@ import io.jcordis.core.context.Context;
 import io.jcordis.core.logger.ConsoleExporter;
 import io.jcordis.loader.EntryOptions;
 import io.majo.harness.boot.HarnessBoot;
-import io.majo.harness.session.SessionEvent;
 import io.majo.harness.session.SessionService;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * One-shot headless harness: boots the {@code headless.yml} profile with an
+ * One-shot headless launcher: boots the {@code headless.yml} profile with an
  * appended {@code run} entry and prints the resulting session transcript.
  *
  * <pre>
@@ -39,43 +38,17 @@ public final class HeadlessMain {
         boot.launch(entries);
 
         SessionService sessions = boot.service(SessionService.NAME);
-        for (String sessionId : sessions.sessionIds()) {
-            System.out.println("== session " + sessionId + " ==");
-            String answer = null;
-            for (SessionEvent event : sessions.events(sessionId)) {
-                System.out.println("  " + event.seq() + " " + event.type() + " " + summarize(event));
-                if (event.type() == io.majo.harness.session.SessionEventType.ASSISTANT_MESSAGE
-                        && !event.fields().containsKey(SessionEvent.FIELD_TOOL_CALLS)) {
-                    answer = event.content();
-                }
-            }
-            System.out.println("answer: " + answer);
-        }
+        TranscriptPrinter.print(sessions, System.out);
         boot.dispose();
     }
 
-    private static String loadProfile(String path) throws IOException {
+    static String loadProfile(String path) throws IOException {
         try (InputStream stream = HeadlessMain.class.getClassLoader().getResourceAsStream(path)) {
             if (stream == null) {
                 throw new IOException("profile not found on classpath: " + path);
             }
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
-    }
-
-    private static String summarize(SessionEvent event) {
-        if (event.content() != null) {
-            return "content=\"" + event.content() + "\"";
-        }
-        if (event.fields().containsKey(SessionEvent.FIELD_TOOL_CALLS)) {
-            return "toolCalls=" + event.fields().get(SessionEvent.FIELD_TOOL_CALLS);
-        }
-        if (event.type() == io.majo.harness.session.SessionEventType.REQUEST_HEADER) {
-            return "model=\"" + event.fields().get(SessionEvent.FIELD_MODEL)
-                    + "\" tools=" + event.fields().get(SessionEvent.FIELD_TOOL_NAMES)
-                    + " systemPrompt=\"" + event.fields().get(SessionEvent.FIELD_SYSTEM_PROMPT) + "\"";
-        }
-        return event.fields().toString();
     }
 
     private HeadlessMain() {}

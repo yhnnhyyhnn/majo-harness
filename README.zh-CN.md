@@ -29,6 +29,7 @@
 | `majo-title` | 会话标题：`ctx.sessionTitle` 持有唯一标题 provider（出厂 heuristic），由会话日志派生 | `ctx.sessionTitle` | `session-title`、`session-title-heuristic` |
 | `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
 | `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
+| `majo-cli` | 可执行 dsh 风格启动器（shaded jar）：`majo "task" [--profile …]`，打印转写与退出码 | — | — |
 
 文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md)
 
@@ -47,19 +48,14 @@
 - Maven 3.x
 - 本地 Maven 仓库中存在 `io.jcordis:jcordis-all:1.0.0`
 
-## 快速开始
+## 快速开始（像 CLI 一样启动，对标 dsh）
 
 ```bash
-mvn test                     # 单元 + 集成测试（mock 模型，无需网络）
-
-mvn -DskipTests install      # 安装模块，供下面的 demo 解析依赖
-mvn -pl majo-headless dependency:build-classpath -Dmdep.outputFile=cp.txt
-java -cp "majo-headless/target/classes;$(cat majo-headless/cp.txt)" \
-     io.majo.harness.headless.HeadlessMain "1+2"
-rm majo-headless/cp.txt
+mvn -DskipTests install                       # 构建并安装反应堆
+java -jar majo-cli/target/majo-cli-0.1.0-SNAPSHOT.jar "1+2"
 ```
 
-启动后打印插件树记录的会话转写：
+启动器加载内置 `headless` profile（全部出厂插件经 profile 行组合）并运行一次任务——无需 API key，确定性 mock 模型驱动工具轮次：
 
 ```text
 == session 0e75e45e-... ==
@@ -74,7 +70,13 @@ rm majo-headless/cp.txt
 answer: calculated: 3
 ```
 
-同样的运行完全由 `majo-headless/src/main/resources/headless.yml` 驱动：每一行都是插件 entry，loader 在其注入依赖就绪后按依赖顺序激活——没有任何应用代码把 loop 拼起来。注意其中的 `REQUEST_HEADER` 行：每次模型请求都会把 model、system prompt 与所提供的工具名持久化，因此请求组合始终可从日志重建。
+```text
+majo --profiles                                # 列出内置 profile
+majo --profile ./my-profile.yml "task"        # 任何由内置行组成的 YAML
+majo "task"                                   # = --profile headless
+```
+
+`run` 行在缺失时自动追加；把模型 provider 换成你自己的端点只需复制 profile 并修改（见下）。`REQUEST_HEADER` 行持久记录每次请求的 model/system prompt/工具名。开发期也可用 `mvn -pl majo-headless exec:java -Dexec.args="1+2"`。
 
 ## 自带模型端点
 
