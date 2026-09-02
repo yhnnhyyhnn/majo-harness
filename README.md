@@ -24,12 +24,14 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-interaction` | interaction capability seam: `ctx.interactions` approval & ask-user over registered handlers (auto/deny/canned; queue for humans), `tool-approval` gate plugin on `tools/pre-execute` | `ctx.interactions` | `interactions`, `tool-approval` |
 | `majo-skill` | skill capability seam: `ctx.skills` aggregates skill providers (local `SKILL.md` directory provider shipped), `list_skills`/`load_skill` tool consumers | `ctx.skills` (+ `ctx.tools`) | `skills`, `skill-files`, `skill-tools` |
 | `majo-subagent` | subagent capability seam: `ctx.subagent` delegates a task to a child session driven by the agent loop (depth-guarded), `delegate_task` tool consumer | `ctx.subagent` (+ `ctx.tools`) | `subagent`, `subagent-tools` |
+| `majo-settings` | user settings: `ctx.settings` key/value store with optional JSON file provider | `ctx.settings` | `settings` |
+| `majo-credentials` | credentials: `ctx.credentials` resolves secrets through providers (env + `.env` file shipped), values never logged | `ctx.credentials` | `credentials` |
 | `majo-boot` | profile-to-loader glue: ships plugins as builtins and boots an entry tree from YAML profiles | — | — |
 | `majo-headless` | one-shot headless app: sample `calc` tool, `run` entry, `headless.yml` profile, e2e tests | — | `calc`, `run` |
 
 Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md)
 
-The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `interactions`, `tool-approval`, `skills`, `skill-files`, `skill-tools`, `subagent`, `subagent-tools`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
+The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `interactions`, `tool-approval`, `skills`, `skill-files`, `skill-tools`, `subagent`, `subagent-tools`, `settings`, `credentials`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
 
 ```yaml
 - id: fs

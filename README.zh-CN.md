@@ -24,12 +24,14 @@
 | `majo-interaction` | 交互能力接缝：`ctx.interactions` 审批与 ask-user，经由注册 handler（auto/deny/canned；queue 供真人），`tool-approval` 门禁插件挂在 `tools/pre-execute` | `ctx.interactions` | `interactions`、`tool-approval` |
 | `majo-skill` | 技能能力接缝：`ctx.skills` 聚合技能 provider（出厂为本地 `SKILL.md` 目录 provider），`list_skills`/`load_skill` 工具消费者 | `ctx.skills`（+ `ctx.tools`） | `skills`、`skill-files`、`skill-tools` |
 | `majo-subagent` | 子代理能力接缝：`ctx.subagent` 把任务委派给由 agent loop 驱动的子会话（深度受限），`delegate_task` 工具消费者 | `ctx.subagent`（+ `ctx.tools`） | `subagent`、`subagent-tools` |
+| `majo-settings` | 用户设置：`ctx.settings` 键值存储，可选 JSON 文件 provider | `ctx.settings` | `settings` |
+| `majo-credentials` | 凭据：`ctx.credentials` 经 provider（出厂 env + `.env` 文件）解析密钥，值永不入日志 | `ctx.credentials` | `credentials` |
 | `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
 | `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
 
 文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md)
 
-出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`shell`、`shell-tools`、`sandbox`、`interactions`、`tool-approval`、`skills`、`skill-files`、`skill-tools`、`subagent`、`subagent-tools`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
+出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`shell`、`shell-tools`、`sandbox`、`interactions`、`tool-approval`、`skills`、`skill-files`、`skill-tools`、`subagent`、`subagent-tools`、`settings`、`credentials`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
 
 ```yaml
 - id: fs

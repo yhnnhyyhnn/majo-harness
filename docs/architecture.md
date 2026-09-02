@@ -21,6 +21,8 @@ majo-harness is an **all-plugin agent harness**: every product capability is a p
 | interaction capability (dsh `interaction/`) | approval/ask-user handlers + tool gate | `majo-interaction` (`ctx.interactions`, `tool-approval`) |
 | skill capability (dsh `skill/`) | provider registry + local provider + catalog/loader tools | `majo-skill` (`ctx.skills`, `list_skills`/`load_skill`) |
 | subagent capability (dsh `subagent/`) | child-session delegation + depth guard | `majo-subagent` (`ctx.subagent`, `delegate_task`) |
+| settings capability (dsh `settings/`) | user-settings store + file provider | `majo-settings` (`ctx.settings`) |
+| credentials capability (dsh `credentials/`) | secret resolution + env/.env provider | `majo-credentials` (`ctx.credentials`) |
 | package `core/agent-loop` — default driver | plugin with declared injections | `majo-agent-loop` (`ctx.agentLoop`) |
 | package `boot/app-boot` — profile glue | loader builtins registration | `majo-boot` |
 | shipped profiles (`web`, `headless`, …) | profile files + app plugins | `majo-headless` + `headless.yml` |
@@ -40,6 +42,8 @@ Interaction gates operations behind humans: `InteractionService` (`ctx.interacti
 Skills give the model reusable procedures: `SkillRegistry` (`ctx.skills`) aggregates `SkillProvider` contributions — the shipped `skill-files` provider scans directories of `SKILL.md` files (front-matter descriptions, body instructions) — and rejects name collisions across providers loudly. `list_skills`/`load_skill` browse the catalog and load instructions as tool results; wiring loaded skills into the prompt assembly arrives with the system-prompt seam.
 
 Subagents delegate within the same tree: `SubagentService` (`ctx.subagent`) opens a fresh child session and drives it through the same `ctx.agentLoop`, returning the child's final text (a child agent is a new session with isolated history, not a second loop). Nesting depth is config-guarded (`maxDepth`, default 3) and exceeding it fails loudly; the `delegate_task` tool exposes delegation to the model.
+
+Settings and credentials give hosts and providers their configuration without hardcoding: `SettingsService` (`ctx.settings`) is a validated string key/value store whose optional `path` enables the JSON file provider (write-through after every set, atomic replace, loud on corrupt files). `CredentialsService` (`ctx.credentials`) resolves secrets through registered `CredentialProvider`s in order; the shipped env provider merges `.env` (KEY=VALUE, comments, quotes) under real environment variables. Credential values never enter exceptions or messages.
 
 There is deliberately **no privileged core module** in M1: like dsh's independent packages under `packages/core/`, each capability owns its interfaces next to its implementation and plugin, and consumers (the agent loop, the boot) depend on those modules only through their service seams. If a neutral "API spine" module ever becomes justified (typed event dictionary shared across modules), extract it the same way.
 
@@ -70,6 +74,9 @@ majo-skill/       Skill / SkillProvider seam / FileSkillProvider (SKILL.md dirs)
                   / SkillRegistry / SkillPlugin / FileSkillPlugin
                   / ListSkillsTool / LoadSkillTool / SkillToolsPlugin
 majo-subagent/    SubagentService / SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
+majo-settings/    SettingsService / SettingsPlugin (JSON file provider)
+majo-credentials/ CredentialProvider seam + EnvCredentialProvider (.env parse)
+                  / CredentialsService / CredentialsPlugin
 majo-util/        Disposables (composite disposer factory)
 majo-boot/        HarnessBoot (builtins registration, profile parsing, launch)
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
@@ -91,6 +98,8 @@ docs/             this document (EN + zh-CN)
 | `interactions` | `interactions` | `InteractionService` | routes approvals and questions to registered handlers |
 | `skills` | `skills` | `SkillRegistry` | aggregates skill providers; load by name |
 | `subagent` | `subagent` | `SubagentService` | delegates tasks to depth-guarded child sessions |
+| `settings` | `settings` | `SettingsService` | validated key/value store (JSON file-backed when configured) |
+| `credentials` | `credentials` | `CredentialsService` | resolves secrets through registered providers |
 | `fs` | `fs` | `FileSystemService` | text read/write/glob through `fs/*` waterfalls |
 
 | event | kind | args | semantics |
@@ -196,5 +205,5 @@ Guiding rule: a new capability seam keeps this shape — Service (Facade) + Prov
 
 - **M1 (done)** — all-plugin vertical slice: profile-driven boot, session log, tools pipeline, mock LLM, agent loop, removal cascade. No network.
 - **M2 (done)** — model-provider swaps behind `ctx.llm` (generic OpenAI-compatible provider `majo-provider-openai`, offline wire-tested against a local HTTP stub); durable request headers (`REQUEST_HEADER` events log model/system prompt/tool names per step, closing the M1 composition boundary); file session store default directory (`<user.home>/.majo-harness/sessions`) with memory stores for hermetic tests.
-- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem, typed session projections, subprocess, shell, sandbox, interaction/approval, skills, and subagents (`majo-subagent`). Next: settings/credentials, session titles.
+- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem, typed session projections, subprocess, shell, sandbox, interaction/approval, skills, subagents, settings/credentials. Next: session titles (and a system-prompt seam for prompt-section assembly).
 - **M4** — packaging & distribution: plugin jars loaded via jcordis loader SPI/HMR, profile/bundle layering and patches on top of `HarnessBoot`, CLI and SDK surfaces.

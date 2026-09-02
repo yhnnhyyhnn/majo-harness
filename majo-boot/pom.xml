@@ -76,6 +76,16 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-settings</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-credentials</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>io.jcordis</groupId>
       <artifactId>jcordis-all</artifactId>
     </dependency>

@@ -391,6 +391,37 @@ class HeadlessIntegrationTest {
     }
 
     @Test
+    void settingsAndCredentialsRowsBootFromProfile(@TempDir java.nio.file.Path dir) throws IOException {
+        java.nio.file.Path envFile = dir.resolve(".env");
+        java.nio.file.Files.writeString(envFile, "API_KEY=local-secret\n");
+        String profile = """
+                - id: settings
+                  name: settings
+                  config:
+                    path: %s
+                - id: credentials
+                  name: credentials
+                  config:
+                    envFile: %s
+                    sourceEnv: false
+                """.formatted(
+                dir.resolve("settings.json").toString().replace("\\", "\\\\"),
+                envFile.toString().replace("\\", "\\\\"));
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root);
+        boot.launch(boot.readProfileText(profile, "settings.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SETTINGS).state()).isEqualTo(FiberState.ACTIVE);
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_CREDENTIALS).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.settings.SettingsService settings = boot.service("settings");
+        settings.set("ui.language", "zh");
+        assertThat(settings.get("ui.language")).isEqualTo("zh");
+        io.majo.harness.credentials.CredentialsService credentials = boot.service("credentials");
+        assertThat(credentials.resolve("API_KEY")).isEqualTo("local-secret");
+        boot.dispose();
+    }
+
+    @Test
     void profileNamingAnUnknownPluginFailsLoud() {
         Context root = Context.create();
         HarnessBoot boot = new HarnessBoot(root);

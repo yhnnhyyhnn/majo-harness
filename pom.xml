@@ -31,6 +31,8 @@
     <module>majo-interaction</module>
     <module>majo-skill</module>
     <module>majo-subagent</module>
+    <module>majo-settings</module>
+    <module>majo-credentials</module>
     <module>majo-shell</module>
     <module>majo-subprocess</module>
     <module>majo-boot</module>
