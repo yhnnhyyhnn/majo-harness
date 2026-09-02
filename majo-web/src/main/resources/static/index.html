@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
+<noscript><div class="noscript">majo needs JavaScript — please enable it to use the chat.</div></noscript>
+<div id="banner" hidden role="alert"></div>
 <aside id="sidebar">
   <header class="brand"><strong>majo</strong><span>harness</span></header>
   <button id="new-chat" type="button">+ New chat</button>
@@ -18,11 +20,13 @@
     <span id="model-badge" class="badge">model: mock</span>
   </header>
   <ol id="conversation" aria-live="polite"></ol>
+  <div id="empty-hint">Type a task below, e.g. <code>1+2</code> or <code>Please summarize…</code></div>
   <form id="composer">
-    <textarea id="input" rows="1" placeholder="Type a task… (Enter to send, Shift+Enter for a new line)"></textarea>
+    <textarea id="input" rows="1" placeholder="Type a task… (Enter to send, Shift+Enter for a new line)" autofocus></textarea>
     <button id="send" type="submit">Send</button>
   </form>
-  <div id="busy" hidden>running…</div>
+  <div id="busy" hidden><span class="spinner"></span> running…</div>
+  <footer id="status">connecting…</footer>
 </main>
 <script src="/app.js"></script>
 </body>

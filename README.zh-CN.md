@@ -98,6 +98,8 @@ curl http://localhost:8787/api/sessions
 curl http://localhost:8787/api/sessions/<id>
 ```
 
+排障：若页面一片空白，最常见原因是 **8787 被旧实例占用**——新进程会以清晰的 “port … is already in use” 退出，而浏览器仍在访问旧进程。停掉旧的 `java` 进程或换端口（`--port 9000`），再强制刷新（Ctrl+F5）。后端不可达时页面显示可见的 “offline” 横幅，而不是静默空白。
+
 ## 自带模型端点
 
 运行 harness 不需要任何 key：确定性 mock 无需网络；`llm-openai` provider 按 OpenAI `chat/completions` 线协议与你选择的任何端点通信（LM Studio、Ollama、vLLM、One-API 类网关，或带你自己 key 的厂商）。替换模型 provider 只需改 profile——把 mock 两行换成 provider 行，并把 `llm.defaultModel` 指向其注册名：

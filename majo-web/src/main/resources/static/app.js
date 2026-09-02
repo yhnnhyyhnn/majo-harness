@@ -1,23 +1,73 @@
 "use strict";
 
-const listEl = document.getElementById("session-list");
-const titleEl = document.getElementById("current-title");
-const convEl = document.getElementById("conversation");
-const formEl = document.getElementById("composer");
-const inputEl = document.getElementById("input");
-const sendBtn = document.getElementById("send");
-const busyEl = document.getElementById("busy");
+const $ = (id) => document.getElementById(id);
+const listEl = $("session-list");
+const titleEl = $("current-title");
+const convEl = $("conversation");
+const formEl = $("composer");
+const inputEl = $("input");
+const sendBtn = $("send");
+const busyEl = $("busy");
+const statusEl = $("status");
+const bannerEl = $("banner");
+const emptyHintEl = $("empty-hint");
 
 let currentSessionId = null;
+let typingRow = null;
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+function showBanner(message) {
+  bannerEl.hidden = false;
+  bannerEl.textContent = message;
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.textContent = "Retry";
+  retry.addEventListener("click", () => {
+    bannerEl.hidden = true;
+    statusEl.className = "";
+    statusEl.textContent = "connecting…";
+    refresh().catch(() => {});
+  });
+  bannerEl.appendChild(retry);
+}
+
+function hideEmptyHint() {
+  emptyHintEl.style.display = "none";
+}
+
+function refreshEmptyHint() {
+  emptyHintEl.style.display =
+    convEl.children.length === 0 ? "block" : "none";
+}
+
+function startTyping() {
+  stopTyping();
+  typingRow = document.createElement("li");
+  typingRow.className = "tool-line";
+  typingRow.textContent = "…";
+  convEl.appendChild(typingRow);
+  convEl.scrollTop = convEl.scrollHeight;
+}
+
+function stopTyping() {
+  if (typingRow) {
+    typingRow.remove();
+    typingRow = null;
+  }
+}
+
 async function api(path, options) {
   const response = await fetch(path, options);
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("bad response from server (HTTP " + response.status + ")");
+  }
+  if (!response.ok) throw new Error(body.error || "HTTP " + response.status);
   return body;
 }
 
@@ -35,17 +85,20 @@ function bubble(text, className) {
   convEl.appendChild(li);
 }
 
-function metaLine(html) {
+function metaLine(text) {
   const li = document.createElement("li");
   li.className = "meta-line";
-  li.innerHTML = html;
+  li.textContent = text;
   convEl.appendChild(li);
 }
 
 function toolLine(html) {
   const li = document.createElement("li");
   li.className = "tool-line";
-  li.innerHTML = html;
+  const chip = document.createElement("span");
+  chip.className = "chip";
+  chip.innerHTML = html;
+  li.appendChild(chip);
   convEl.appendChild(li);
 }
 
@@ -63,40 +116,48 @@ function renderEvents(events) {
       case "ASSISTANT_MESSAGE":
         if (event.toolCalls && event.toolCalls.length) {
           for (const call of event.toolCalls) {
-            metaLine('assistant requested tool <b style="color:var(--text)">'
-              + esc(call.name) + "</b>");
-            toolLine('<span class="chip">' + esc(call.arguments || "{}") + "</span>");
+            metaLine("assistant requested tool " + call.name);
+            toolLine(esc(call.arguments || "{}"));
           }
         } else if (event.content != null) {
           bubble(event.content);
         }
         break;
       case "TOOL_RESULT":
-        toolLine('<span class="chip"><span class="dot ' + (event.ok ? "ok" : "err") + '"></span>'
-          + esc(event.toolName) + " → " + esc(event.content ?? "") + "</span>");
+        toolLine('<span class="dot ' + (event.ok ? "ok" : "err") + '"></span>'
+          + esc(event.toolName) + " → " + esc(event.content ?? ""));
         break;
       case "REQUEST_HEADER":
-        metaLine("model " + esc(event.model) + " · tools [" + esc((event.toolNames || []).join(", ")) + "]");
+        metaLine("model " + esc(event.model) + " · tools ["
+          + esc((event.toolNames || []).join(", ")) + "]");
         break;
     }
   }
+  refreshEmptyHint();
   convEl.scrollTop = convEl.scrollHeight;
 }
 
 async function loadSessions() {
   const data = await api("/api/sessions");
   listEl.replaceChildren();
-  for (const session of data.sessions) {
+  const sessions = (data.sessions || []).slice().reverse(); // newest first
+  if (!sessions.length) {
+    const empty = document.createElement("div");
+    empty.className = "meta";
+    empty.textContent = "no sessions yet";
+    listEl.appendChild(empty);
+  }
+  for (const session of sessions) {
     const button = document.createElement("button");
     button.className = "session" + (session.id === currentSessionId ? " active" : "");
     button.type = "button";
-    const title = document.createElement("span");
-    title.className = "title";
-    title.textContent = session.title || "Untitled " + shortId(session.id);
-    const meta = document.createElement("span");
-    meta.className = "meta";
-    meta.textContent = session.eventCount + " events";
-    button.append(title, meta);
+    const t = document.createElement("span");
+    t.className = "title";
+    t.textContent = session.title || "Untitled " + shortId(session.id);
+    const m = document.createElement("span");
+    m.className = "meta";
+    m.textContent = session.eventCount + " events";
+    button.append(t, m);
     button.addEventListener("click", () => selectSession(session.id));
     listEl.appendChild(button);
   }
@@ -107,13 +168,14 @@ async function selectSession(sessionId) {
   const data = await api("/api/sessions/" + encodeURIComponent(sessionId));
   titleEl.textContent = data.title || "Untitled " + shortId(sessionId);
   renderEvents(data.events);
-  loadSessions();
+  await loadSessions();
 }
 
 function setBusy(busy) {
   busyEl.hidden = !busy;
   sendBtn.disabled = busy;
   inputEl.disabled = busy;
+  if (busy) startTyping();
 }
 
 async function sendTask() {
@@ -132,13 +194,43 @@ async function sendTask() {
     currentSessionId = data.sessionId;
     titleEl.textContent = "…";
     renderEvents(data.events);
-    loadSessions();
+    hideEmptyHint();
+    await loadSessions();
+    titleEl.textContent = "New chat";
     inputEl.value = "";
   } catch (error) {
     bubble("error: " + error.message, "user");
   } finally {
+    stopTyping();
     setBusy(false);
     inputEl.focus();
+  }
+}
+
+async function refresh() {
+  try {
+    await loadSessions();
+    statusEl.textContent = "online";
+    statusEl.className = "online";
+    hideEmptyHint();
+    const sessions = await api("/api/sessions");
+    const all = sessions.sessions || [];
+    if (!currentSessionId && all.length) {
+      currentSessionId = all[all.length - 1].id;
+    }
+    if (currentSessionId) {
+      const detail = await api("/api/sessions/" + encodeURIComponent(currentSessionId));
+      titleEl.textContent = detail.title || "New chat";
+      renderEvents(detail.events);
+    } else {
+      titleEl.textContent = "New chat";
+      renderEvents([]);
+    }
+  } catch (error) {
+    statusEl.textContent = "offline — cannot reach the harness backend";
+    statusEl.className = "error";
+    showBanner("Cannot reach the harness backend: " + error.message);
+    throw error;
   }
 }
 
@@ -154,14 +246,12 @@ inputEl.addEventListener("keydown", (event) => {
   }
 });
 
-document.getElementById("new-chat").addEventListener("click", () => {
+$("new-chat").addEventListener("click", () => {
   currentSessionId = null;
-  titleEl.textContent = "—";
-  convEl.replaceChildren();
-  loadSessions();
+  titleEl.textContent = "New chat";
+  renderEvents([]);
+  loadSessions().catch(() => {});
   inputEl.focus();
 });
 
-loadSessions().catch((error) => {
-  bubble("cannot load sessions: " + error.message, "user");
-});
+refresh().catch(() => {}); // banner + status already describe the failure

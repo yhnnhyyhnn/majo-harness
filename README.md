@@ -98,6 +98,8 @@ curl http://localhost:8787/api/sessions
 curl http://localhost:8787/api/sessions/<id>
 ```
 
+Troubleshooting: if the page stays blank, an older instance is usually still holding port 8787 — the new process exits with a clear "port … is already in use" message while the browser keeps talking to the stale one. Stop old `java` processes or pick another port (`--port 9000`), then hard-refresh (Ctrl+F5). The page shows a visible "offline" banner instead of failing silently when the backend cannot be reached.
+
 ## Bring your own model endpoint
 
 No key is required to run the harness: the deterministic mock needs no network, and the `llm-openai` provider speaks the OpenAI `chat/completions` wire protocol to any endpoint you choose (LM Studio, Ollama, vLLM, a One-API-style gateway, or a vendor with your own key). Replacing the model provider is a profile edit only — swap the mock rows for the provider rows and point `llm.defaultModel` at the registered name:

@@ -14,6 +14,7 @@ import io.majo.harness.session.SessionService;
 import io.majo.harness.title.SessionTitleService;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -64,7 +65,14 @@ public final class WebMain {
         }
         boot.launch(boot.readProfileText(profileText, hint));
 
-        server = HttpServer.create(new InetSocketAddress(port), 0);
+        try {
+            server = HttpServer.create(new InetSocketAddress(port), 0);
+        } catch (BindException e) {
+            System.err.println("majo-web: port " + port + " is already in use (another instance running?);");
+            System.err.println("  pick a free port, e.g. java -jar majo-web-0.1.0-SNAPSHOT.jar --port 9000");
+            boot.dispose();
+            throw e;
+        }
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.createContext("/", this::route);
         server.start();
