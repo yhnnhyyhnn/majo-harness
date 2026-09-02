@@ -13,6 +13,8 @@ import io.majo.harness.llm.MockLLMPlugin;
 import io.majo.harness.provider.openai.OpenAiProviderPlugin;
 import io.majo.harness.session.SessionPlugin;
 import io.majo.harness.session.SessionProjectionsPlugin;
+import io.majo.harness.interaction.InteractionPlugin;
+import io.majo.harness.interaction.ToolApprovalPlugin;
 import io.majo.harness.sandbox.SandboxPlugin;
 import io.majo.harness.shell.ShellPlugin;
 import io.majo.harness.shell.ShellToolPlugin;
@@ -49,6 +51,8 @@ public final class HarnessBoot {
     public static final String PLUGIN_SHELL = ShellPlugin.NAME;
     public static final String PLUGIN_SHELL_TOOLS = ShellToolPlugin.NAME;
     public static final String PLUGIN_SANDBOX = SandboxPlugin.NAME;
+    public static final String PLUGIN_INTERACTIONS = InteractionPlugin.NAME;
+    public static final String PLUGIN_TOOL_APPROVAL = ToolApprovalPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
 
     private final Context ctx;
@@ -74,6 +78,8 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_SHELL, new ShellPlugin());
         loader.builtin(PLUGIN_SHELL_TOOLS, new ShellToolPlugin());
         loader.builtin(PLUGIN_SANDBOX, new SandboxPlugin());
+        loader.builtin(PLUGIN_INTERACTIONS, new InteractionPlugin());
+        loader.builtin(PLUGIN_TOOL_APPROVAL, new ToolApprovalPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
     }
 

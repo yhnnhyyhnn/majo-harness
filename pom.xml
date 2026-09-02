@@ -28,6 +28,7 @@
     <module>majo-provider-openai</module>
     <module>majo-fs</module>
     <module>majo-sandbox</module>
+    <module>majo-interaction</module>
     <module>majo-shell</module>
     <module>majo-subprocess</module>
     <module>majo-boot</module>

@@ -21,12 +21,13 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-subprocess` | subprocess capability seam: `ctx.subprocess` over a swappable `SubprocessProvider` (argv only, no shell), `subprocess/pre-execute` policy event, `run_command` tool consumer | `ctx.subprocess` (+ `ctx.tools`) | `subprocess`, `subprocess-tools` |
 | `majo-shell` | shell capability seam over subprocess: `ctx.shell` runs scripts via Strategy-selected shell families through a `ShellProvider` (Adapter over `ctx.subprocess`), `shell/pre-execute` policy event, `run_shell` tool consumer | `ctx.shell` (+ `ctx.tools`, `ctx.subprocess`) | `shell`, `shell-tools` |
 | `majo-sandbox` | sandbox capability seam: `ctx.sandbox` wraps argv before spawning via swappable providers (identity default; Linux bwrap assembled), `sandbox/pre-confine` policy event; shell consumers apply it with `confine: true` | `ctx.sandbox` | `sandbox` |
+| `majo-interaction` | interaction capability seam: `ctx.interactions` approval & ask-user over registered handlers (auto/deny/canned; queue for humans), `tool-approval` gate plugin on `tools/pre-execute` | `ctx.interactions` | `interactions`, `tool-approval` |
 | `majo-boot` | profile-to-loader glue: ships plugins as builtins and boots an entry tree from YAML profiles | — | — |
 | `majo-headless` | one-shot headless app: sample `calc` tool, `run` entry, `headless.yml` profile, e2e tests | — | `calc`, `run` |
 
 Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md)
 
-The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
+The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `interactions`, `tool-approval`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
 
 ```yaml
 - id: fs

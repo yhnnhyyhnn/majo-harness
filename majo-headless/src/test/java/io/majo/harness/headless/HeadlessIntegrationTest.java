@@ -298,6 +298,30 @@ class HeadlessIntegrationTest {
     }
 
     @Test
+    void interactionRowsBootFromProfile() throws IOException {
+        String profile = """
+                - id: interactions
+                  name: interactions
+                  config:
+                    approval: auto
+                - id: tool-approval
+                  name: tool-approval
+                  config:
+                    tools: [demo]
+                """;
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root);
+        boot.launch(boot.readProfileText(profile, "interaction.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_INTERACTIONS).state()).isEqualTo(FiberState.ACTIVE);
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_TOOL_APPROVAL).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.interaction.InteractionService interactions = boot.service("interactions");
+        assertThat(interactions.approve(io.majo.harness.interaction.ApprovalRequest.of("demo", "")))
+                .isEqualTo(io.majo.harness.interaction.ApprovalDecision.APPROVE);
+        boot.dispose();
+    }
+
+    @Test
     void profileNamingAnUnknownPluginFailsLoud() {
         Context root = Context.create();
         HarnessBoot boot = new HarnessBoot(root);

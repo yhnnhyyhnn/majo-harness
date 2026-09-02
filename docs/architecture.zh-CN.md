@@ -18,6 +18,7 @@ majo-harness 是一个**全插件式 agent harness**：每一项产品能力都�
 | subprocess 能力（dsh `subprocess/`） | 服务 + waterfall 策略事件 + 工具 | `majo-subprocess`（`ctx.subprocess`，纯 argv，`run_command` 工具） |
 | shell 能力（dsh `shell/`） | 构建在 subprocess 之上的服务 + 策略选择的家族 | `majo-shell`（`ctx.shell`、`run_shell` 工具） |
 | sandbox 能力（dsh `sandbox/`） | argv 包裹 provider 接缝 + 策略 waterfall | `majo-sandbox`（`ctx.sandbox`、identity/bwrap provider） |
+| interaction 能力（dsh `interaction/`） | 审批/ask-user handler + 工具门禁 | `majo-interaction`（`ctx.interactions`、`tool-approval`） |
 | 包 `core/agent-loop` — 默认驱动器 | 声明注入的插件 | `majo-agent-loop`（`ctx.agentLoop`） |
 | 包 `boot/app-boot` — profile 胶水 | loader builtins 注册 | `majo-boot` |
 | 内置 profile（`web`、`headless`、…） | profile 文件 + 应用插件 | `majo-headless` + `headless.yml` |
@@ -31,6 +32,8 @@ subprocess 是第二个进程世界接缝：`SubprocessService`（`ctx.subproces
 shell 叠在 subprocess 之上：`ShellService`（`ctx.shell`）是运行命令行脚本的门面，穿过 `shell/pre-execute`；`ShellLauncher` 策略（由 `ShellFamily` 工厂选择 bash/PowerShell/cmd，平台默认、配置可覆盖）把脚本转成 argv；`LocalShellProvider` 把 argv 适配到 `ctx.subprocess`；`run_shell` 是工具消费者。命令行语法只在此层出现。
 
 sandbox 包裹进程 spawn：`SandboxService`（`ctx.sandbox`）经可换 `SandboxProvider`（默认 identity——真正的隔离是 provider 替换；Linux 可装配 bwrap argv）在 `sandbox/pre-confine` waterfall 后包裹 argv。spawn 消费者应用该包裹：shell provider 在其行设置 `confine: true` 时于 spawn 前包裹 argv（需要同时挂 sandbox 行）。隔离永不静默降级：未知 provider、bwrap 选项为空、或 `confine: true` 背后缺 sandbox 行，一律 loud 失败。
+
+交互把操作挡在真人之后：`InteractionService`（`ctx.interactions`）把审批与 ask-user 请求按序路由到注册的 `InteractionHandler` 策略；handler 默认弃权，未获审批即拒绝、无人回答的问题 loud 失败（fail-safe）。出厂 handler 模式：审批 `auto`/`deny`，回答 `canned:`/none；`QueueingInteractionHandler` 提供面向 UI 的交互通道。`tool-approval` 插件是挂在 `tools/pre-execute` 上的 Chain-of-Responsibility 监听：受管工具在 `ctx.interactions` 后暂停，仅获批后让权执行。
 
 M1 **刻意不设特权核心模块**：与 dsh 在 `packages/core/` 下彼此独立的包一样，每个能力在自己的模块里同时拥有接口、实现与插件；消费者（agent loop、boot）只通过服务接缝依赖这些模块。若未来确实需要一个中立的"API 主轴"模块（例如跨模块共享的 typed 事件字典），同样以抽模块的方式引入。
 
@@ -54,6 +57,9 @@ majo-shell/       ShellCommand / ShellResult / ShellProvider / LocalShellProvide
                   / ShellLauncher + ShellFamily（Strategy/Factory）/ ShellService / RunShellTool
 majo-sandbox/     SandboxProvider（Strategy）+ IdentitySandboxProvider / BwrapSandboxProvider
                   / SandboxService / SandboxPlugin（Factory）
+majo-interaction/ ApprovalRequest/Question/ApprovalDecision / InteractionHandler（Strategy）
+                  / InteractionService / InteractionPlugin / QueueingInteractionHandler
+                  / ToolApprovalPlugin（tools/pre-execute 上的 tool-approval 门禁）
 majo-util/        Disposables（组合 disposer 工厂）
 majo-boot/        HarnessBoot（builtins 注册、profile 解析、launch）
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
@@ -72,6 +78,7 @@ docs/             本文档（中英双语）
 | `subprocess` | `subprocess` | `SubprocessService` | 经 `subprocess/pre-execute` 运行 argv 命令 |
 | `shell` | `shell` | `ShellService` | 经 `shell/pre-execute` 用策略 shell 运行脚本 |
 | `sandbox` | `sandbox` | `SandboxService` | spawn 前经 `sandbox/pre-confine` 包裹 argv |
+| `interactions` | `interactions` | `InteractionService` | 把审批与问题路由到注册 handler |
 | `fs` | `fs` | `FileSystemService` | 经 `fs/*` waterfall 做文本读/写/glob |
 
 | 事件 | 类型 | 参数 | 语义 |
@@ -85,6 +92,8 @@ docs/             本文档（中英双语）
 | `subprocess/pre-execute` | waterfall | `(Command)` | 每次运行前的策略；抛 `SubprocessException` 即拒绝 |
 | `shell/pre-execute` | waterfall | `(ShellCommand)` | 每次运行前的策略；抛 `ShellException` 即拒绝 |
 | `sandbox/pre-confine` | waterfall | `(List<String> argv)` | 包裹前的策略；抛 `SandboxException` 即拒绝 |
+| `interaction/approval-request` / `interaction/approval` | emit | `(ApprovalRequest)` / `(ApprovalRequest, ApprovalDecision)` | 审批进入与决议，供实时观察者 |
+| `interaction/question` / `interaction/answer` | emit | `(Question)` / `(Question, String)` | ask-user 进入与答案 |
 
 waterfall 监听器必须调用 `next()` 让权（jcordis 约定）。事件即扩展点：策略、审批、遥测、护栏插件都在这里挂载，无需 import agent loop。
 
@@ -175,5 +184,5 @@ TURN_END
 
 - **M1（已完成）** — 全插件垂直切片：profile 驱动启动、会话日志、工具管道、mock LLM、agent loop、删除级联。全程无网络。
 - **M2（已完成）** — `ctx.llm` 之后的模型 provider 可换（通用 OpenAI-compatible provider `majo-provider-openai`，本地 HTTP stub 离线 wire 测试）；持久请求头（每步以 `REQUEST_HEADER` 事件记录 model/system prompt/工具名，补齐 M1 的组合边界）；文件会话存储默认目录（`<user.home>/.majo-harness/sessions`），hermetic 测试仍用内存存储。
-- **M3（进行中）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。已完成：文件系统（`majo-fs`）、typed 会话投影（`TypedSessionEvent` + `ctx.sessionProjections`，含 agent-loop 的 `turnSummary` 单元）、subprocess（`majo-subprocess`）、shell（叠在 subprocess 之上的 `majo-shell`）、sandbox（`majo-sandbox`，shell 消费者在 `confine: true` 时包裹 argv）。后续：审批/交互（审批请求 + ask-user）、skills、subagent、settings/credentials、会话标题。
+- **M3（进行中）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。已完成：文件系统（`majo-fs`）、typed 会话投影、subprocess、shell、sandbox、交互/审批（`majo-interaction`，含 `tool-approval` 门禁）。后续：skills、subagent、settings/credentials、会话标题。
 - **M4** — 打包与分发：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、CLI 与 SDK 面。
