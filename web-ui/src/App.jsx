@@ -253,6 +253,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [offline, setOffline] = useState(false);
   const [live, setLive] = useState(null);
+  const [approvals, setApprovals] = useState([]);
+  const [question, setQuestion] = useState(null);
+  const [qInput, setQInput] = useState("");
   const sourceRef = useRef(null);
 
   const loadModel = useCallback(async () => {
@@ -318,16 +321,48 @@ export default function App() {
     loadModel();
   }, [refresh, loadModel]);
 
+  const push = (event) => setEvents((prev) => [...prev, event]);
+
   const select = async (id) => {
     closeStream();
     setSessionId(id);
     const detail = await api("/api/sessions/" + encodeURIComponent(id));
     setTitle(detail.title || "New chat");
     setEvents(detail.events || []);
+    setApprovals([]);
+    setQuestion(null);
     loadSessions();
   };
 
-  const push = (event) => setEvents((prev) => [...prev, event]);
+  const decide = async (id, granted) => {
+    try {
+      await api("/api/approvals/" + encodeURIComponent(id), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision: granted ? "allow" : "reject" }),
+      });
+    } catch (error) {
+      console.error("approval decision failed", error);
+    }
+    setApprovals((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const answerAsk = async () => {
+    if (!question) return;
+    const id = question.id;
+    try {
+      await api("/api/questions/" + encodeURIComponent(id), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answer: qInput }),
+      });
+    } catch (error) {
+      console.error("answer failed", error);
+    }
+    setQuestion(null);
+    setQInput("");
+  };
+
 
   const send = async (formEvent) => {
     formEvent.preventDefault();
@@ -367,9 +402,19 @@ export default function App() {
       es.addEventListener("fail", (e) => {
         const frame = JSON.parse(e.data);
         setLive(null);
+        setApprovals([]);
+        setQuestion(null);
         push({ seq: 1e12 + 1, kind: "ASSISTANT_MESSAGE", content: "error: " + frame.message });
         closeStream();
         setBusy(false);
+      });
+      es.addEventListener("approval", (e) => {
+        const frame = JSON.parse(e.data);
+        setApprovals((prev) => [...prev, frame]);
+      });
+      es.addEventListener("question", (e) => {
+        const frame = JSON.parse(e.data);
+        setQuestion(frame);
       });
       es.onerror = () => {
         if (sourceRef.current === es) {
@@ -440,6 +485,41 @@ export default function App() {
           </label>
         </header>
         <ChatView events={events} live={busy ? live : null} />
+        {(approvals.length > 0 || question) && (
+          <div id="approval-rail">
+            {approvals.map((approval) => (
+              <div className="approval-card" key={approval.id}>
+                <div className="approval-head"><span className="dot pending" /> waiting for approval</div>
+                <div className="approval-body">{approval.summary}</div>
+                <div className="approval-actions">
+                  <button type="button" onClick={() => decide(approval.id, false)}>Reject</button>
+                  <button type="button" className="primary" onClick={() => decide(approval.id, true)}>Allow once</button>
+                </div>
+              </div>
+            ))}
+            {question && (
+              <div className="approval-card question">
+                <div className="approval-head"><span className="dot pending" /> the agent asks</div>
+                <div className="approval-body">{question.text}</div>
+                <form
+                  className="question-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    answerAsk();
+                  }}
+                >
+                  <input
+                    value={qInput}
+                    onChange={(e) => setQInput(e.target.value)}
+                    placeholder="your answer…"
+                    autoFocus
+                  />
+                  <button type="submit">Send</button>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
         <form id="composer" onSubmit={send}>
           <textarea
             id="input"

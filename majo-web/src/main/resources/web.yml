@@ -34,5 +34,13 @@
   name: session-title
 - id: session-title-heuristic
   name: session-title-heuristic
+- id: interactions
+  name: interactions
+  config:
+    approval: deny
+- id: tool-approval
+  name: tool-approval
+  config:
+    tools: [calc]
 - id: calc
   name: calc

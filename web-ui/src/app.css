@@ -366,3 +366,63 @@ li.message.user { align-self: flex-end; }
   font-family: ui-monospace, Consolas, monospace;
   padding: 2px 8px;
 }
+
+/* approval / ask-user rail (dsh ui-approval style) */
+#approval-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 20px 0;
+}
+
+.approval-card {
+  background: #232a1a;
+  border: 1px solid #55602f;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+  align-self: center;
+  width: 100%;
+}
+
+.approval-card.question { background: #1c2433; border-color: #31497a; }
+
+.approval-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dot.pending { background: #e0b341; }
+
+.approval-body { font-size: 13px; }
+
+.approval-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.approval-actions button, .question-form button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.approval-actions button.primary, .question-form button {
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+}
+
+.question-form { display: flex; gap: 8px; }
+.question-form input {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+}

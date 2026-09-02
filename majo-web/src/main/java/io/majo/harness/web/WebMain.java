@@ -9,6 +9,11 @@ import io.jcordis.core.util.Disposable;
 import io.majo.harness.agent.loop.AgentLoopService;
 import io.majo.harness.boot.HarnessBoot;
 import io.majo.harness.headless.CalculatorToolPlugin;
+import io.majo.harness.interaction.ApprovalDecision;
+import io.majo.harness.interaction.ApprovalRequest;
+import io.majo.harness.interaction.InteractionHandler;
+import io.majo.harness.interaction.InteractionService;
+import io.majo.harness.interaction.Question;
 import io.majo.harness.llm.LLMService;
 import io.majo.harness.session.SessionEvent;
 import io.majo.harness.session.SessionEventType;
@@ -46,6 +51,7 @@ public final class WebMain {
     private final HarnessBoot boot;
     private final HttpServer server;
     private final ReentrantLock turnLock = new ReentrantLock();
+    private final PendingInteractions pending = new PendingInteractions();
 
     public WebMain(int port, String profile) throws IOException {
         this.port = port;
@@ -68,6 +74,10 @@ public final class WebMain {
         }
         boot.launch(boot.readProfileText(profileText, hint));
         restoreModelPreference();
+        InteractionService interactions = boot.ctx().get(InteractionService.NAME);
+        if (interactions != null) {
+            interactions.registerFront("web-ui", pending);
+        }
 
         try {
             server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -94,7 +104,15 @@ public final class WebMain {
     private void route(HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
         try {
-            if ("GET".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
+            if ("POST".equals(exchange.getRequestMethod()) && "/api/approvals".equals(path)) {
+                throw new IllegalArgumentException("missing approval id");
+            } else if ("POST".equals(exchange.getRequestMethod()) && path.startsWith("/api/approvals/")) {
+                json(exchange, 200, decideApproval(exchange, path.substring("/api/approvals/".length())));
+            } else if ("POST".equals(exchange.getRequestMethod()) && "/api/questions".equals(path)) {
+                throw new IllegalArgumentException("missing question id");
+            } else if ("POST".equals(exchange.getRequestMethod()) && path.startsWith("/api/questions/")) {
+                json(exchange, 200, answerQuestion(exchange, path.substring("/api/questions/".length())));
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
                 json(exchange, 200, modelState());
             } else if ("PUT".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
                 json(exchange, 200, setModel(exchange));
@@ -167,6 +185,31 @@ public final class WebMain {
         }
     }
 
+    private Map<String, Object> decideApproval(HttpExchange exchange, String id) throws IOException {
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        Object decision = request.get("decision");
+        boolean granted = "allow".equalsIgnoreCase(String.valueOf(decision));
+        if (!granted && !"reject".equalsIgnoreCase(String.valueOf(decision))) {
+            throw new IllegalArgumentException("decision must be allow or reject");
+        }
+        if (!pending.decideApproval(id, granted)) {
+            throw new IllegalArgumentException("unknown or expired approval " + id);
+        }
+        return Map.of("ok", true);
+    }
+
+    private Map<String, Object> answerQuestion(HttpExchange exchange, String id) throws IOException {
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        Object answer = request.get("answer");
+        if (answer == null) {
+            throw new IllegalArgumentException("answer must not be null");
+        }
+        if (!pending.answerQuestion(id, String.valueOf(answer))) {
+            throw new IllegalArgumentException("unknown or expired question " + id);
+        }
+        return Map.of("ok", true);
+    }
+
     private Map<String, Object> modelState() {
         LLMService llm = boot.service(LLMService.NAME);
         List<String> models = llm.registeredModels();
@@ -232,10 +275,24 @@ public final class WebMain {
             try {
                 turnLock.lock();
                 try {
+                    pending.notifier = new PendingInteractions.Notifier() {
+                        @Override
+                        public void approval(ApprovalRequest request) {
+                            frame(out, "approval", Map.of(
+                                    "id", request.id(), "summary", request.summary(),
+                                    "details", request.details() == null ? "" : request.details()));
+                        }
+
+                        @Override
+                        public void question(Question question) {
+                            frame(out, "question", Map.of("id", question.id(), "text", question.text()));
+                        }
+                    };
                     String answer = loop.runTurn(sessionId, task, delta ->
                             frame(out, "chunk", Map.of("text", delta)));
                     frame(out, "done", Map.of("sessionId", sessionId, "answer", answer));
                 } finally {
+                    pending.notifier = null;
                     turnLock.unlock();
                 }
             } finally {
@@ -385,5 +442,89 @@ public final class WebMain {
         System.out.println("majo web: http://localhost:" + app.port());
         System.out.println("press Ctrl+C to stop");
         Runtime.getRuntime().addShutdownHook(new Thread(app::close));
+    }
+
+    /**
+     * Web-facing {@link InteractionHandler}: approval and ask-user requests are
+     * surfaced to the connected SSE client and park until a decision arrives
+     * (120s), then fail safe (deny / empty answer). Registered at the front so
+     * it always decides before static fallback handlers.
+     */
+    static final class PendingInteractions implements InteractionHandler {
+        private static final long TIMEOUT_SECONDS = 120;
+
+        interface Notifier {
+            void approval(ApprovalRequest request);
+
+            void question(Question question);
+        }
+
+        private final java.util.Map<String, java.util.concurrent.CompletableFuture<ApprovalDecision>> approvals =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        private final java.util.Map<String, java.util.concurrent.CompletableFuture<String>> questions =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        volatile Notifier notifier;
+
+        @Override
+        public String name() {
+            return "web-ui";
+        }
+
+        @Override
+        public ApprovalDecision approve(ApprovalRequest request) {
+            java.util.concurrent.CompletableFuture<ApprovalDecision> future =
+                    new java.util.concurrent.CompletableFuture<>();
+            approvals.put(request.id(), future);
+            Notifier active = notifier;
+            if (active != null) {
+                active.approval(request);
+            }
+            try {
+                ApprovalDecision decision = future.get(TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+                return decision == null ? ApprovalDecision.DENY : decision;
+            } catch (Exception e) {
+                return ApprovalDecision.DENY; // fail safe
+            } finally {
+                approvals.remove(request.id());
+            }
+        }
+
+        @Override
+        public String answer(Question question) {
+            java.util.concurrent.CompletableFuture<String> future = new java.util.concurrent.CompletableFuture<>();
+            questions.put(question.id(), future);
+            Notifier active = notifier;
+            if (active != null) {
+                active.question(question);
+            }
+            try {
+                String answer = future.get(TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+                return answer == null ? "" : answer;
+            } catch (Exception e) {
+                return "";
+            } finally {
+                questions.remove(question.id());
+            }
+        }
+
+        /** Completes a pending approval; false when unknown/expired. */
+        boolean decideApproval(String id, boolean granted) {
+            java.util.concurrent.CompletableFuture<ApprovalDecision> future = approvals.get(id);
+            if (future == null) {
+                return false;
+            }
+            future.complete(granted ? ApprovalDecision.APPROVE : ApprovalDecision.DENY);
+            return true;
+        }
+
+        /** Completes a pending question; false when unknown/expired. */
+        boolean answerQuestion(String id, String text) {
+            java.util.concurrent.CompletableFuture<String> future = questions.get(id);
+            if (future == null) {
+                return false;
+            }
+            future.complete(text);
+            return true;
+        }
     }
 }

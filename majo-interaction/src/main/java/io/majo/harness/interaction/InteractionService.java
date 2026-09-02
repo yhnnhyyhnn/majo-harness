@@ -6,13 +6,16 @@ import io.jcordis.core.util.Disposable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * The interaction service ({@code ctx.interactions}): routes approval and
  * ask-user requests to registered {@link InteractionHandler handlers} in
- * registration order. Decisions are fail-safe — handlers abstain by default,
- * and an unanswered approval denies while an unanswered question fails loudly.
- * Every request and its resolution is broadcast for observers.
+ * deterministic order — {@link #registerFront} handlers decide first (a web
+ * approval UI registers there), later handlers are fallbacks. Decisions are
+ * fail-safe: handlers abstain by default, an unanswered approval denies, an
+ * unanswered question fails loudly. Every request and its resolution is
+ * broadcast for observers.
  */
 public final class InteractionService extends Service {
 
@@ -26,31 +29,49 @@ public final class InteractionService extends Service {
     /** Fired on resolution with {@code (Question, String answer)}. */
     public static final String EVENT_ANSWER = "interaction/answer";
 
-    private final Map<String, InteractionHandler> handlers = new ConcurrentHashMap<>();
+    private final Map<String, InteractionHandler> byName = new ConcurrentHashMap<>();
+    private final List<InteractionHandler> ordered = new CopyOnWriteArrayList<>();
 
     public InteractionService(Context ctx) {
         super(ctx, NAME);
     }
 
-    /** Registers a handler; duplicates fail loudly, disposal unregisters. */
+    /** Registers a handler (appended); duplicates fail loudly. */
     public Disposable register(String name, InteractionHandler handler) {
-        InteractionHandler previous = handlers.putIfAbsent(name, handler);
+        return insert(name, handler, false);
+    }
+
+    /** Registers a handler ahead of every existing one (first-decision wins). */
+    public Disposable registerFront(String name, InteractionHandler handler) {
+        return insert(name, handler, true);
+    }
+
+    private Disposable insert(String name, InteractionHandler handler, boolean front) {
+        InteractionHandler previous = byName.putIfAbsent(name, handler);
         if (previous != null) {
             throw new IllegalStateException("interaction handler \"" + name + "\" has been registered");
         }
-        return () -> handlers.remove(name, handler);
+        if (front) {
+            ordered.add(0, handler);
+        } else {
+            ordered.add(handler);
+        }
+        return () -> {
+            byName.remove(name, handler);
+            ordered.remove(handler);
+        };
     }
 
     /** The names of registered handlers. */
     public List<String> handlerNames() {
-        return List.copyOf(handlers.keySet());
+        return List.copyOf(byName.keySet());
     }
 
     /** Resolves an approval through the registered handlers in order. */
     public ApprovalDecision approve(ApprovalRequest request) {
         ctx.emit(EVENT_APPROVAL_REQUEST, request);
         ApprovalDecision decision = ApprovalDecision.ABSTAIN;
-        for (InteractionHandler handler : handlers.values()) {
+        for (InteractionHandler handler : ordered) {
             ApprovalDecision candidate = handler.approve(request);
             if (candidate != ApprovalDecision.ABSTAIN) {
                 decision = candidate;
@@ -67,13 +88,13 @@ public final class InteractionService extends Service {
     /** Resolves an ask-user question; no answering handler fails loudly. */
     public String ask(Question question) {
         ctx.emit(EVENT_QUESTION, question);
-        for (InteractionHandler handler : handlers.values()) {
+        for (InteractionHandler handler : ordered) {
             String answer = handler.answer(question);
             if (answer != null) {
                 ctx.emit(EVENT_ANSWER, question, answer);
                 return answer;
             }
         }
-        throw new InteractionException("no interaction handler answers questions; registered: " + handlers.keySet());
+        throw new InteractionException("no interaction handler answers questions; registered: " + handlerNames());
     }
 }

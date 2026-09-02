@@ -126,6 +126,20 @@ class InteractionSeamTest {
     }
 
     @Test
+    void frontRegisteredHandlerDecidesBeforeFallbacks() {
+        Context root = Context.create();
+        root.plugin(new InteractionPlugin(), Map.of("approval", "deny")).await().join();
+        InteractionService service = root.get(InteractionService.NAME);
+        // the web UI registers at the front; its decision wins over the deny fallback
+        service.registerFront("web-ui",
+                new ConfiguredInteractionHandler("web-ui", ApprovalDecision.APPROVE, "canned"));
+        assertThat(service.approve(ApprovalRequest.of("run tool \"demo\"", "{}")))
+                .isEqualTo(ApprovalDecision.APPROVE);
+        assertThat(service.ask(Question.ask("color?"))).isEqualTo("canned");
+        root.fiber().disposeAsync().join();
+    }
+
+    @Test
     void queueingHandlerChannelsHumanDecisions() {
         QueueingInteractionHandler human = new QueueingInteractionHandler("human");
         human.submitApproval(true);
