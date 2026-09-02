@@ -13,6 +13,8 @@ import io.majo.harness.llm.MockLLMPlugin;
 import io.majo.harness.provider.openai.OpenAiProviderPlugin;
 import io.majo.harness.session.SessionPlugin;
 import io.majo.harness.session.SessionProjectionsPlugin;
+import io.majo.harness.subprocess.SubprocessPlugin;
+import io.majo.harness.subprocess.SubprocessToolPlugin;
 import io.majo.harness.tools.ToolsPlugin;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,6 +41,8 @@ public final class HarnessBoot {
     public static final String PLUGIN_LLM_OPENAI = OpenAiProviderPlugin.NAME;
     public static final String PLUGIN_FS = FsPlugin.NAME;
     public static final String PLUGIN_FS_TOOLS = FsToolPlugin.NAME;
+    public static final String PLUGIN_SUBPROCESS = SubprocessPlugin.NAME;
+    public static final String PLUGIN_SUBPROCESS_TOOLS = SubprocessToolPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
 
     private final Context ctx;
@@ -59,6 +63,8 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_LLM_OPENAI, new OpenAiProviderPlugin());
         loader.builtin(PLUGIN_FS, new FsPlugin());
         loader.builtin(PLUGIN_FS_TOOLS, new FsToolPlugin());
+        loader.builtin(PLUGIN_SUBPROCESS, new SubprocessPlugin());
+        loader.builtin(PLUGIN_SUBPROCESS_TOOLS, new SubprocessToolPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
     }
 

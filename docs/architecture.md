@@ -15,6 +15,7 @@ majo-harness is an **all-plugin agent harness**: every product capability is a p
 | package `core/tools` — registry + guarded execution | events / waterfalls | `majo-tools` (`ctx.tools`) |
 | package `llm/llm` — vocabulary + adapter seam | `Service` registry | `majo-llm` (`ctx.llm`) + provider plugins (`majo-llm` mock today, `majo-provider-openai` bring-your-own-endpoint next) |
 | fs capability (dsh `fs/` + tools) | service + waterfall policy events | `majo-fs` (`ctx.fs`, `fs/*` events, `read_file` tool) |
+| subprocess capability (dsh `subprocess/`) | service + waterfall policy event + tool | `majo-subprocess` (`ctx.subprocess`, argv only, `run_command` tool) |
 | package `core/agent-loop` — default driver | plugin with declared injections | `majo-agent-loop` (`ctx.agentLoop`) |
 | package `boot/app-boot` — profile glue | loader builtins registration | `majo-boot` |
 | shipped profiles (`web`, `headless`, …) | profile files + app plugins | `majo-headless` + `headless.yml` |
@@ -22,6 +23,8 @@ majo-harness is an **all-plugin agent harness**: every product capability is a p
 Model providers are swappable behind `ctx.llm` by profile row alone. The shipped set is `llm-mock` (deterministic, offline) and `llm-openai` (an OpenAI `chat/completions` `ChatModel` for any endpoint: LM Studio, Ollama, vLLM, a gateway, or a vendor keyed via `apiKey` — so running the harness never requires a particular vendor key). Point `llm.defaultModel` at the registry key the provider registers (`name`, defaulting to `model`) and the agent loop is none the wiser.
 
 The fs capability follows the same trio: `FileSystemService` (`ctx.fs`) runs every operation through `fs/*` waterfalls where policy and observability plugins attach (they reject by throwing `FsException`); the `LocalFsProvider` implements the provider seam; `fs-tools` registers the `read_file` tool consumer on `ctx.tools`. A profile adds the capability with two rows.
+
+Subprocess is the second process-world seam: `SubprocessService` (`ctx.subprocess`) executes argv lists (never a shell command line — no interpolation happens here) through the `subprocess/pre-execute` waterfall; `LocalSubprocessProvider` drains output on virtual threads and enforces the timeout by destroy; a command without an explicit timeout is resolved against the service's configured `defaultTimeoutSeconds` (the explicit resolve step); `subprocess-tools` registers the `run_command` consumer.
 
 There is deliberately **no privileged core module** in M1: like dsh's independent packages under `packages/core/`, each capability owns its interfaces next to its implementation and plugin, and consumers (the agent loop, the boot) depend on those modules only through their service seams. If a neutral "API spine" module ever becomes justified (typed event dictionary shared across modules), extract it the same way.
 
@@ -39,6 +42,8 @@ majo-agent-loop/  MessageDeriver / AgentLoopService / AgentLoopPlugin
 majo-provider-openai/  OpenAiChatModel / OpenAiProviderPlugin (OpenAI-compatible endpoint)
 majo-fs/          FsProvider + LocalFsProvider / FileSystemService / FsPlugin / FsToolPlugin
                   / ReadFileTool (fs capability seam)
+majo-subprocess/  Command / ProcessResult / SubprocessProvider + LocalSubprocessProvider
+                  / SubprocessService / SubprocessPlugin / SubprocessToolPlugin / RunCommandTool
 majo-boot/        HarnessBoot (builtins registration, profile parsing, launch)
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
 docs/             this document (EN + zh-CN)
@@ -53,6 +58,7 @@ docs/             this document (EN + zh-CN)
 | `llm` | `llm` | `LLMService` | model registry + `complete()`; fires `llm/request`, `llm/response` |
 | `agentLoop` | `agent-loop` | `AgentLoopService` | `runTurn(sessionId, userText)` |
 | `sessionProjections` | `session-projections` | `SessionProjections` | registered units fold committed events; hosts read typed state |
+| `subprocess` | `subprocess` | `SubprocessService` | runs argv commands through `subprocess/pre-execute` |
 | `fs` | `fs` | `FileSystemService` | text read/write/glob through `fs/*` waterfalls |
 
 | event | kind | args | semantics |
@@ -63,6 +69,7 @@ docs/             this document (EN + zh-CN)
 | `tools/pre-execute` | waterfall | `(ToolCall, Tool)` | rewrite or reject a call; returning without `next()` rejects |
 | `tools/post-execute` | waterfall | `(ToolCall, ToolResult)` | observe or transform the result |
 | `fs/read` `fs/write` `fs/glob` | waterfall | `(path…)` | per-operation policy/observability; throwing `FsException` rejects |
+| `subprocess/pre-execute` | waterfall | `(Command)` | policy before every run; throwing `SubprocessException` rejects |
 
 Waterfall listeners MUST call `next()` to delegate (the jcordis convention). Events are the extension points: policy, approval, telemetry, and guard plugins attach here without importing the loop.
 
@@ -135,5 +142,5 @@ Two M2 boundaries are documented trade-offs, not exceptions to hide behind:
 
 - **M1 (done)** — all-plugin vertical slice: profile-driven boot, session log, tools pipeline, mock LLM, agent loop, removal cascade. No network.
 - **M2 (done)** — model-provider swaps behind `ctx.llm` (generic OpenAI-compatible provider `majo-provider-openai`, offline wire-tested against a local HTTP stub); durable request headers (`REQUEST_HEADER` events log model/system prompt/tool names per step, closing the M1 composition boundary); file session store default directory (`<user.home>/.majo-harness/sessions`) with memory stores for hermetic tests.
-- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem (`majo-fs`) and typed session projections (`TypedSessionEvent` + `ctx.sessionProjections` with the agent-loop `turnSummary` unit). Next: shell/subprocess, sandbox and approval policy, skills, subagents, interaction, settings/credentials, session titles.
+- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem (`majo-fs`), typed session projections (`TypedSessionEvent` + `ctx.sessionProjections` with the agent-loop `turnSummary` unit), and subprocess (`majo-subprocess`: `ctx.subprocess`, argv-only, `run_command`). Next: shell (over subprocess), sandbox and approval policy, skills, subagents, interaction, settings/credentials, session titles.
 - **M4** — packaging & distribution: plugin jars loaded via jcordis loader SPI/HMR, profile/bundle layering and patches on top of `HarnessBoot`, CLI and SDK surfaces.

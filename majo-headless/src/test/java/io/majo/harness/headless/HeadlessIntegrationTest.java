@@ -223,6 +223,34 @@ class HeadlessIntegrationTest {
     }
 
     @Test
+    void subprocessCapabilityRowsBootFromProfile() throws IOException {
+        String profile = """
+                - id: tools
+                  name: tools
+                - id: subprocess
+                  name: subprocess
+                - id: subprocess-tools
+                  name: subprocess-tools
+                """;
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root);
+        boot.launch(boot.readProfileText(profile, "subprocess.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SUBPROCESS).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.subprocess.SubprocessService subprocess = boot.service("subprocess");
+        boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
+        io.majo.harness.subprocess.Command echo = (windows
+                ? io.majo.harness.subprocess.Command.of("cmd", "/c", "echo", "boot-ok")
+                : io.majo.harness.subprocess.Command.of("/bin/echo", "boot-ok"))
+                .withTimeoutSeconds(30);
+        assertThat(subprocess.run(echo).stdout()).contains("boot-ok");
+
+        io.majo.harness.tools.ToolRegistry tools = boot.service("tools");
+        assertThat(tools.specs()).extracting(spec -> spec.name()).containsExactly("run_command");
+        boot.dispose();
+    }
+
+    @Test
     void profileNamingAnUnknownPluginFailsLoud() {
         Context root = Context.create();
         HarnessBoot boot = new HarnessBoot(root);

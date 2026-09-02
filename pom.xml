@@ -26,6 +26,7 @@
     <module>majo-agent-loop</module>
     <module>majo-provider-openai</module>
     <module>majo-fs</module>
+    <module>majo-subprocess</module>
     <module>majo-boot</module>
     <module>majo-headless</module>
   </modules>

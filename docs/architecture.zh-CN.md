@@ -15,6 +15,7 @@ majo-harness 是一个**全插件式 agent harness**：每一项产品能力都�
 | 包 `core/tools` — 注册表 + 受控执行 | events / waterfall | `majo-tools`（`ctx.tools`） |
 | 包 `llm/llm` — 消息词汇 + 适配器接缝 | `Service` 注册表 | `majo-llm`（`ctx.llm`）+ provider 插件（当前 mock，另有自带端点的 `majo-provider-openai`） |
 | fs 能力（dsh `fs/` + 工具） | 服务 + waterfall 策略事件 | `majo-fs`（`ctx.fs`、`fs/*` 事件、`read_file` 工具） |
+| subprocess 能力（dsh `subprocess/`） | 服务 + waterfall 策略事件 + 工具 | `majo-subprocess`（`ctx.subprocess`，纯 argv，`run_command` 工具） |
 | 包 `core/agent-loop` — 默认驱动器 | 声明注入的插件 | `majo-agent-loop`（`ctx.agentLoop`） |
 | 包 `boot/app-boot` — profile 胶水 | loader builtins 注册 | `majo-boot` |
 | 内置 profile（`web`、`headless`、…） | profile 文件 + 应用插件 | `majo-headless` + `headless.yml` |
@@ -22,6 +23,8 @@ majo-harness 是一个**全插件式 agent harness**：每一项产品能力都�
 模型 provider 可通过 profile 行在 `ctx.llm` 之后随意替换。出厂集合是 `llm-mock`（确定性、离线）与 `llm-openai`（面向任意 OpenAI `chat/completions` 端点的 `ChatModel`：LM Studio、Ollama、vLLM、网关，或用 `apiKey` 的厂商——因此运行 harness 从不依赖某家厂商的 key）。把 `llm.defaultModel` 指向 provider 注册的键（`name`，缺省为 `model`）即可，agent loop 无需感知。
 
 fs 能力遵循同样的三件套：`FileSystemService`（`ctx.fs`）让每次操作穿过 `fs/*` waterfall，策略与可观测性插件在此挂载（抛 `FsException` 即拒绝）；`LocalFsProvider` 实现 provider 接缝；`fs-tools` 在 `ctx.tools` 上注册 `read_file` 工具消费者。profile 两行即可加入该能力。
+
+subprocess 是第二个进程世界接缝：`SubprocessService`（`ctx.subprocess`）只执行 argv 列表（绝无 shell 命令行——此处不发生任何插值），穿过 `subprocess/pre-execute` waterfall；`LocalSubprocessProvider` 用虚拟线程排空输出并按 destroy 强制超时；命令未显式给超时时，由服务按配置的 `defaultTimeoutSeconds` 显式解析；`subprocess-tools` 注册 `run_command` 消费者。
 
 M1 **刻意不设特权核心模块**：与 dsh 在 `packages/core/` 下彼此独立的包一样，每个能力在自己的模块里同时拥有接口、实现与插件；消费者（agent loop、boot）只通过服务接缝依赖这些模块。若未来确实需要一个中立的"API 主轴"模块（例如跨模块共享的 typed 事件字典），同样以抽模块的方式引入。
 
@@ -39,6 +42,8 @@ majo-agent-loop/  MessageDeriver / AgentLoopService / AgentLoopPlugin
 majo-provider-openai/  OpenAiChatModel / OpenAiProviderPlugin（OpenAI-compatible 端点）
 majo-fs/          FsProvider + LocalFsProvider / FileSystemService / FsPlugin / FsToolPlugin
                   / ReadFileTool（fs 能力接缝）
+majo-subprocess/  Command / ProcessResult / SubprocessProvider + LocalSubprocessProvider
+                  / SubprocessService / SubprocessPlugin / SubprocessToolPlugin / RunCommandTool
 majo-boot/        HarnessBoot（builtins 注册、profile 解析、launch）
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
 docs/             本文档（中英双语）
@@ -53,6 +58,7 @@ docs/             本文档（中英双语）
 | `llm` | `llm` | `LLMService` | 模型注册表 + `complete()`；触发 `llm/request`、`llm/response` |
 | `agentLoop` | `agent-loop` | `AgentLoopService` | `runTurn(sessionId, userText)` |
 | `sessionProjections` | `session-projections` | `SessionProjections` | 注册单元折叠已提交事件；宿主读取 typed 状态 |
+| `subprocess` | `subprocess` | `SubprocessService` | 经 `subprocess/pre-execute` 运行 argv 命令 |
 | `fs` | `fs` | `FileSystemService` | 经 `fs/*` waterfall 做文本读/写/glob |
 
 | 事件 | 类型 | 参数 | 语义 |
@@ -63,6 +69,7 @@ docs/             本文档（中英双语）
 | `tools/pre-execute` | waterfall | `(ToolCall, Tool)` | 改写或拒绝调用；不调用 `next()` 即拒绝 |
 | `tools/post-execute` | waterfall | `(ToolCall, ToolResult)` | 观察或变换结果 |
 | `fs/read` `fs/write` `fs/glob` | waterfall | `(path…)` | 逐操作策略/可观测性；抛 `FsException` 即拒绝 |
+| `subprocess/pre-execute` | waterfall | `(Command)` | 每次运行前的策略；抛 `SubprocessException` 即拒绝 |
 
 waterfall 监听器必须调用 `next()` 让权（jcordis 约定）。事件即扩展点：策略、审批、遥测、护栏插件都在这里挂载，无需 import agent loop。
 
@@ -135,5 +142,5 @@ TURN_END
 
 - **M1（已完成）** — 全插件垂直切片：profile 驱动启动、会话日志、工具管道、mock LLM、agent loop、删除级联。全程无网络。
 - **M2（已完成）** — `ctx.llm` 之后的模型 provider 可换（通用 OpenAI-compatible provider `majo-provider-openai`，本地 HTTP stub 离线 wire 测试）；持久请求头（每步以 `REQUEST_HEADER` 事件记录 model/system prompt/工具名，补齐 M1 的组合边界）；文件会话存储默认目录（`<user.home>/.majo-harness/sessions`），hermetic 测试仍用内存存储。
-- **M3（进行中）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。已完成：文件系统（`majo-fs`）与 typed 会话投影（`TypedSessionEvent` + `ctx.sessionProjections`，含 agent-loop 的 `turnSummary` 单元）。后续：shell/subprocess、沙箱与审批策略、skills、subagent、交互、settings/credentials、会话标题。
+- **M3（进行中）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。已完成：文件系统（`majo-fs`）、typed 会话投影（`TypedSessionEvent` + `ctx.sessionProjections`，含 agent-loop 的 `turnSummary` 单元）、subprocess（`majo-subprocess`：`ctx.subprocess`、纯 argv、`run_command`）。后续：shell（构建在 subprocess 之上）、沙箱与审批策略、skills、subagent、交互、settings/credentials、会话标题。
 - **M4** — 打包与分发：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、CLI 与 SDK 面。
