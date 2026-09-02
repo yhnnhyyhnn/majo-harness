@@ -3,10 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "React/Vite chat UI for majo-harness; built output is copied into majo-web/src/main/resources/static so the Java jar serves it.",
+  "description": "TypeScript React/Vite chat UI for majo-harness (dsh web parity); built output is copied into majo-web/src/main/resources/static so the Java jar serves it.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -14,7 +15,10 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "~5.5.4",
     "vite": "^5.4.2"
   }
 }

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.majo.harness</groupId>
+    <artifactId>majo-harness-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>majo-web-ui</artifactId>
+  <packaging>pom</packaging>
+  <name>majo-web-ui</name>
+  <description>React/Vite chat UI. Maven runs the npm build and copies dist into ../majo-web/src/main/resources/static so the majo-web jar serves it. Skip with -Dskip.webui=true (the committed copy is then used as-is).</description>
+
+  <properties>
+    <skip.webui>false</skip.webui>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.3.0</version>
+        <executions>
+          <execution>
+            <id>npm-install</id>
+            <phase>generate-resources</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <skip>${skip.webui}</skip>
+              <executable>npm</executable>
+              <arguments>
+                <argument>--prefix</argument>
+                <argument>${project.basedir}</argument>
+                <argument>ci</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>npm-build</id>
+            <phase>generate-resources</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <skip>${skip.webui}</skip>
+              <executable>npm</executable>
+              <arguments>
+                <argument>--prefix</argument>
+                <argument>${project.basedir}</argument>
+                <argument>run</argument>
+                <argument>build</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-to-majo-web</id>
+            <phase>generate-resources</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <skip>${skip.webui}</skip>
+              <executable>node</executable>
+              <arguments>
+                <argument>${project.basedir}/copy-dist.js</argument>
+                <argument>${project.basedir}/../majo-web/src/main/resources/static</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
