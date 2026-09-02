@@ -17,10 +17,20 @@
 | `majo-llm` | 模型消息词汇 + `ChatModel` 适配器接缝 + 注册表 + 确定性 mock provider | `ctx.llm` | `llm`、`llm-mock` |
 | `majo-agent-loop` | 默认 turn 驱动器：从会话日志派生模型历史并驱动工具轮次 | `ctx.agentLoop` | `agent-loop` |
 | `majo-provider-openai` | OpenAI-compatible 的 `ChatModel` provider——自带端点（LM Studio / Ollama / vLLM / 网关），`apiKey` 可选 | 注册到 `ctx.llm` | `llm-openai` |
+| `majo-fs` | 文件系统能力接缝：`FsProvider` 之上的 `ctx.fs`、`fs/*` 策略事件、`read_file` 工具消费者 | `ctx.fs`（+ `ctx.tools`） | `fs`、`fs-tools` |
 | `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
 | `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
 
 文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md)
+
+出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
+
+```yaml
+- id: fs
+  name: fs
+- id: fs-tools
+  name: fs-tools      # 在 ctx.tools 上注册 read_file 工具
+```
 
 ## 环境要求
 

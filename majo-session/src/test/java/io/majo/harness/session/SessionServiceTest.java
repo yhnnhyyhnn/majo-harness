@@ -94,7 +94,7 @@ class SessionServiceTest {
             SessionService sessions = root.get(SessionService.NAME);
             String sessionId = sessions.createSession();
             sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
-            assertThat(Files.exists(home.resolve(".majo/sessions").resolve(sessionId + ".jsonl"))).isTrue();
+            assertThat(Files.exists(home.resolve(".majo-harness/sessions").resolve(sessionId + ".jsonl"))).isTrue();
             root.fiber().disposeAsync().join();
         } finally {
             System.setProperty("user.home", previous);

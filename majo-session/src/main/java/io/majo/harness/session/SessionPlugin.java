@@ -12,7 +12,7 @@ import java.util.Map;
  * <pre>
  * store: memory            # "memory" (default) | "file"
  * path: /var/lib/majo      # directory for the file store; when unset, file
- *                          # stores default to &lt;user.home&gt;/.majo/sessions
+ *                          # stores default to &lt;user.home&gt;/.majo-harness/sessions
  * </pre>
  */
 public final class SessionPlugin implements Plugin {
@@ -20,7 +20,7 @@ public final class SessionPlugin implements Plugin {
     public static final String NAME = "session";
     public static final String STORE_MEMORY = "memory";
     public static final String STORE_FILE = "file";
-    public static final String DEFAULT_FILE_DIR = ".majo/sessions";
+    public static final String DEFAULT_FILE_DIR = ".majo-harness/sessions";
 
     @Override
     public Object apply(Context ctx, Object config) {

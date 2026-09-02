@@ -6,6 +6,8 @@ import io.jcordis.loader.EntryOptions;
 import io.jcordis.loader.Loader;
 import io.jcordis.loader.include.ConfigParser;
 import io.majo.harness.agent.loop.AgentLoopPlugin;
+import io.majo.harness.fs.FsPlugin;
+import io.majo.harness.fs.FsToolPlugin;
 import io.majo.harness.llm.LLMServicePlugin;
 import io.majo.harness.llm.MockLLMPlugin;
 import io.majo.harness.provider.openai.OpenAiProviderPlugin;
@@ -33,6 +35,8 @@ public final class HarnessBoot {
     public static final String PLUGIN_LLM = LLMServicePlugin.NAME;
     public static final String PLUGIN_LLM_MOCK = MockLLMPlugin.NAME;
     public static final String PLUGIN_LLM_OPENAI = OpenAiProviderPlugin.NAME;
+    public static final String PLUGIN_FS = FsPlugin.NAME;
+    public static final String PLUGIN_FS_TOOLS = FsToolPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
 
     private final Context ctx;
@@ -50,6 +54,8 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_LLM, new LLMServicePlugin());
         loader.builtin(PLUGIN_LLM_MOCK, new MockLLMPlugin());
         loader.builtin(PLUGIN_LLM_OPENAI, new OpenAiProviderPlugin());
+        loader.builtin(PLUGIN_FS, new FsPlugin());
+        loader.builtin(PLUGIN_FS_TOOLS, new FsToolPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
     }
 

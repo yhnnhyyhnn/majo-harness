@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * End-to-end proof of the all-plugin vertical slice: a YAML profile names the
@@ -179,6 +180,31 @@ class HeadlessIntegrationTest {
         assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_AGENT_LOOP).state())
                 .isEqualTo(FiberState.ACTIVE);
 
+        boot.dispose();
+    }
+
+    @Test
+    void fsCapabilityRowsBootFromProfile(@TempDir java.nio.file.Path dir) throws IOException {
+        String profile = """
+                - id: tools
+                  name: tools
+                - id: fs
+                  name: fs
+                - id: fs-tools
+                  name: fs-tools
+                """;
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root);
+        boot.launch(boot.readProfileText(profile, "fs.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_FS).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.fs.FileSystemService fs = boot.service("fs");
+        java.nio.file.Path file = dir.resolve("hello.txt");
+        fs.writeText(file.toString(), "hi");
+        assertThat(fs.readText(file.toString())).isEqualTo("hi");
+
+        io.majo.harness.tools.ToolRegistry tools = boot.service("tools");
+        assertThat(tools.specs()).extracting(spec -> spec.name()).containsExactly("read_file");
         boot.dispose();
     }
 
