@@ -30,6 +30,8 @@ M1 **刻意不设特权核心模块**：与 dsh 在 `packages/core/` 下彼此�
 ```
 majo-session/     session log：SessionEventType / SessionEvent / SessionStore
                   （InMemory + JSONL FileSessionStore）/ SessionService / SessionPlugin
+                  + typed 视图（TypedSessionEvent）与投影接缝
+                  （SessionProjection / SessionProjections / SessionProjectionsPlugin）
 majo-tools/       ToolCall / ToolResult / ToolSpec / Tool / ToolRegistry / ToolEvents / ToolsPlugin
 majo-llm/         ChatRole / ChatMessage / ChatRequest / ChatResponse / ChatModel / LLMService
                   / LLMServicePlugin / MockChatModel / MockLLMPlugin
@@ -50,11 +52,12 @@ docs/             本文档（中英双语）
 | `tools` | `tools` | `ToolRegistry` | 注册工具（可回滚）、经管道执行 |
 | `llm` | `llm` | `LLMService` | 模型注册表 + `complete()`；触发 `llm/request`、`llm/response` |
 | `agentLoop` | `agent-loop` | `AgentLoopService` | `runTurn(sessionId, userText)` |
+| `sessionProjections` | `session-projections` | `SessionProjections` | 注册单元折叠已提交事件；宿主读取 typed 状态 |
 | `fs` | `fs` | `FileSystemService` | 经 `fs/*` waterfall 做文本读/写/glob |
 
 | 事件 | 类型 | 参数 | 语义 |
 |---|---|---|---|
-| `session/event` | emit | `(SessionEvent)` | 每次持久追加，供实时观察者 |
+| `session/event` | emit | `(String sessionId, SessionEvent)` | 每次持久追加，供实时观察者 |
 | `llm/request` | emit | `(ChatRequest, String model)` | 一次补全之前 |
 | `llm/response` | emit | `(ChatRequest, ChatResponse, String model)` | 一次补全之后 |
 | `tools/pre-execute` | waterfall | `(ToolCall, Tool)` | 改写或拒绝调用；不调用 `next()` 即拒绝 |
@@ -81,6 +84,17 @@ waterfall 监听器必须调用 `next()` 让权（jcordis 约定）。事件即�
 
 错误配置大声失败：未知 profile 行名在 `HarnessBoot.launch` 创建任何 entry 前即被拒绝；工具/模型/服务重复注册抛异常；turn 超过 `maxSteps` 抛异常而不是死循环。
 
+## Typed 会话事件与投影
+
+`SessionEvent.fields` 仍是持久的开放 wire 格式，但消费者不再需要字符串化读取它。`TypedSessionEvent.of(event)` 把每一类事件解析成封闭的 sealed 记录（用户文本、带序列化工具调用的 assistant 轮次、工具结果、请求头），载荷畸形时大声失败。
+
+`ctx.sessionProjections` 镜像 dsh 的投影接缝。贡献者注册 `SessionProjection` 单元（返回 disposer，随插件卸载回滚）；注册表从每次 `session/event` 广播以及 `replay(sessionId)` 喂养单元，并用每单元×每会话的 seq 水位去重，使后挂载的单元可幂等收敛。宿主消费者通过单元具体类型读取 typed 状态，所需单元缺失时大声失败。agent loop 贡献 `turnSummary` 单元（turn/轮次/工具计数、最后用户文本与最终答案）；因此每个含 agent-loop 的 profile 都要带 `session-projections` 行。
+
+```yaml
+- id: session-projections
+  name: session-projections   # typed 投影接缝；agent-loop 贡献 turnSummary
+```
+
 ## 一个 turn
 
 `runTurn(sessionId, userText)`（`AgentLoopService`）即一个 turn。通过 `ctx.sessions` 追加的持久事件序列：
@@ -106,7 +120,7 @@ TURN_END
 两处 M2 边界是明示的取舍，而不是可藏在背后的例外：
 
 - 工具 *schema* 在请求时由活动注册表提供；请求头只记录其名称。回放某次请求需要挂载相同的工具注册表（即相同的插件组合）；每个请求头快照完整 schema 留给 typed projections。
-- `SessionEvent.fields` 是开放 JSON map；对日志的 typed projection（镜像 dsh 的 merge-extensible `SessionEventMap`）应在任何转写 UI 或回放工具依赖 schema 之前落地。
+- `SessionEvent.fields` 是开放的 JSON wire 格式；typed 视图（`TypedSessionEvent`）与投影接缝已就绪，writer 侧的 typed 构造器留作后续打磨。
 
 ## 约定
 
@@ -121,5 +135,5 @@ TURN_END
 
 - **M1（已完成）** — 全插件垂直切片：profile 驱动启动、会话日志、工具管道、mock LLM、agent loop、删除级联。全程无网络。
 - **M2（已完成）** — `ctx.llm` 之后的模型 provider 可换（通用 OpenAI-compatible provider `majo-provider-openai`，本地 HTTP stub 离线 wire 测试）；持久请求头（每步以 `REQUEST_HEADER` 事件记录 model/system prompt/工具名，补齐 M1 的组合边界）；文件会话存储默认目录（`<user.home>/.majo-harness/sessions`），hermetic 测试仍用内存存储。
-- **M3（进行中）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。第一个接缝已完成：文件系统（`majo-fs`：`ctx.fs` + `fs/*` 策略事件 + `read_file` 工具）。后续：shell/subprocess、沙箱与审批策略、skills、subagent、交互、settings/credentials、会话标题——以及在任何转写 UI 依赖 schema 之前，对日志做 typed session projection（`SessionEventMap` 风格）。
+- **M3（进行中）** — 逐一镜像 dsh 的能力接缝，每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。已完成：文件系统（`majo-fs`）与 typed 会话投影（`TypedSessionEvent` + `ctx.sessionProjections`，含 agent-loop 的 `turnSummary` 单元）。后续：shell/subprocess、沙箱与审批策略、skills、subagent、交互、settings/credentials、会话标题。
 - **M4** — 打包与分发：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、CLI 与 SDK 面。

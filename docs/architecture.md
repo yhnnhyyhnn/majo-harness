@@ -30,6 +30,8 @@ There is deliberately **no privileged core module** in M1: like dsh's independen
 ```
 majo-session/     session log: SessionEventType / SessionEvent / SessionStore
                   (InMemory + JSONL FileSessionStore) / SessionService / SessionPlugin
+                  + typed view (TypedSessionEvent) and projection seam
+                  (SessionProjection / SessionProjections / SessionProjectionsPlugin)
 majo-tools/       ToolCall / ToolResult / ToolSpec / Tool / ToolRegistry / ToolEvents / ToolsPlugin
 majo-llm/         ChatRole / ChatMessage / ChatRequest / ChatResponse / ChatModel / LLMService
                   / LLMServicePlugin / MockChatModel / MockLLMPlugin
@@ -50,11 +52,12 @@ docs/             this document (EN + zh-CN)
 | `tools` | `tools` | `ToolRegistry` | register tools (reversible), execute through the pipeline |
 | `llm` | `llm` | `LLMService` | model registry + `complete()`; fires `llm/request`, `llm/response` |
 | `agentLoop` | `agent-loop` | `AgentLoopService` | `runTurn(sessionId, userText)` |
+| `sessionProjections` | `session-projections` | `SessionProjections` | registered units fold committed events; hosts read typed state |
 | `fs` | `fs` | `FileSystemService` | text read/write/glob through `fs/*` waterfalls |
 
 | event | kind | args | semantics |
 |---|---|---|---|
-| `session/event` | emit | `(SessionEvent)` | every durable append, live observers |
+| `session/event` | emit | `(String sessionId, SessionEvent)` | every durable append, live observers |
 | `llm/request` | emit | `(ChatRequest, String model)` | before a completion |
 | `llm/response` | emit | `(ChatRequest, ChatResponse, String model)` | after a completion |
 | `tools/pre-execute` | waterfall | `(ToolCall, Tool)` | rewrite or reject a call; returning without `next()` rejects |
@@ -81,6 +84,17 @@ Two effect rules make the tree safe to mutate:
 
 Misconfiguration fails loud: an unknown profile row name is rejected at `HarnessBoot.launch` before any entry is created; duplicate tool/model/service registrations throw; a missing `maxSteps` convergence throws instead of looping forever.
 
+## Typed session events and projections
+
+`SessionEvent.fields` stays the durable, open wire format, but consumers no longer need to read it stringly. {@code TypedSessionEvent.of(event)} parses every kind into a closed sealed record (user text, assistant rounds with their serialized tool calls, tool results, request headers), failing loudly on malformed payloads.
+
+`ctx.sessionProjections` mirrors dsh's projection seam. Contributors register a {@code SessionProjection} unit (returning the disposer so it reverts on unload); the registry feeds units from every `session/event` broadcast and from {@code replay(sessionId)}, deduplicating by a per-unit, per-session sequence watermark so late-attached units converge idempotently. Host consumers read typed state through the unit's concrete type and fail loudly when a required unit is absent. The agent loop contributes the {@code turnSummary} unit (open-turn/turn/round/tool counts plus last user and final texts); every agent-loop profile therefore includes the `session-projections` row.
+
+```yaml
+- id: session-projections
+  name: session-projections   # typed projection seam; agent-loop contributes turnSummary
+```
+
 ## A turn
 
 `runTurn(sessionId, userText)` (in `AgentLoopService`) is one turn. Sequence of durable events appended through `ctx.sessions`:
@@ -106,7 +120,7 @@ Anything that reaches a model request must be reconstructable from the session l
 Two M2 boundaries are documented trade-offs, not exceptions to hide behind:
 
 - Tool *schemas* are offered by the live registry at request time; the header records their names only. Replaying a request needs the same tool registry mounted (identical plugin composition); snapshotting full schemas per header is deferred to typed projections.
-- `SessionEvent.fields` is an open JSON map; typed projections over the log (mirroring dsh's merge-extensible `SessionEventMap`) arrive before transcript UI or replay tooling depends on schemas.
+- `SessionEvent.fields` is the open JSON wire format; the typed view ({@code TypedSessionEvent}) and the projection seam already exist for consumers, and writer-side typed builders are a later polish.
 
 ## Conventions
 
@@ -121,5 +135,5 @@ Two M2 boundaries are documented trade-offs, not exceptions to hide behind:
 
 - **M1 (done)** — all-plugin vertical slice: profile-driven boot, session log, tools pipeline, mock LLM, agent loop, removal cascade. No network.
 - **M2 (done)** — model-provider swaps behind `ctx.llm` (generic OpenAI-compatible provider `majo-provider-openai`, offline wire-tested against a local HTTP stub); durable request headers (`REQUEST_HEADER` events log model/system prompt/tool names per step, closing the M1 composition boundary); file session store default directory (`<user.home>/.majo-harness/sessions`) with memory stores for hermetic tests.
-- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. First seam done: filesystem (`majo-fs`: `ctx.fs` + `fs/*` policy events + `read_file` tool). Next: shell/subprocess, sandbox and approval policy, skills, subagents, interaction, settings/credentials, session titles — and typed session projections over the log (`SessionEventMap`-style) before transcript UI depends on schemas.
+- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem (`majo-fs`) and typed session projections (`TypedSessionEvent` + `ctx.sessionProjections` with the agent-loop `turnSummary` unit). Next: shell/subprocess, sandbox and approval policy, skills, subagents, interaction, settings/credentials, session titles.
 - **M4** — packaging & distribution: plugin jars loaded via jcordis loader SPI/HMR, profile/bundle layering and patches on top of `HarnessBoot`, CLI and SDK surfaces.

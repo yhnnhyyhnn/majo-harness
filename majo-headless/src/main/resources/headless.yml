@@ -7,6 +7,8 @@
   name: session
   config:
     store: memory          # switch to "file" and add `path: <dir>` for durable logs
+- id: session-projections
+  name: session-projections   # typed projection seam (agent-loop contributes turnSummary)
 - id: tools
   name: tools
 - id: llm

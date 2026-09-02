@@ -18,7 +18,7 @@ public final class SessionService extends Service {
 
     /** ctx service key under which this service is registered. */
     public static final String NAME = "sessions";
-    /** Live broadcast event fired with one {@link SessionEvent} argument. */
+    /** Live broadcast event fired with {@code (String sessionId, SessionEvent event)}. */
     public static final String EVENT = "session/event";
 
     private final SessionStore store;
@@ -35,13 +35,15 @@ public final class SessionService extends Service {
 
     /**
      * Appends a durable event to {@code sessionId}, assigns its sequence
-     * number and timestamp, and broadcasts {@link #EVENT}.
+     * number and timestamp, and broadcasts {@link #EVENT} with the session id
+     * so observers (projections, replay) know which session the event belongs
+     * to.
      */
     public SessionEvent append(String sessionId, SessionEventType type, Map<String, Object> fields) {
         long seq = store.events(sessionId).size() + 1;
         SessionEvent event = new SessionEvent(seq, type, System.currentTimeMillis(), fields);
         store.append(sessionId, event);
-        ctx.emit(EVENT, event);
+        ctx.events().emit((Object) null, EVENT, sessionId, event);
         return event;
     }
 

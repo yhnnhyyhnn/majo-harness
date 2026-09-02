@@ -23,7 +23,7 @@
 
 文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md)
 
-出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
+出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
 
 ```yaml
 - id: fs
@@ -72,6 +72,10 @@ answer: calculated: 3
 运行 harness 不需要任何 key：确定性 mock 无需网络；`llm-openai` provider 按 OpenAI `chat/completions` 线协议与你选择的任何端点通信（LM Studio、Ollama、vLLM、One-API 类网关，或带你自己 key 的厂商）。替换模型 provider 只需改 profile——把 mock 两行换成 provider 行，并把 `llm.defaultModel` 指向其注册名：
 
 ```yaml
+- id: session
+  name: session
+- id: session-projections
+  name: session-projections   # agent-loop 必需
 - id: llm
   name: llm
   config:

@@ -19,11 +19,14 @@ class SessionServiceTest {
     void appendsAreSequencedAndBroadcast() {
         Context root = Context.create();
         root.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        root.plugin(new SessionProjectionsPlugin(), null).await().join();
 
         SessionService sessions = root.get(SessionService.NAME);
         List<SessionEvent> broadcast = new ArrayList<>();
+        List<String> broadcastSessions = new ArrayList<>();
         Disposable listener = root.on(SessionService.EVENT, (thisArg, args) -> {
-            broadcast.add((SessionEvent) args[0]);
+            broadcastSessions.add((String) args[0]);
+            broadcast.add((SessionEvent) args[1]);
             return null;
         });
 
@@ -36,6 +39,7 @@ class SessionServiceTest {
         assertThat(sessions.events(sessionId)).extracting(SessionEvent::seq)
                 .containsExactly(1L, 2L);
         assertThat(broadcast).extracting(SessionEvent::seq).containsExactly(1L, 2L);
+        assertThat(broadcastSessions).containsExactly(sessionId, sessionId);
 
         listener.dispose();
         root.fiber().disposeAsync().join();

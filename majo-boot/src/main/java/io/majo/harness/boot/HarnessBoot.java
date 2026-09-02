@@ -12,6 +12,7 @@ import io.majo.harness.llm.LLMServicePlugin;
 import io.majo.harness.llm.MockLLMPlugin;
 import io.majo.harness.provider.openai.OpenAiProviderPlugin;
 import io.majo.harness.session.SessionPlugin;
+import io.majo.harness.session.SessionProjectionsPlugin;
 import io.majo.harness.tools.ToolsPlugin;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,6 +32,7 @@ import java.util.Map;
 public final class HarnessBoot {
 
     public static final String PLUGIN_SESSION = SessionPlugin.NAME;
+    public static final String PLUGIN_SESSION_PROJECTIONS = SessionProjectionsPlugin.NAME;
     public static final String PLUGIN_TOOLS = ToolsPlugin.NAME;
     public static final String PLUGIN_LLM = LLMServicePlugin.NAME;
     public static final String PLUGIN_LLM_MOCK = MockLLMPlugin.NAME;
@@ -50,6 +52,7 @@ public final class HarnessBoot {
 
     private void registerDefaults() {
         loader.builtin(PLUGIN_SESSION, new SessionPlugin());
+        loader.builtin(PLUGIN_SESSION_PROJECTIONS, new SessionProjectionsPlugin());
         loader.builtin(PLUGIN_TOOLS, new ToolsPlugin());
         loader.builtin(PLUGIN_LLM, new LLMServicePlugin());
         loader.builtin(PLUGIN_LLM_MOCK, new MockLLMPlugin());

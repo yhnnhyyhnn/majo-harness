@@ -23,7 +23,7 @@ Every product capability — the session log, the tool registry, the model adapt
 
 Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md)
 
-The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
+The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
 
 ```yaml
 - id: fs
@@ -72,6 +72,10 @@ The same run, fully driven by `majo-headless/src/main/resources/headless.yml`: e
 No key is required to run the harness: the deterministic mock needs no network, and the `llm-openai` provider speaks the OpenAI `chat/completions` wire protocol to any endpoint you choose (LM Studio, Ollama, vLLM, a One-API-style gateway, or a vendor with your own key). Replacing the model provider is a profile edit only — swap the mock rows for the provider rows and point `llm.defaultModel` at the registered name:
 
 ```yaml
+- id: session
+  name: session
+- id: session-projections
+  name: session-projections   # required by agent-loop
 - id: llm
   name: llm
   config:

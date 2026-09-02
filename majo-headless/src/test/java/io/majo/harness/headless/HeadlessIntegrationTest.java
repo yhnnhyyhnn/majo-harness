@@ -61,7 +61,7 @@ class HeadlessIntegrationTest {
             return null;
         });
         root.on(SessionService.EVENT, (thisArg, args) -> {
-            broadcasts.add((SessionEvent) args[0]);
+            broadcasts.add((SessionEvent) args[1]);
             return null;
         });
 
@@ -74,6 +74,7 @@ class HeadlessIntegrationTest {
 
         // every composed plugin is live in dependency order
         assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SESSION).state()).isEqualTo(FiberState.ACTIVE);
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SESSION_PROJECTIONS).state()).isEqualTo(FiberState.ACTIVE);
         assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_TOOLS).state()).isEqualTo(FiberState.ACTIVE);
         assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_LLM).state()).isEqualTo(FiberState.ACTIVE);
         assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_LLM_MOCK).state()).isEqualTo(FiberState.ACTIVE);
@@ -134,6 +135,19 @@ class HeadlessIntegrationTest {
                         io.majo.harness.llm.ChatRole.ASSISTANT,
                         io.majo.harness.llm.ChatRole.TOOL);
         assertThat(requests.get(1).messages().get(3).content()).isEqualTo("3");
+
+        // typed projection state mirrors the log: the agent loop contributed
+        // its turnSummary unit and hosts read typed state, not raw events
+        io.majo.harness.session.SessionProjections projections = boot.service("sessionProjections");
+        assertThat(projections.has(io.majo.harness.agent.loop.TurnSummary.KEY)).isTrue();
+        io.majo.harness.agent.loop.TurnSummary.Summary summary =
+                projections.<io.majo.harness.agent.loop.TurnSummary>require("turnSummary").summary(sessionId);
+        assertThat(summary.turnOpen()).isFalse();
+        assertThat(summary.turnCount()).isEqualTo(1);
+        assertThat(summary.assistantRounds()).isEqualTo(2);
+        assertThat(summary.toolCalls()).isEqualTo(1);
+        assertThat(summary.lastUserText()).isEqualTo("1+2");
+        assertThat(summary.lastFinalText()).isEqualTo("calculated: 3");
 
         // tool registry saw the app plugin's contribution
         ToolRegistry tools = boot.service(ToolRegistry.NAME);
@@ -249,6 +263,8 @@ class HeadlessIntegrationTest {
             String profile = """
                     - id: session
                       name: session
+                    - id: session-projections
+                      name: session-projections
                     - id: tools
                       name: tools
                     - id: llm
