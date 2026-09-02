@@ -1,0 +1,59 @@
+# majo-harness
+
+<p align="left">
+  <a href="README.md">English</a> | 简体中文
+</p>
+
+**majo-harness** 是构建在 [jcordis](https://github.com/jcordis/jcordis)（[Cordis](https://github.com/cordiverse/cordis) 的 Java 21 移植）之上的全插件式 agent harness，架构对标 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)。
+
+产品中的每一项能力——会话日志、工具注册表、模型适配器、甚至 agent loop 本身——都是向共享 `Context` 注册服务与事件的插件。这里没有需要打补丁的特权内核：要扩展 harness，只需在旁边挂载一个插件；所有注册都是可回滚的效果（effect），随插件卸载自动撤销。
+
+## 模块（M1 垂直切片）
+
+| 模块 | 职责 | ctx 键 | 插件行 |
+|---|---|---|---|
+| `majo-session` | 持久会话日志：append-only `SessionEvent`（内存 / JSONL 文件存储） | `ctx.sessions` | `session` |
+| `majo-tools` | 工具接缝：`Tool` / `ToolSpec` / `ToolCall` / `ToolResult` + 受控执行管道（`tools/pre-execute`、`tools/post-execute` waterfall） | `ctx.tools` | `tools` |
+| `majo-llm` | 模型消息词汇 + `ChatModel` 适配器接缝 + 注册表 + 确定性 mock provider | `ctx.llm` | `llm`、`llm-mock` |
+| `majo-agent-loop` | 默认 turn 驱动器：从会话日志派生模型历史并驱动工具轮次 | `ctx.agentLoop` | `agent-loop` |
+| `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
+| `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
+
+文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md)
+
+## 环境要求
+
+- JDK 21
+- Maven 3.x
+- 本地 Maven 仓库中存在 `io.jcordis:jcordis-all:1.0.0`
+
+## 快速开始
+
+```bash
+mvn test                     # 单元 + 集成测试（mock 模型，无需网络）
+
+mvn -DskipTests install      # 安装模块，供下面的 demo 解析依赖
+mvn -pl majo-headless dependency:build-classpath -Dmdep.outputFile=cp.txt
+java -cp "majo-headless/target/classes;$(cat majo-headless/cp.txt)" \
+     io.majo.harness.headless.HeadlessMain "1+2"
+rm majo-headless/cp.txt
+```
+
+启动后打印插件树记录的会话转写：
+
+```text
+== session 2cff8adc-... ==
+  1 TURN_START {}
+  2 USER_MESSAGE content="1+2"
+  3 ASSISTANT_MESSAGE toolCalls=[{arguments={"expression":"1+2"}, toolCallId=..., name=calc}]
+  4 TOOL_RESULT content="3"
+  5 ASSISTANT_MESSAGE content="calculated: 3"
+  6 TURN_END {}
+answer: calculated: 3
+```
+
+同样的运行完全由 `majo-headless/src/main/resources/headless.yml` 驱动：每一行都是插件 entry，loader 在其注入依赖就绪后按依赖顺序激活——没有任何应用代码把 loop 拼起来。
+
+## License
+
+Apache License 2.0 — 见 [LICENSE](LICENSE)。

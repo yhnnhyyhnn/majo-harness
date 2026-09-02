@@ -1,0 +1,24 @@
+# majo headless profile (M1 vertical slice)
+#
+# Every row is a plugin entry activated by the jcordis loader when its
+# injections are satisfied. Apps append the one-shot `run` row (with the task)
+# at boot; providers listed here are the shipped harness plugins.
+- id: session
+  name: session
+  config:
+    store: memory          # switch to "file" and add `path: <dir>` for durable logs
+- id: tools
+  name: tools
+- id: llm
+  name: llm
+  config:
+    defaultModel: mock
+- id: llm-mock
+  name: llm-mock           # registers the deterministic MockChatModel on ctx.llm
+- id: agent-loop
+  name: agent-loop
+  config:
+    systemPrompt: "You are a small calculator harness. Use the calc tool whenever asked for arithmetic."
+    maxSteps: 4
+- id: calc
+  name: calc               # sample tool contributed by the headless app (tools seam)
