@@ -8,10 +8,8 @@ import io.majo.harness.headless.CalculatorToolPlugin;
 import io.majo.harness.headless.RunnerPlugin;
 import io.majo.harness.headless.TranscriptPrinter;
 import io.majo.harness.session.SessionService;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,16 +23,10 @@ import java.util.Map;
  *
  * <pre>
  * majo "task"                                   # one-shot run, built-in headless profile
- * majo chat                                     # interactive multi-turn chat (one session)
  * majo --profile ./my-profile.yml "task"        # any file of builtin-name rows
  * majo --plugin ext=./ext-plugin.jar "task"     # mount an external plugin jar
  * majo --profiles                               # list built-in profiles
  * </pre>
- *
- * <p>{@code majo chat} is a plain TUI entry for multi-turn conversation: each
- * line drives one turn of the same session (durable log, projections, tools,
- * history all apply across turns). Type {@code exit}/{@code quit} or press
- * Ctrl+D to leave.
  *
  * <p>Exit codes: 0 on success, 1 on a failed run, 2 on usage errors.
  */
@@ -48,7 +40,7 @@ public final class MajoCli {
     private final PrintStream err;
 
     public static void main(String[] args) {
-        System.exit(new MajoCli(List.of(args), System.out, System.err).run(null));
+        System.exit(new MajoCli(List.of(args), System.out, System.err).run());
     }
 
     MajoCli(List<String> args, PrintStream out, PrintStream err) {
@@ -57,8 +49,7 @@ public final class MajoCli {
         this.err = err;
     }
 
-    /** Runs with a pluggable stdin (tests) or System.in when {@code reader} is null. */
-    int run(BufferedReader suppliedInput) {
+    int run() {
         try {
             Options options = Options.parse(args);
             if (options.help) {
@@ -68,16 +59,6 @@ public final class MajoCli {
             if (options.listProfiles) {
                 out.println("built-in profiles: " + BUILTIN_HEADLESS);
                 out.println("(any --profile path to a YAML row list is also accepted)");
-                return 0;
-            }
-            if (options.chat) {
-                if (options.task != null) {
-                    throw new UsageException("chat takes no task argument");
-                }
-                BufferedReader input = suppliedInput != null
-                        ? suppliedInput
-                        : new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
-                chat(options.profile, options.plugins, input);
                 return 0;
             }
             if (options.task == null) {
@@ -109,38 +90,6 @@ public final class MajoCli {
             boot.launch(entries);
             SessionService sessions = boot.service(SessionService.NAME);
             TranscriptPrinter.print(sessions, out);
-        } finally {
-            boot.dispose();
-        }
-    }
-
-    /** Interactive multi-turn chat: consecutive stdin lines drive one session. */
-    private void chat(String profile, List<String> plugins, BufferedReader input)
-            throws IOException, UsageException {
-        HarnessBoot boot = boot(profile, plugins);
-        try {
-            String profileText = profileText(profile);
-            List<EntryOptions> entries = new ArrayList<>(boot.readProfileText(profileText, hintOf(profile)));
-            boot.launch(entries);
-
-            SessionService sessions = boot.service(SessionService.NAME);
-            io.majo.harness.agent.loop.AgentLoopService loop = boot.service("agentLoop");
-            out.println("== majo chat — send a message; 'exit' or Ctrl+D to quit ==");
-            String sessionId = sessions.createSession();
-            String line;
-            while ((line = input.readLine()) != null) {
-                String message = line.strip();
-                if (message.isEmpty()) {
-                    continue;
-                }
-                if (message.equalsIgnoreCase("exit") || message.equalsIgnoreCase("quit")) {
-                    break;
-                }
-                out.print("you> ");
-                out.println(message);
-                out.print("agent> ");
-                out.println(loop.runTurn(sessionId, message));
-            }
         } finally {
             boot.dispose();
         }
@@ -180,23 +129,18 @@ public final class MajoCli {
 
     private static void printUsage(PrintStream target) {
         target.println("""
-                usage: majo <command> [options] ["task"]
-
-                commands:
-                  <task>                      one-shot run on the built-in headless profile
-                  chat                        interactive multi-turn chat on one session
-                  --profiles                  list built-in profiles and exit
+                usage: majo [options] "task"
 
                 options:
                   -p, --profile <name|path>   profile to boot; built-in: headless (default)
                   -P, --plugin <name=path>    mount an external plugin jar (repeatable)
+                  --profiles                  list built-in profiles and exit
                   -h, --help                  show this help
 
                 examples:
-                  majo "1+2"                                 # one-shot
-                  majo chat                                  # multi-turn (exit / Ctrl+D)
+                  majo "1+2"                                 # one-shot (built-in profile)
                   majo --profile ./my-profile.yml "task"     # custom profile of builtin rows
-                  majo --plugin ext=./ext.jar chat           # jar plugins + chat
+                  majo --plugin ext=./ext.jar "task"         # jar plugins + task
                 """);
     }
 
@@ -204,7 +148,6 @@ public final class MajoCli {
     static final class Options {
         boolean help;
         boolean listProfiles;
-        boolean chat;
         String profile = BUILTIN_HEADLESS;
         String task;
         List<String> plugins = new ArrayList<>();
@@ -217,7 +160,6 @@ public final class MajoCli {
                 switch (arg) {
                     case "-h", "--help" -> options.help = true;
                     case "--profiles" -> options.listProfiles = true;
-                    case "chat" -> options.chat = true;
                     case "--profile", "-p" -> {
                         if (i + 1 >= args.size()) {
                             throw new UsageException("missing value for " + arg);

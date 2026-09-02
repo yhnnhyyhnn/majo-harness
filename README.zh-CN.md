@@ -73,7 +73,6 @@ answer: calculated: 3
 
 ```text
 majo --profiles                                # 列出内置 profile
-majo chat                                     # 交互式多轮对话（同一会话）
 majo --profile ./my-profile.yml "task"        # 任何由内置行组成的 YAML
 majo --plugin ext=./ext-plugin.jar "task"     # 挂载外部插件 jar
 majo "task"                                   # = --profile headless
@@ -94,13 +93,7 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhos
 
 打开 http://localhost:8787：会话侧栏、用户/工具/assistant 消息气泡、提交器——这是 `web-ui/` 下的 React/Vite 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。改动 UI 后用 `bash scripts/build-web-ui.sh` 重建（需 npm）。
 
-随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）；设置一次 key，配置里的 `${…}` 会在启动时从环境变量展开：
-
-```bash
-# Windows: setx KILO_API_KEY your-key ; 然后重启 jar
-KILO_API_KEY=your-key java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar
-# 还没有 key？在复制的 web.yml 里把 defaultModel 改回 mock 即可
-```
+随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）——**无需 API key**（免费层偶发上游 502，重试即可）。
 
 其他客户端用 JSON API：
 

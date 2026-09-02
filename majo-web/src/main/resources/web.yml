@@ -1,9 +1,7 @@
 # majo web profile (dsh-style chat UI)
 #
-# Model: kilo free tier via the OpenAI-compatible gateway. Set the key once:
-#   export KILO_API_KEY=...        (Windows: setx KILO_API_KEY ...)
-# The ${...} reference is expanded from the environment at boot; an unset
-# variable fails loudly instead of sending a placeholder.
+# Model: kilo free tier via the OpenAI-compatible gateway — no API key
+# required.
 - id: session
   name: session
   config:
@@ -22,7 +20,6 @@
     name: kilo-free
     model: nvidia/nemotron-3-ultra-550b-a55b:free
     baseUrl: https://api.kilo.ai/api/gateway
-    apiKey: ${KILO_API_KEY}
 - id: agent-loop
   name: agent-loop
   config:

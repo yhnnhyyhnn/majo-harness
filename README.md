@@ -73,7 +73,6 @@ answer: calculated: 3
 
 ```text
 majo --profiles                                # list built-in profiles
-majo chat                                     # interactive multi-turn chat (one session)
 majo --profile ./my-profile.yml "task"        # any YAML file of builtin rows
 majo --plugin ext=./ext-plugin.jar "task"     # mount an external plugin jar
 majo "task"                                   # = --profile headless
@@ -94,13 +93,7 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhos
 
 Open http://localhost:8787: a session sidebar, user/tool/assistant bubbles, and a composer — a React/Vite app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Rebuild after UI edits with `bash scripts/build-web-ui.sh` (needs npm).
 
-The shipped `web.yml` points at the kilo free tier over the OpenAI-compatible gateway; set the key once and the `${…}` reference is expanded from the environment:
-
-```bash
-# Windows: setx KILO_API_KEY your-key ; then restart the jar
-KILO_API_KEY=your-key java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar
-# no key yet? switch defaultModel back to mock in a copied web.yml
-```
+The shipped `web.yml` points at the kilo free tier over the OpenAI-compatible gateway — **no API key required** (free tier can occasionally return upstream 502s; retry).
 
 JSON API for other clients:
 
