@@ -20,6 +20,7 @@ majo-harness is an **all-plugin agent harness**: every product capability is a p
 | sandbox capability (dsh `sandbox/`) | argv-wrap provider seam + policy waterfall | `majo-sandbox` (`ctx.sandbox`, identity/bwrap providers) |
 | interaction capability (dsh `interaction/`) | approval/ask-user handlers + tool gate | `majo-interaction` (`ctx.interactions`, `tool-approval`) |
 | skill capability (dsh `skill/`) | provider registry + local provider + catalog/loader tools | `majo-skill` (`ctx.skills`, `list_skills`/`load_skill`) |
+| subagent capability (dsh `subagent/`) | child-session delegation + depth guard | `majo-subagent` (`ctx.subagent`, `delegate_task`) |
 | package `core/agent-loop` — default driver | plugin with declared injections | `majo-agent-loop` (`ctx.agentLoop`) |
 | package `boot/app-boot` — profile glue | loader builtins registration | `majo-boot` |
 | shipped profiles (`web`, `headless`, …) | profile files + app plugins | `majo-headless` + `headless.yml` |
@@ -37,6 +38,8 @@ Sandbox wraps process spawning: `SandboxService` (`ctx.sandbox`) confines an arg
 Interaction gates operations behind humans: `InteractionService` (`ctx.interactions`) routes approval and ask-user requests to registered `InteractionHandler` strategies in order; handlers abstain by default and an unanswered approval denies while an unanswered question fails loudly (fail-safe). Shipped handler modes are `auto`/`deny` for approvals and `canned:`/none for answers; a `QueueingInteractionHandler` provides the interactive channel for a UI. The `tool-approval` plugin is a Chain-of-Responsibility listener on `tools/pre-execute`: gated tools pause behind `ctx.interactions` and delegate only on approval.
 
 Skills give the model reusable procedures: `SkillRegistry` (`ctx.skills`) aggregates `SkillProvider` contributions — the shipped `skill-files` provider scans directories of `SKILL.md` files (front-matter descriptions, body instructions) — and rejects name collisions across providers loudly. `list_skills`/`load_skill` browse the catalog and load instructions as tool results; wiring loaded skills into the prompt assembly arrives with the system-prompt seam.
+
+Subagents delegate within the same tree: `SubagentService` (`ctx.subagent`) opens a fresh child session and drives it through the same `ctx.agentLoop`, returning the child's final text (a child agent is a new session with isolated history, not a second loop). Nesting depth is config-guarded (`maxDepth`, default 3) and exceeding it fails loudly; the `delegate_task` tool exposes delegation to the model.
 
 There is deliberately **no privileged core module** in M1: like dsh's independent packages under `packages/core/`, each capability owns its interfaces next to its implementation and plugin, and consumers (the agent loop, the boot) depend on those modules only through their service seams. If a neutral "API spine" module ever becomes justified (typed event dictionary shared across modules), extract it the same way.
 
@@ -66,6 +69,7 @@ majo-interaction/ ApprovalRequest/Question/ApprovalDecision / InteractionHandler
 majo-skill/       Skill / SkillProvider seam / FileSkillProvider (SKILL.md dirs)
                   / SkillRegistry / SkillPlugin / FileSkillPlugin
                   / ListSkillsTool / LoadSkillTool / SkillToolsPlugin
+majo-subagent/    SubagentService / SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
 majo-util/        Disposables (composite disposer factory)
 majo-boot/        HarnessBoot (builtins registration, profile parsing, launch)
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
@@ -86,6 +90,7 @@ docs/             this document (EN + zh-CN)
 | `sandbox` | `sandbox` | `SandboxService` | confines argv through `sandbox/pre-confine` before spawning |
 | `interactions` | `interactions` | `InteractionService` | routes approvals and questions to registered handlers |
 | `skills` | `skills` | `SkillRegistry` | aggregates skill providers; load by name |
+| `subagent` | `subagent` | `SubagentService` | delegates tasks to depth-guarded child sessions |
 | `fs` | `fs` | `FileSystemService` | text read/write/glob through `fs/*` waterfalls |
 
 | event | kind | args | semantics |
@@ -191,5 +196,5 @@ Guiding rule: a new capability seam keeps this shape — Service (Facade) + Prov
 
 - **M1 (done)** — all-plugin vertical slice: profile-driven boot, session log, tools pipeline, mock LLM, agent loop, removal cascade. No network.
 - **M2 (done)** — model-provider swaps behind `ctx.llm` (generic OpenAI-compatible provider `majo-provider-openai`, offline wire-tested against a local HTTP stub); durable request headers (`REQUEST_HEADER` events log model/system prompt/tool names per step, closing the M1 composition boundary); file session store default directory (`<user.home>/.majo-harness/sessions`) with memory stores for hermetic tests.
-- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem, typed session projections, subprocess, shell, sandbox, interaction/approval, and skills (`majo-skill`). Next: subagents, settings/credentials, session titles.
+- **M3 (in progress)** — capability seams mirroring dsh, each a Service Definition + Provider + Consumer trio plus profile rows and e2e. Done so far: filesystem, typed session projections, subprocess, shell, sandbox, interaction/approval, skills, and subagents (`majo-subagent`). Next: settings/credentials, session titles.
 - **M4** — packaging & distribution: plugin jars loaded via jcordis loader SPI/HMR, profile/bundle layering and patches on top of `HarnessBoot`, CLI and SDK surfaces.

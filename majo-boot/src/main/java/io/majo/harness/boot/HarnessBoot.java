@@ -21,6 +21,8 @@ import io.majo.harness.skill.SkillPlugin;
 import io.majo.harness.skill.SkillToolsPlugin;
 import io.majo.harness.shell.ShellPlugin;
 import io.majo.harness.shell.ShellToolPlugin;
+import io.majo.harness.subagent.SubagentPlugin;
+import io.majo.harness.subagent.SubagentToolPlugin;
 import io.majo.harness.subprocess.SubprocessPlugin;
 import io.majo.harness.subprocess.SubprocessToolPlugin;
 import io.majo.harness.tools.ToolsPlugin;
@@ -59,6 +61,8 @@ public final class HarnessBoot {
     public static final String PLUGIN_SKILLS = SkillPlugin.NAME;
     public static final String PLUGIN_SKILL_FILES = FileSkillPlugin.NAME;
     public static final String PLUGIN_SKILL_TOOLS = SkillToolsPlugin.NAME;
+    public static final String PLUGIN_SUBAGENT = SubagentPlugin.NAME;
+    public static final String PLUGIN_SUBAGENT_TOOLS = SubagentToolPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
 
     private final Context ctx;
@@ -89,6 +93,8 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_SKILLS, new SkillPlugin());
         loader.builtin(PLUGIN_SKILL_FILES, new FileSkillPlugin());
         loader.builtin(PLUGIN_SKILL_TOOLS, new SkillToolsPlugin());
+        loader.builtin(PLUGIN_SUBAGENT, new SubagentPlugin());
+        loader.builtin(PLUGIN_SUBAGENT_TOOLS, new SubagentToolPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
     }
 

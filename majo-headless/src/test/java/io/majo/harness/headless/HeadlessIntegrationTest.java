@@ -352,6 +352,45 @@ class HeadlessIntegrationTest {
     }
 
     @Test
+    void subagentRowsDelegateInsideTheBootedTree() throws IOException {
+        String profile = """
+                - id: session
+                  name: session
+                - id: session-projections
+                  name: session-projections
+                - id: tools
+                  name: tools
+                - id: llm
+                  name: llm
+                  config:
+                    defaultModel: mock
+                - id: llm-mock
+                  name: llm-mock
+                - id: agent-loop
+                  name: agent-loop
+                - id: subagent
+                  name: subagent
+                - id: subagent-tools
+                  name: subagent-tools
+                - id: calc
+                  name: calc
+                """;
+        Context root = Context.create();
+        HarnessBoot boot = new HarnessBoot(root)
+                .register(CalculatorToolPlugin.NAME, new CalculatorToolPlugin());
+        boot.launch(boot.readProfileText(profile, "subagent.yml"));
+
+        assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_SUBAGENT).state()).isEqualTo(FiberState.ACTIVE);
+        io.majo.harness.subagent.SubagentService subagent = boot.service("subagent");
+        assertThat(subagent.delegate("1+2")).isEqualTo("calculated: 3");
+
+        // the child turn produced its own durable session
+        io.majo.harness.session.SessionService sessions = boot.service("sessions");
+        assertThat(sessions.sessionIds()).hasSize(1);
+        boot.dispose();
+    }
+
+    @Test
     void profileNamingAnUnknownPluginFailsLoud() {
         Context root = Context.create();
         HarnessBoot boot = new HarnessBoot(root);
