@@ -10,14 +10,14 @@
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>majo-boot</artifactId>
-  <name>majo-boot</name>
-  <description>Profile-to-loader glue: registers the shipped harness plugins as builtins and boots an entry tree from profile files</description>
+  <artifactId>majo-provider-openai</artifactId>
+  <name>majo-provider-openai</name>
+  <description>OpenAI-compatible ChatModel provider plugin (bring-your-own endpoint: LM Studio / Ollama / vLLM / gateways; apiKey optional)</description>
 
   <dependencies>
     <dependency>
       <groupId>io.majo.harness</groupId>
-      <artifactId>majo-session</artifactId>
+      <artifactId>majo-llm</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -26,23 +26,12 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>io.majo.harness</groupId>
-      <artifactId>majo-llm</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.majo.harness</groupId>
-      <artifactId>majo-agent-loop</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.majo.harness</groupId>
-      <artifactId>majo-provider-openai</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
       <groupId>io.jcordis</groupId>
       <artifactId>jcordis-all</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
     </dependency>
   </dependencies>
 </project>

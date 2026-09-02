@@ -181,4 +181,75 @@ class HeadlessIntegrationTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("no-such-plugin");
     }
+
+    @Test
+    void customOpenAiCompatibleProviderReplacesTheMock() throws IOException {
+        // an OpenAI-compatible stub speaks for the user's own endpoint; no key
+        com.sun.net.httpserver.HttpServer stub = com.sun.net.httpserver.HttpServer.create(
+                new java.net.InetSocketAddress(0), 0);
+        stub.createContext("/v1/chat/completions", exchange -> {
+            String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            boolean hasToolResult = body.contains("\"role\":\"tool\"");
+            String response = hasToolResult
+                    ? "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"calculated: 3\"}}]}"
+                    : """
+                            {"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[
+                              {"id":"c1","type":"function","function":{"name":"calc","arguments":"{\\"expression\\":\\"1+2\\"}"}}
+                            ]}}]}
+                            """;
+            byte[] payload = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, payload.length);
+            try (java.io.OutputStream out = exchange.getResponseBody()) {
+                out.write(payload);
+            }
+        });
+        stub.start();
+        try {
+            String baseUrl = "http://127.0.0.1:" + stub.getAddress().getPort() + "/v1";
+            String profile = """
+                    - id: session
+                      name: session
+                    - id: tools
+                      name: tools
+                    - id: llm
+                      name: llm
+                      config:
+                        defaultModel: local
+                    - id: llm-openai
+                      name: llm-openai
+                      config:
+                        name: local
+                        model: my-own-model
+                        baseUrl: %s
+                    - id: agent-loop
+                      name: agent-loop
+                    - id: calc
+                      name: calc
+                    """.formatted(baseUrl);
+            Context root = Context.create();
+            HarnessBoot boot = new HarnessBoot(root)
+                    .register(CalculatorToolPlugin.NAME, new CalculatorToolPlugin())
+                    .register(RunnerPlugin.NAME, new RunnerPlugin());
+            List<EntryOptions> entries = new ArrayList<>(boot.readProfileText(profile, "custom.yml"));
+            entries.add(HarnessBoot.entry(RunnerPlugin.NAME, RunnerPlugin.NAME, Map.of("task", "1+2")));
+            boot.launch(entries);
+
+            assertThat(boot.loader().expectFiber(HarnessBoot.PLUGIN_LLM_OPENAI).state())
+                    .isEqualTo(FiberState.ACTIVE);
+            SessionService sessions = boot.service(SessionService.NAME);
+            String sessionId = sessions.sessionIds().get(0);
+            List<SessionEvent> events = sessions.events(sessionId);
+            assertThat(events).extracting(SessionEvent::type).containsExactly(
+                    SessionEventType.TURN_START,
+                    SessionEventType.USER_MESSAGE,
+                    SessionEventType.ASSISTANT_MESSAGE,
+                    SessionEventType.TOOL_RESULT,
+                    SessionEventType.ASSISTANT_MESSAGE,
+                    SessionEventType.TURN_END);
+            assertThat(events.get(4).content()).isEqualTo("calculated: 3");
+            boot.dispose();
+        } finally {
+            stub.stop(0);
+        }
+    }
 }

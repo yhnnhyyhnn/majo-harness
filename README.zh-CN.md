@@ -16,6 +16,7 @@
 | `majo-tools` | 工具接缝：`Tool` / `ToolSpec` / `ToolCall` / `ToolResult` + 受控执行管道（`tools/pre-execute`、`tools/post-execute` waterfall） | `ctx.tools` | `tools` |
 | `majo-llm` | 模型消息词汇 + `ChatModel` 适配器接缝 + 注册表 + 确定性 mock provider | `ctx.llm` | `llm`、`llm-mock` |
 | `majo-agent-loop` | 默认 turn 驱动器：从会话日志派生模型历史并驱动工具轮次 | `ctx.agentLoop` | `agent-loop` |
+| `majo-provider-openai` | OpenAI-compatible 的 `ChatModel` provider——自带端点（LM Studio / Ollama / vLLM / 网关），`apiKey` 可选 | 注册到 `ctx.llm` | `llm-openai` |
 | `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
 | `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
 
@@ -53,6 +54,26 @@ answer: calculated: 3
 ```
 
 同样的运行完全由 `majo-headless/src/main/resources/headless.yml` 驱动：每一行都是插件 entry，loader 在其注入依赖就绪后按依赖顺序激活——没有任何应用代码把 loop 拼起来。
+
+## 自带模型端点
+
+运行 harness 不需要任何 key：确定性 mock 无需网络；`llm-openai` provider 按 OpenAI `chat/completions` 线协议与你选择的任何端点通信（LM Studio、Ollama、vLLM、One-API 类网关，或带你自己 key 的厂商）。替换模型 provider 只需改 profile——把 mock 两行换成 provider 行，并把 `llm.defaultModel` 指向其注册名：
+
+```yaml
+- id: llm
+  name: llm
+  config:
+    defaultModel: local        # 下面 provider 的注册名
+- id: llm-openai
+  name: llm-openai
+  config:
+    name: local
+    model: your-model-id       # 线上发送的模型 id
+    baseUrl: http://localhost:1234/v1   # 如 LM Studio / Ollama / 你的网关
+    # apiKey: sk-...           # 仅当你的端点需要时
+```
+
+自定义 provider 路径由端到端测试离线覆盖：测试对本地 HTTP stub 启动整棵插件树（`customOpenAiCompatibleProviderReplacesTheMock`）。
 
 ## License
 

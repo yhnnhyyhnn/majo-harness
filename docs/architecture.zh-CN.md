@@ -13,10 +13,12 @@ majo-harness 是一个**全插件式 agent harness**：每一项产品能力都�
 | profile/preset YAML 组合插件树 | loader Entry 树 + 配置解析 + 依赖 epoch | `majo-boot.HarnessBoot` 从 profile YAML 启动 entry 树 |
 | 包 `core/session` — append-only `SessionEvent` 日志 | `Service` + fiber effect | `majo-session`（`ctx.sessions`） |
 | 包 `core/tools` — 注册表 + 受控执行 | events / waterfall | `majo-tools`（`ctx.tools`） |
-| 包 `llm/llm` — 消息词汇 + 适配器接缝 | `Service` 注册表 | `majo-llm`（`ctx.llm`）+ provider 插件（当前为 mock，后续 `majo-provider-*`） |
+| 包 `llm/llm` — 消息词汇 + 适配器接缝 | `Service` 注册表 | `majo-llm`（`ctx.llm`）+ provider 插件（当前 mock，另有自带端点的 `majo-provider-openai`） |
 | 包 `core/agent-loop` — 默认驱动器 | 声明注入的插件 | `majo-agent-loop`（`ctx.agentLoop`） |
 | 包 `boot/app-boot` — profile 胶水 | loader builtins 注册 | `majo-boot` |
 | 内置 profile（`web`、`headless`、…） | profile 文件 + 应用插件 | `majo-headless` + `headless.yml` |
+
+模型 provider 可通过 profile 行在 `ctx.llm` 之后随意替换。出厂集合是 `llm-mock`（确定性、离线）与 `llm-openai`（面向任意 OpenAI `chat/completions` 端点的 `ChatModel`：LM Studio、Ollama、vLLM、网关，或用 `apiKey` 的厂商——因此运行 harness 从不依赖某家厂商的 key）。把 `llm.defaultModel` 指向 provider 注册的键（`name`，缺省为 `model`）即可，agent loop 无需感知。
 
 M1 **刻意不设特权核心模块**：与 dsh 在 `packages/core/` 下彼此独立的包一样，每个能力在自己的模块里同时拥有接口、实现与插件；消费者（agent loop、boot）只通过服务接缝依赖这些模块。若未来确实需要一个中立的"API 主轴"模块（例如跨模块共享的 typed 事件字典），同样以抽模块的方式引入。
 
@@ -29,6 +31,7 @@ majo-tools/       ToolCall / ToolResult / ToolSpec / Tool / ToolRegistry / ToolE
 majo-llm/         ChatRole / ChatMessage / ChatRequest / ChatResponse / ChatModel / LLMService
                   / LLMServicePlugin / MockChatModel / MockLLMPlugin
 majo-agent-loop/  MessageDeriver / AgentLoopService / AgentLoopPlugin
+majo-provider-openai/  OpenAiChatModel / OpenAiProviderPlugin（OpenAI-compatible 端点）
 majo-boot/        HarnessBoot（builtins 注册、profile 解析、launch）
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
 docs/             本文档（中英双语）
@@ -107,6 +110,6 @@ TURN_END
 ## 路线图
 
 - **M1（已完成）** — 全插件垂直切片：profile 驱动启动、会话日志、工具管道、mock LLM、agent loop、删除级联。全程无网络。
-- **M2** — `ChatModel` 背后接真实 DeepSeek provider（`majo-provider-deepseek`）、基于工具 schema 的 prompt 组装、默认启用文件会话存储、typed 会话投影（`request/header` 事件）。
+- **M2（进行中）** — `ctx.llm` 之后的 provider 可换：通用 OpenAI-compatible provider（`majo-provider-openai`，已完成，本地 HTTP stub 离线 wire 测试）；默认启用文件会话存储；typed 会话投影（`request/header` 事件）；基于工具 schema 的 prompt 组装加固。
 - **M3** — 逐一镜像 dsh 的能力接缝：fs/shell/subprocess、沙箱与审批策略、skills、subagent、交互（ask-user/approval）、settings/credentials、会话标题；每项都是 Service Definition + Provider + Consumer 三件套加 profile 行与 e2e。
 - **M4** — 打包与分发：经 jcordis loader SPI/HMR 加载插件 jar、在 `HarnessBoot` 之上做 profile/bundle 分层与 patch、CLI 与 SDK 面。

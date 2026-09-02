@@ -24,6 +24,7 @@
     <module>majo-tools</module>
     <module>majo-llm</module>
     <module>majo-agent-loop</module>
+    <module>majo-provider-openai</module>
     <module>majo-boot</module>
     <module>majo-headless</module>
   </modules>

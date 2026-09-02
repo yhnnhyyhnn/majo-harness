@@ -16,6 +16,7 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-tools` | tool seam: `Tool` / `ToolSpec` / `ToolCall` / `ToolResult` + guarded execution pipeline (`tools/pre-execute`, `tools/post-execute` waterfalls) | `ctx.tools` | `tools` |
 | `majo-llm` | model vocabulary + `ChatModel` adapter seam + registry + deterministic mock provider | `ctx.llm` | `llm`, `llm-mock` |
 | `majo-agent-loop` | default turn driver: derives model history from the session log and drives tool rounds | `ctx.agentLoop` | `agent-loop` |
+| `majo-provider-openai` | OpenAI-compatible `ChatModel` provider — bring your own endpoint (LM Studio / Ollama / vLLM / gateway); `apiKey` optional | registers on `ctx.llm` | `llm-openai` |
 | `majo-boot` | profile-to-loader glue: ships plugins as builtins and boots an entry tree from YAML profiles | — | — |
 | `majo-headless` | one-shot headless app: sample `calc` tool, `run` entry, `headless.yml` profile, e2e tests | — | `calc`, `run` |
 
@@ -53,6 +54,26 @@ answer: calculated: 3
 ```
 
 The same run, fully driven by `majo-headless/src/main/resources/headless.yml`: every row is a plugin entry the loader activates when its injections are satisfied, in dependency order — no application code wires the loop together.
+
+## Bring your own model endpoint
+
+No key is required to run the harness: the deterministic mock needs no network, and the `llm-openai` provider speaks the OpenAI `chat/completions` wire protocol to any endpoint you choose (LM Studio, Ollama, vLLM, a One-API-style gateway, or a vendor with your own key). Replacing the model provider is a profile edit only — swap the mock rows for the provider rows and point `llm.defaultModel` at the registered name:
+
+```yaml
+- id: llm
+  name: llm
+  config:
+    defaultModel: local        # registry key of the provider below
+- id: llm-openai
+  name: llm-openai
+  config:
+    name: local
+    model: your-model-id       # model id sent on the wire
+    baseUrl: http://localhost:1234/v1   # e.g. LM Studio / Ollama / your gateway
+    # apiKey: sk-...           # only when your endpoint requires one
+```
+
+The custom-provider path is covered offline by an end-to-end test that boots the tree against a local HTTP stub (`customOpenAiCompatibleProviderReplacesTheMock`).
 
 ## License
 
