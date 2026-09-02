@@ -169,5 +169,11 @@ class OpenAiChatModelTest {
         assertThatThrownBy(() -> new OpenAiChatModel(Map.of("baseUrl", "http://localhost/v1")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("model");
+        // env expansion never sends a placeholder: an unset variable fails loud
+        assertThatThrownBy(() -> new OpenAiChatModel(Map.of(
+                "baseUrl", "http://localhost/v1", "model", "m",
+                "apiKey", "${MAJO_UNSET_ENV_XYZ_123}")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("MAJO_UNSET_ENV_XYZ_123");
     }
 }

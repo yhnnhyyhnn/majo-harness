@@ -1,0 +1,20 @@
+{
+  "name": "majo-web-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "React/Vite chat UI for majo-harness; built output is copied into majo-web/src/main/resources/static so the Java jar serves it.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.2"
+  }
+}

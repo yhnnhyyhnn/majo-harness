@@ -73,6 +73,7 @@ answer: calculated: 3
 
 ```text
 majo --profiles                                # 列出内置 profile
+majo chat                                     # 交互式多轮对话（同一会话）
 majo --profile ./my-profile.yml "task"        # 任何由内置行组成的 YAML
 majo --plugin ext=./ext-plugin.jar "task"     # 挂载外部插件 jar
 majo "task"                                   # = --profile headless
@@ -82,15 +83,26 @@ majo "task"                                   # = --profile headless
 
 外部插件 jar 遵循 jcordis 契约：SPI 清单 `META-INF/services/io.jcordis.core.registry.Plugin` + 隔离类加载器。用 `--plugin name=./path.jar` 挂载，并在 profile 行里引用 `name`；热替换（`replaceJar`）与卸载走 `HarnessBoot.loader()`。`majo-boot` 里的 `PluginJarTest` 就是构建此类 jar 的现成配方。
 
-## Web UI（dsh 风格）
+`majo chat` 是**多轮对话**的纯文本 TUI：连续输入驱动同一持久会话的连续 turn（历史/工具/投影跨轮生效）；`exit`/Ctrl+D 退出。
+
+## Web UI（React，dsh 风格）
 
 ```bash
 mvn -DskipTests install
 java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787
-java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --port 9000 --profile web.yml
 ```
 
-打开 http://localhost:8787：会话侧栏、用户/工具/assistant 消息组成的对话流、提交器。离线 mock 驱动演示；把复制的 `web.yml` 指向你自己的端点即可接真实模型。其他客户端用 JSON API：
+打开 http://localhost:8787：会话侧栏、用户/工具/assistant 消息气泡、提交器——这是 `web-ui/` 下的 React/Vite 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。改动 UI 后用 `bash scripts/build-web-ui.sh` 重建（需 npm）。
+
+随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）；设置一次 key，配置里的 `${…}` 会在启动时从环境变量展开：
+
+```bash
+# Windows: setx KILO_API_KEY your-key ; 然后重启 jar
+KILO_API_KEY=your-key java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar
+# 还没有 key？在复制的 web.yml 里把 defaultModel 改回 mock 即可
+```
+
+其他客户端用 JSON API：
 
 ```bash
 curl -X POST -H 'Content-Type: application/json' -d '{"task":"1+2"}' http://localhost:8787/api/turn

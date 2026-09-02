@@ -35,8 +35,12 @@ import java.util.UUID;
  *   <li>{@code model} — required, the model id sent on the wire;</li>
  *   <li>{@code name} — optional registry key under which this model is
  *       registered on {@code ctx.llm} (defaults to {@code model});</li>
- *   <li>{@code apiKey} — optional; sent as {@code Authorization: Bearer};</li>
- *   <li>{@code headers} — optional extra header map for gateway auth schemes;</li>
+ *   <li>{@code apiKey} — optional; sent as {@code Authorization: Bearer}; an
+ *       entry of the form {@code ${ENV_VAR}} reads the variable at runtime, so
+ *       secrets never need to live in a profile file (missing variables fail
+ *       loudly);</li>
+ *   <li>{@code headers} — optional extra header map for gateway auth schemes
+ *       (same {@code ${ENV_VAR}} expansion);</li>
  *   <li>{@code temperature} / {@code maxTokens} — optional sampling knobs;</li>
  *   <li>{@code timeoutSeconds} — optional HTTP timeout (default 60).</li>
  * </ul>
@@ -57,7 +61,7 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel {
         Map<?, ?> map = config instanceof Map<?, ?> m ? m : Map.of();
         String baseUrl = required(map, "baseUrl", "OpenAiChatModel");
         this.model = required(map, "model", "OpenAiChatModel");
-        this.apiKey = stringOrNull(map, "apiKey");
+        this.apiKey = expand(stringOrNull(map, "apiKey"), "apiKey");
         this.extraHeaders = headers(map.get("headers"));
         this.temperature = numberOrNull(map, "temperature");
         this.maxTokens = integerOrNull(map, "maxTokens");
@@ -99,9 +103,26 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel {
         }
         java.util.HashMap<String, String> result = new java.util.HashMap<>();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
-            result.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+            result.put(String.valueOf(entry.getKey()),
+                    expand(String.valueOf(entry.getValue()), "headers." + entry.getKey()));
         }
         return result;
+    }
+
+    /**
+     * Expands {@code ${ENV_VAR}} references from the environment; a variable
+     * that is unset fails loudly rather than sending a placeholder.
+     */
+    private static String expand(String value, String where) {
+        if (value == null || !value.startsWith("${") || !value.endsWith("}")) {
+            return value;
+        }
+        String name = value.substring(2, value.length() - 1);
+        String resolved = System.getenv(name);
+        if (resolved == null) {
+            throw new IllegalArgumentException(where + " references env " + name + " which is not set");
+        }
+        return resolved;
     }
 
     private static URI endpoint(String baseUrl) {

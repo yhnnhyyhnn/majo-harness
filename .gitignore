@@ -34,3 +34,7 @@ release.properties
 .idea/
 *.iml
 .vscode/
+
+# web UI build artifacts (source tracked; dist committed into majo-web resources)
+web-ui/node_modules/
+web-ui/dist/

@@ -73,6 +73,7 @@ answer: calculated: 3
 
 ```text
 majo --profiles                                # list built-in profiles
+majo chat                                     # interactive multi-turn chat (one session)
 majo --profile ./my-profile.yml "task"        # any YAML file of builtin rows
 majo --plugin ext=./ext-plugin.jar "task"     # mount an external plugin jar
 majo "task"                                   # = --profile headless
@@ -82,15 +83,26 @@ The `run` row is appended automatically when absent; swap the model provider in 
 
 External plugin jars follow the jcordis contract: an SPI manifest `META-INF/services/io.jcordis.core.registry.Plugin` and an isolated class loader. Mount one with `--plugin name=./path.jar` and reference `name` from profile rows; hot replacement (`replaceJar`) and unload go through `HarnessBoot.loader()`. The `PluginJarTest` in majo-boot is a ready recipe for building such a jar.
 
-## Web UI (dsh-style)
+`majo chat` is a plain TUI for **multi-turn conversation**: consecutive lines drive consecutive turns of one durable session (history, tools, and projections apply across turns); `exit`/Ctrl+D quits.
+
+## Web UI (React, dsh-style)
 
 ```bash
 mvn -DskipTests install
 java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787
-java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --port 9000 --profile web.yml
 ```
 
-Open http://localhost:8787: a session sidebar, a conversation of user/tool/assistant messages, and a composer. The offline mock drives the demo; point a copied `web.yml` at your own endpoint for real model work. JSON API for other clients:
+Open http://localhost:8787: a session sidebar, user/tool/assistant bubbles, and a composer — a React/Vite app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Rebuild after UI edits with `bash scripts/build-web-ui.sh` (needs npm).
+
+The shipped `web.yml` points at the kilo free tier over the OpenAI-compatible gateway; set the key once and the `${…}` reference is expanded from the environment:
+
+```bash
+# Windows: setx KILO_API_KEY your-key ; then restart the jar
+KILO_API_KEY=your-key java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar
+# no key yet? switch defaultModel back to mock in a copied web.yml
+```
+
+JSON API for other clients:
 
 ```bash
 curl -X POST -H 'Content-Type: application/json' -d '{"task":"1+2"}' http://localhost:8787/api/turn

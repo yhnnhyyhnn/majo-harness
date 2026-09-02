@@ -13,12 +13,38 @@ class MajoCliTest {
     private record Result(int code, String stdout, String stderr) {}
 
     private static Result run(String... args) {
+        return runWithInput(List.of(args), null);
+    }
+
+    private static Result runWithInput(List<String> args, String stdin) {
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
-        int code = new MajoCli(List.of(args),
+        int code = new MajoCli(args,
                 new PrintStream(outBytes, true, StandardCharsets.UTF_8),
-                new PrintStream(errBytes, true, StandardCharsets.UTF_8)).run();
+                new PrintStream(errBytes, true, StandardCharsets.UTF_8))
+                .run(stdin == null ? null : new java.io.BufferedReader(
+                        new java.io.StringReader(stdin)));
         return new Result(code, outBytes.toString(StandardCharsets.UTF_8), errBytes.toString(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void chatDrivesMultiTurnConversation() {
+        // two user messages flow through the same session (multi-turn)
+        Result result = runWithInput(List.of("chat"), "1+2\nand now 3+4\nexit\n");
+        assertThat(result.code()).isZero();
+        assertThat(result.stdout()).contains("== majo chat");
+        assertThat(result.stdout()).contains("you> 1+2");
+        assertThat(result.stdout()).contains("you> and now 3+4");
+        long agentReplies = result.stdout().lines().filter(line -> line.startsWith("agent>")).count();
+        assertThat(agentReplies).isEqualTo(2);
+        assertThat(result.stdout()).contains("calculated: 3");
+    }
+
+    @Test
+    void chatRejectsAnExtraTaskArgument() {
+        Result result = runWithInput(List.of("chat", "surplus-task"), "exit\n");
+        assertThat(result.code()).isEqualTo(2);
+        assertThat(result.stderr()).contains("chat takes no task argument");
     }
 
     @Test
