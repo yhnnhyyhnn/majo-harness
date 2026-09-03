@@ -566,3 +566,16 @@ li.message.user { align-self: flex-end; }
 }
 .feedback button:hover { opacity: 1; }
 .feedback button.on { opacity: 1; background: var(--panel-1); }
+
+/* slash-command notice */
+#notice {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: pre-line;
+  padding: 6px 10px;
+  margin: 0 auto 6px;
+  max-width: 720px;
+}

@@ -16,6 +16,8 @@ export interface ChatState {
   sessionModel: string | null;
   model: string | null;
   models: string[];
+  /** Transient banner text (slash-command feedback). */
+  notice: string | null;
   input: string;
   busy: boolean;
   offline: boolean;
@@ -33,6 +35,7 @@ export interface ChatActions {
   deleteSession(id: string): Promise<void>;
   changeSessionModel(model: string | null): Promise<void>;
   rate(seq: number, value: "up" | "down" | null): Promise<void>;
+  setNotice(message: string | null): void;
   setInput(value: string): void;
   setQInput(value: string): void;
   sendTask(): Promise<void>;
@@ -53,6 +56,7 @@ const initial = (): ChatState => ({
   sessionModel: null,
   model: null,
   models: [],
+  notice: null,
   input: "",
   busy: false,
   offline: false,
@@ -64,6 +68,7 @@ const initial = (): ChatState => ({
 
 export function createChat(store: Store<ChatState>): ChatActions {
   let streamClose: (() => void) | null = null;
+  let noticeTimer: number | undefined;
 
   const closeStream = () => {
     streamClose?.();
@@ -329,6 +334,18 @@ export function createChat(store: Store<ChatState>): ChatActions {
         }
       } catch {
         // transient: next poll retries; conversation stays usable offline
+      }
+    },
+    setNotice(message) {
+      if (noticeTimer !== undefined) {
+        window.clearTimeout(noticeTimer);
+      }
+      store.set({ notice: message });
+      if (message) {
+        noticeTimer = window.setTimeout(() => {
+          store.set({ notice: null });
+          noticeTimer = undefined;
+        }, 8000);
       }
     },
     retry() {

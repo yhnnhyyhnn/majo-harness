@@ -1,6 +1,7 @@
 import type { Feature } from "../slots";
 import { approvalFeature } from "./approval";
 import { chatFeature } from "./chat";
+import { commandsFeature } from "./commands";
 import { settingsFeature } from "./settings";
 import { skillsFeature } from "./skills";
 import { subagentsFeature } from "./subagents";
@@ -13,4 +14,5 @@ export const FEATURES: Feature[] = [
   skillsFeature,
   settingsFeature,
   subagentsFeature,
+  commandsFeature,
 ];

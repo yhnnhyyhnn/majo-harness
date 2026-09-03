@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { SlotRoot, useSlots, type RailProps } from "./slots";
+import { SlotRoot, useSlots, type CommandSeat, type RailProps } from "./slots";
 import { FEATURES } from "./features";
 import type { EventFrame, EventKind } from "./types";
 import { useChat } from "./useChat";
@@ -70,7 +70,7 @@ export default function App() {
 
 function AppShell() {
   const { state, actions } = useChat();
-  const { rails, sidebarSections } = useSlots();
+  const { rails, sidebarSections, commands } = useSlots();
 
   useEffect(() => {
     void actions.loadInitial();
@@ -86,9 +86,45 @@ function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.sessionId, state.busy]);
 
+  const flash = (message: string) => actions.setNotice(message);
+
+  const runCommand = async (raw: string): Promise<void> => {
+    const tokens = raw.trim().slice(1).split(/\s+/);
+    const name = (tokens[0] || "").toLowerCase();
+    const def = commands.find((candidate) =>
+      candidate.names.some((alias) => alias.toLowerCase() === name)
+    );
+    if (!def) {
+      flash("unknown command /" + name + " — try /help");
+      return;
+    }
+    const seat: CommandSeat = {
+      state,
+      async run(action) {
+        try {
+          await action(actions);
+        } catch (error) {
+          flash(String(error));
+        }
+      },
+      flash,
+      commands,
+    };
+    try {
+      const output = await def.run(seat, tokens.slice(1));
+      if (typeof output === "string") flash(output);
+    } catch (error) {
+      flash(String(error));
+    }
+  };
+
   const send = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    void actions.sendTask();
+    if (state.input.trim().startsWith("/")) {
+      void runCommand(state.input);
+    } else {
+      void actions.sendTask();
+    }
   };
 
   const railProps: RailProps = {
@@ -232,7 +268,11 @@ function AppShell() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                void actions.sendTask();
+                if (state.input.trim().startsWith("/")) {
+                  void runCommand(state.input);
+                } else {
+                  void actions.sendTask();
+                }
               }
             }}
           />
@@ -240,6 +280,7 @@ function AppShell() {
             Send
           </button>
         </form>
+        {state.notice && <div id="notice">{state.notice}</div>}
         <div id="busy" hidden={!state.busy}>
           <span className="spinner" /> running…
         </div>

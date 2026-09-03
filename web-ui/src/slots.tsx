@@ -1,4 +1,5 @@
 import { createContext, useContext, useRef, type ReactNode } from "react";
+import type { ChatActions, ChatState } from "./useChat";
 import type { ApprovalFrame, EventFrame, EventKind, QuestionFrame } from "./types";
 
 // Pure slot registry (mirrors dsh ui-slots, simplified): UI features register
@@ -32,10 +33,30 @@ export interface SectionProps {
   // shared sidebar seat for feature sections; extend when a feature needs it
 }
 
+/**
+ * A slash command contribution (dsh {@code ui-commands}): pure definitions
+ * registered by features; the shell injects live state/actions at run time.
+ */
+export interface Command {
+  /** Invocation names without the slash, e.g. ["help", "?"] for {@code /help}. */
+  names: string[];
+  usage: string;
+  description: string;
+  run(seat: CommandSeat, args: string[]): string | void | Promise<string | void>;
+}
+
+export interface CommandSeat {
+  state: ChatState;
+  run(action: (actions: ChatActions) => void | Promise<void>): Promise<void>;
+  flash(message: string): void;
+  commands: Command[];
+}
+
 export interface FeatureContext {
   renderMessage(kind: EventKind, renderer: MessageRenderer): void;
   addRail(id: string, render: (props: RailProps) => ReactNode): void;
   addSidebarSection(id: string, render: (props: SectionProps) => ReactNode): void;
+  addCommand(command: Command): void;
 }
 
 export interface Feature {
@@ -47,6 +68,7 @@ interface Registry {
   messages: Partial<Record<EventKind, MessageRenderer>>;
   rails: Map<string, (props: RailProps) => ReactNode>;
   sections: Map<string, (props: SectionProps) => ReactNode>;
+  commands: Command[];
 }
 
 const RegistryContext = createContext<Registry | null>(null);
@@ -54,7 +76,7 @@ const RegistryContext = createContext<Registry | null>(null);
 export function SlotRoot({ features, children }: { features: Feature[]; children: ReactNode }) {
   const registry = useRef<Registry | null>(null);
   if (!registry.current) {
-    const value: Registry = { messages: {}, rails: new Map(), sections: new Map() };
+    const value: Registry = { messages: {}, rails: new Map(), sections: new Map(), commands: [] };
     const context: FeatureContext = {
       renderMessage(kind, renderer) {
         value.messages[kind] = renderer;
@@ -64,6 +86,9 @@ export function SlotRoot({ features, children }: { features: Feature[]; children
       },
       addSidebarSection(id, render) {
         value.sections.set(id, render);
+      },
+      addCommand(command) {
+        value.commands.push(command);
       },
     };
     for (const feature of features) feature.register(context);
@@ -76,6 +101,7 @@ export function useSlots(): {
   messageRenderer: (kind: EventKind) => MessageRenderer | undefined;
   rails: Array<{ id: string; render: (props: RailProps) => ReactNode }>;
   sidebarSections: Array<{ id: string; render: (props: SectionProps) => ReactNode }>;
+  commands: Command[];
 } {
   const registry = useContext(RegistryContext);
   if (!registry) {
@@ -85,5 +111,6 @@ export function useSlots(): {
     messageRenderer: (kind) => registry.messages[kind],
     rails: [...registry.rails.entries()].map(([id, render]) => ({ id, render })),
     sidebarSections: [...registry.sections.entries()].map(([id, render]) => ({ id, render })),
+    commands: [...registry.commands],
   };
 }
