@@ -15,25 +15,25 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 
 | dsh feature | majo | Notes |
 |---|---|---|
-| Session sidebar (list/new/titles) | ✅ | newest-first; event counts; heuristic titles |
+| Session sidebar (list/new/titles) | ✅ | newest-first; event counts; heuristic titles + user rename (✎) and delete (✕) per row |
 | Conversation transcript (user/assistant) | ✅ | full re-render per turn (log is the source of truth) |
 | Tool call + result rendering | ✅ | chips with JSON args, ok/error dots |
 | Turn/request metadata | 🟡 | REQUEST_HEADER meta line (model, tool list) |
-| Streaming token display | ⬜ | needs SSE / chunked turn API |
-| Incremental append (no full re-render) | ⬜ | needs `sinceSeq` param or stream |
+| Streaming token display | ✅ | SSE `/api/turn/stream`: chunk frames feed the live bubble |
+| Incremental append (no full re-render) | ✅ | each log/chunk frame pushes one event; stream closes on done |
 | Message copy / feedback (👍👎) | ⬜ | `ui-message-feedback`; backend feedback seam needed |
 | Markdown/code rendering in answers | ⬜ | `ui-renderer`; add a small safe renderer |
-| Ask-user inline question bubble | ⬜ | `ui-user-questions`; backend `ctx.interactions.ask` exists — needs an in-turn channel |
-| Approval prompt UI | ⬜ | `ui-approval`; backend `ctx.interactions` + `tool-approval` exist — needs a queue+UI channel |
+| Ask-user inline question bubble | ✅ | rail in approval/ask features (`ctx.interactions` queue → SSE) |
+| Approval prompt UI | ✅ | rail with allow/reject (`ctx.interactions` + `tool-approval`) |
 
 ## Session & configuration
 
 | dsh feature | majo | Notes |
 |---|---|---|
-| Rename / delete session | ⬜ | needs DELETE/PATCH endpoints |
-| Model selection control | ⬜ | `ui-model-selection`; backend: multiple registered models exist (`ctx.llm`) — needs per-session model setting |
+| Rename / delete session | ✅ | `PUT/DELETE /api/sessions/:id` (+ `/title`); memory & file stores; active-session fallback |
+| Model selection control | ✅ | header `<select>` over `GET/PUT /api/settings/model` (persisted via `ctx.settings`) |
 | Slash commands (`ui-commands`) | ⬜ | backend has no commands seam yet |
-| Settings (general/models/plugins) | ⬜ | `ui-settings`; `ctx.settings` exists |
+| Settings (general/models/plugins) | ✅ | sidebar Settings section: version/models/tools/skills facts (`/api/info`) |
 | Theme switching | ⬜ | trivial CSS once colors are variables |
 | Web/ACP connectivity & reconnect banner | ✅ | offline banner + retry |
 
@@ -46,10 +46,21 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Jobs (`ui-jobs`) | backend jobs not built | ⬜ |
 | Schedule (`ui-schedule`) | backend not built | ⬜ |
 | Workflow run (`ui-workflow-run`) | backend not built | ⬜ |
-| Subagent activity (`ui-subagent`) | backend subagent exists | ⬜ |
-| Skills panel (`ui-skill`) | backend skills exists | ⬜ |
+| Subagent activity (`ui-subagent`) | backend subagent exists | ✅ sidebar section (recent delegations, polls) |
+| Skills panel (`ui-skill`) | backend skills exists | ✅ sidebar section (`/api/skills`, polls) |
 | Agent team (`ui-agent-team`, experimental) | backend not built | ⬜ |
 | Trajectory (`ui-trajectory`) | backend session log has everything | 🟡 via transcript |
+
+## Wire contract & panels plumbing
+
+- Typed single source of truth: `WebApiModels` DTO records + `SessionEventType` enum → `WebTypesGenerator` → `web-ui/src/types.ts`; the backend serializes the same DTOs (`NON_NULL` for `@OptionalWire`).
+- Endpoints: `GET/POST /api/sessions`, `GET/PUT/DELETE /api/sessions/:id` (`PUT …/title`), `GET/PUT /api/settings/model`, `GET /api/skills`, `GET /api/subagents`, `GET /api/info`, approvals/questions decisions, SSE `/api/turn/stream`.
+- UI assembly stays registration-only: `features/*` modules fill message-renderer/rail/sidebar slots through `FEATURES` (compile-time list); shell code only renders slots.
+
+## Search/fetch backends (server-side web family)
+
+- Seams: `SearchProvider`/`FetchProvider` register on `ctx.web`; first usable provider (or explicit id) serves `web_search`/`web_fetch`; missing backend fails structured; provider text is external/untrusted.
+- Shipped: `web-fetch-http` (anonymous HTML→text), `web-search-static` (offline), `web-search-wiki` (real no-key Wikipedia API, lazy-mount, `web.yml`).
 
 ## Recommended order
 

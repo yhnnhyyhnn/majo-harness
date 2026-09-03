@@ -12,11 +12,13 @@ function SubagentsPanel() {
     setRuns(index.runs || []);
   };
 
+  // fetch on open, then poll so finished delegations appear without a click
   useEffect(() => {
-    if (open && runs === null) {
-      void load().catch(() => setRuns([]));
-    }
-  }, [open, runs]);
+    if (!open) return;
+    void load().catch(() => setRuns([]));
+    const timer = window.setInterval(() => void load().catch(() => {}), 3000);
+    return () => window.clearInterval(timer);
+  }, [open]);
 
   return (
     <div className="side-section">

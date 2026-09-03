@@ -12,11 +12,13 @@ function SkillsPanel() {
     setSkills(index.skills || []);
   };
 
+  // fetch on open, then keep the catalog fresh while the panel is visible
   useEffect(() => {
-    if (open && skills === null) {
-      void load().catch(() => setSkills([]));
-    }
-  }, [open, skills]);
+    if (!open) return;
+    void load().catch(() => setSkills([]));
+    const timer = window.setInterval(() => void load().catch(() => {}), 8000);
+    return () => window.clearInterval(timer);
+  }, [open]);
 
   return (
     <div className="side-section">

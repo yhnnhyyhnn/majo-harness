@@ -26,7 +26,7 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-subagent` | subagent capability seam: `ctx.subagent` delegates a task to a child session driven by the agent loop (depth-guarded), `delegate_task` tool consumer | `ctx.subagent` (+ `ctx.tools`) | `subagent`, `subagent-tools` |
 | `majo-settings` | user settings: `ctx.settings` key/value store with optional JSON file provider | `ctx.settings` | `settings` |
 | `majo-credentials` | credentials: `ctx.credentials` resolves secrets through providers (env + `.env` file shipped), values never logged | `ctx.credentials` | `credentials` |
-| `majo-web-access` | web access capability family (dsh `web/`): `ctx.web` with swappable search/fetch providers, anonymous HTTP fetch backend, static search backend, `web_search`/`web_fetch` tools | `ctx.web` (+ `ctx.tools`) | `web`, `web-tools`, `web-fetch-http`, `web-search-static` |
+| `majo-web-access` | web access capability family (dsh `web/`): `ctx.web` with swappable search/fetch providers, anonymous HTTP fetch backend, static + real no-key Wikipedia search backends, `web_search`/`web_fetch` tools | `ctx.web` (+ `ctx.tools`) | `web`, `web-tools`, `web-fetch-http`, `web-search-static`, `web-search-wiki` |
 | `majo-title` | session titles: `ctx.sessionTitle` holds the sole title provider (heuristic shipped), derived from the session log | `ctx.sessionTitle` | `session-title`, `session-title-heuristic` |
 | `majo-boot` | profile-to-loader glue: ships plugins as builtins and boots an entry tree from YAML profiles | — | — |
 | `majo-headless` | one-shot headless app: sample `calc` tool, `run` entry, `headless.yml` profile, e2e tests | — | `calc`, `run` |
@@ -49,7 +49,7 @@ Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.z
 
 `majo-web` is the browser-facing entry (it both runs the backend service over a booted plugin tree and serves the compiled React UI). `majo-cli` is the script/one-shot entry. They share the same composable plugin tree — there is no privileged core.
 
-The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `interactions`, `tool-approval`, `skills`, `skill-files`, `skill-tools`, `subagent`, `subagent-tools`, `settings`, `credentials`, `session-title`, `session-title-heuristic`, `web`, `web-tools`, `web-fetch-http`, `web-search-static`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
+The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `interactions`, `tool-approval`, `skills`, `skill-files`, `skill-tools`, `subagent`, `subagent-tools`, `settings`, `credentials`, `session-title`, `session-title-heuristic`, `web`, `web-tools`, `web-fetch-http`, `web-search-static`, `web-search-wiki`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
 
 ```yaml
 - id: fs
@@ -97,18 +97,17 @@ The `run` row is appended automatically when absent; swap the model provider in 
 
 External plugin jars follow the jcordis contract: an SPI manifest `META-INF/services/io.jcordis.core.registry.Plugin` and an isolated class loader. Mount one with `--plugin name=./path.jar` and reference `name` from profile rows; hot replacement (`replaceJar`) and unload go through `HarnessBoot.loader()`. The `PluginJarTest` in majo-boot is a ready recipe for building such a jar.
 
-`majo chat` is a plain TUI for **multi-turn conversation**: consecutive lines drive consecutive turns of one durable session (history, tools, and projections apply across turns); `exit`/Ctrl+D quits.
-
 ## Web UI (React, dsh-style)
 
 ```bash
 mvn -DskipTests install
-java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787 (web.yml)
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # offline (mock llm)
 ```
 
-Open http://localhost:8787: a session sidebar, user/tool/assistant bubbles, and a composer — a React/Vite app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Rebuild after UI edits with `bash scripts/build-web-ui.sh` (needs npm).
+Open http://localhost:8787: a session sidebar (rename ✎ / delete ✕ per row), user/tool/assistant bubbles, a composer, and collapsible sidebar sections (Skills / Settings / Subagents) that fill registration-only slots. The app is a React/Vite TypeScript app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Its wire types are generated from the Java contract: edit `WebApiModels`/`SessionEventType`, run `bash scripts/gen-web-types.sh`, then rebuild. UI builds happen through Maven (`mvn -pl web-ui generate-resources`, needs npm).
 
-The shipped `web.yml` points at the kilo free tier over the OpenAI-compatible gateway — **no API key required** (free tier can occasionally return upstream 502s; retry).
+The shipped `web.yml` points at the kilo free tier over the OpenAI-compatible gateway — **no API key required** (free tier can occasionally return upstream 502s; retry). `web.yml` also mounts the real no-key Wikipedia search backend (`web-search-wiki`) and two sample skills from the repo `skills/` directory (`summarize`, `check-style`); `web-mock.yml` keeps the same panels working fully offline with the deterministic mock.
 
 JSON API for other clients:
 
@@ -116,6 +115,11 @@ JSON API for other clients:
 curl -X POST -H 'Content-Type: application/json' -d '{"task":"1+2"}' http://localhost:8787/api/turn
 curl http://localhost:8787/api/sessions
 curl http://localhost:8787/api/sessions/<id>
+curl -X PUT -H 'Content-Type: application/json' -d '{"title":"My notes"}' http://localhost:8787/api/sessions/<id>/title
+curl -X DELETE http://localhost:8787/api/sessions/<id>
+curl http://localhost:8787/api/skills
+curl http://localhost:8787/api/subagents
+curl http://localhost:8787/api/info
 ```
 
 Troubleshooting: if the page stays blank, an older instance is usually still holding port 8787 — the new process exits with a clear "port … is already in use" message while the browser keeps talking to the stale one. Stop old `java` processes or pick another port (`--port 9000`), then hard-refresh (Ctrl+F5). The page shows a visible "offline" banner instead of failing silently when the backend cannot be reached.

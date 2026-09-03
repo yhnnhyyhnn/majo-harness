@@ -26,7 +26,7 @@
 | `majo-subagent` | 子代理能力接缝：`ctx.subagent` 把任务委派给由 agent loop 驱动的子会话（深度受限），`delegate_task` 工具消费者 | `ctx.subagent`（+ `ctx.tools`） | `subagent`、`subagent-tools` |
 | `majo-settings` | 用户设置：`ctx.settings` 键值存储，可选 JSON 文件 provider | `ctx.settings` | `settings` |
 | `majo-credentials` | 凭据：`ctx.credentials` 经 provider（出厂 env + `.env` 文件）解析密钥，值永不入日志 | `ctx.credentials` | `credentials` |
-| `majo-web-access` | web 访问能力族（dsh `web/`）：可换 search/fetch provider 的 `ctx.web`、匿名 HTTP fetch 后端、静态搜索后端、`web_search`/`web_fetch` 工具 | `ctx.web`（+ `ctx.tools`） | `web`、`web-tools`、`web-fetch-http`、`web-search-static` |
+| `majo-web-access` | web 访问能力族（dsh `web/`）：可换 search/fetch provider 的 `ctx.web`、匿名 HTTP fetch 后端、静态 + 真实无 key Wikipedia 搜索后端、`web_search`/`web_fetch` 工具 | `ctx.web`（+ `ctx.tools`） | `web`、`web-tools`、`web-fetch-http`、`web-search-static`、`web-search-wiki` |
 | `majo-title` | 会话标题：`ctx.sessionTitle` 持有唯一标题 provider（出厂 heuristic），由会话日志派生 | `ctx.sessionTitle` | `session-title`、`session-title-heuristic` |
 | `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
 | `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
@@ -49,7 +49,7 @@
 
 `majo-web` 是面向浏览器的入口（既作为后端服务在已启动的插件树上运行，又托管编译好的 React 页面）。`majo-cli` 是脚本/一次性任务入口。两者共享同一棵可组合插件树——没有特权内核。
 
-出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`shell`、`shell-tools`、`sandbox`、`interactions`、`tool-approval`、`skills`、`skill-files`、`skill-tools`、`subagent`、`subagent-tools`、`settings`、`credentials`、`session-title`、`session-title-heuristic`、`web`、`web-tools`、`web-fetch-http`、`web-search-static`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
+出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`shell`、`shell-tools`、`sandbox`、`interactions`、`tool-approval`、`skills`、`skill-files`、`skill-tools`、`subagent`、`subagent-tools`、`settings`、`credentials`、`session-title`、`session-title-heuristic`、`web`、`web-tools`、`web-fetch-http`、`web-search-static`、`web-search-wiki`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
 
 ```yaml
 - id: fs
@@ -97,18 +97,17 @@ majo "task"                                   # = --profile headless
 
 外部插件 jar 遵循 jcordis 契约：SPI 清单 `META-INF/services/io.jcordis.core.registry.Plugin` + 隔离类加载器。用 `--plugin name=./path.jar` 挂载，并在 profile 行里引用 `name`；热替换（`replaceJar`）与卸载走 `HarnessBoot.loader()`。`majo-boot` 里的 `PluginJarTest` 就是构建此类 jar 的现成配方。
 
-`majo chat` 是**多轮对话**的纯文本 TUI：连续输入驱动同一持久会话的连续 turn（历史/工具/投影跨轮生效）；`exit`/Ctrl+D 退出。
-
 ## Web UI（React，dsh 风格）
 
 ```bash
 mvn -DskipTests install
-java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787（web.yml）
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # 离线（mock llm）
 ```
 
-打开 http://localhost:8787：会话侧栏、用户/工具/assistant 消息气泡、提交器——这是 `web-ui/` 下的 React/Vite 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。改动 UI 后用 `bash scripts/build-web-ui.sh` 重建（需 npm）。
+打开 http://localhost:8787：会话侧栏（每行支持改名 ✎ / 删除 ✕）、用户/工具/assistant 消息气泡、提交器，以及可折叠的侧栏区（Skills / Settings / Subagents）——特性模块只做注册，壳层只渲染槽。这是 `web-ui/` 下的 React/Vite **TypeScript** 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。UI 的线类型由 Java 契约生成：改 `WebApiModels`/`SessionEventType` 后跑 `bash scripts/gen-web-types.sh` 再重建；构建走 Maven（`mvn -pl web-ui generate-resources`，需 npm）。
 
-随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）——**无需 API key**（免费层偶发上游 502，重试即可）。
+随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）——**无需 API key**（免费层偶发上游 502，重试即可）；同时挂载真实无 key Wikipedia 搜索后端（`web-search-wiki`）与仓库 `skills/` 目录下的两个示例技能（`summarize`、`check-style`）。`web-mock.yml` 让同一组面板完全离线可用（确定性 mock）。
 
 其他客户端用 JSON API：
 
@@ -116,6 +115,11 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhos
 curl -X POST -H 'Content-Type: application/json' -d '{"task":"1+2"}' http://localhost:8787/api/turn
 curl http://localhost:8787/api/sessions
 curl http://localhost:8787/api/sessions/<id>
+curl -X PUT -H 'Content-Type: application/json' -d '{"title":"My notes"}' http://localhost:8787/api/sessions/<id>/title
+curl -X DELETE http://localhost:8787/api/sessions/<id>
+curl http://localhost:8787/api/skills
+curl http://localhost:8787/api/subagents
+curl http://localhost:8787/api/info
 ```
 
 排障：若页面一片空白，最常见原因是 **8787 被旧实例占用**——新进程会以清晰的 “port … is already in use” 退出，而浏览器仍在访问旧进程。停掉旧的 `java` 进程或换端口（`--port 9000`），再强制刷新（Ctrl+F5）。后端不可达时页面显示可见的 “offline” 横幅，而不是静默空白。
