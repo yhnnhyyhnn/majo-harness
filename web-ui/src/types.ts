@@ -1,42 +1,16 @@
-// Typed mirror of the majo-web /api contract (single source of truth for the UI).
+// AUTO-GENERATED from io.majo.harness.web.WebApiModels and io.majo.harness.session.SessionEventType
+// Do not edit by hand — run scripts/gen-web-types.sh after changing the wire contract.
 
 export type EventKind =
   | "TURN_START"
-  | "TURN_END"
   | "USER_MESSAGE"
   | "ASSISTANT_MESSAGE"
   | "TOOL_RESULT"
-  | "REQUEST_HEADER";
+  | "TURN_END"
+  | "REQUEST_HEADER"
 
-export interface ToolCallFrame {
-  name: string;
-  arguments?: string;
-}
-
-export interface EventFrame {
-  seq: number;
-  kind: EventKind;
-  content?: string | null;
-  toolCalls?: ToolCallFrame[];
-  toolName?: string;
-  ok?: boolean;
-  model?: string;
-  toolNames?: string[];
-}
-
-export interface SessionInfo {
-  id: string;
-  title?: string | null;
-  eventCount: number;
-}
-
-export interface SessionDetail extends SessionInfo {
-  events: EventFrame[];
-}
-
-export interface ModelState {
-  model: string | null;
-  models: string[];
+export interface ApprovalDecision {
+  decision?: string;
 }
 
 export interface ApprovalFrame {
@@ -45,15 +19,77 @@ export interface ApprovalFrame {
   details?: string;
 }
 
+export interface CreateSession {
+  id: string;
+}
+
+export interface EventFrame {
+  seq: number;
+  kind: EventKind;
+  content?: string;
+  toolCalls?: ToolCallFrame[];
+  toolName?: string;
+  ok?: boolean;
+  model?: string;
+  toolNames?: string[];
+}
+
+export interface ModelState {
+  model?: string;
+  models: string[];
+}
+
+export interface Ok {
+  ok: boolean;
+}
+
+export interface QuestionAnswer {
+  answer?: string;
+}
+
 export interface QuestionFrame {
   id: string;
   text: string;
 }
 
+export interface SessionDetail {
+  id: string;
+  title?: string;
+  events: EventFrame[];
+}
+
+export interface SessionInfo {
+  id: string;
+  title?: string;
+  eventCount: number;
+}
+
+export interface SessionsIndex {
+  sessions: SessionInfo[];
+}
+
+export interface StreamChunk {
+  text: string;
+}
+
+export interface StreamDone {
+  sessionId: string;
+  answer: string;
+}
+
+export interface StreamFail {
+  message: string;
+}
+
+export interface ToolCallFrame {
+  name: string;
+  arguments?: string;
+}
+
 export type StreamEvent =
   | { event: "log"; data: EventFrame }
-  | { event: "chunk"; data: { text: string } }
-  | { event: "done"; data: { sessionId: string; answer: string } }
-  | { event: "fail"; data: { message: string } }
+  | { event: "chunk"; data: StreamChunk }
+  | { event: "done"; data: StreamDone }
+  | { event: "fail"; data: StreamFail }
   | { event: "approval"; data: ApprovalFrame }
   | { event: "question"; data: QuestionFrame };
