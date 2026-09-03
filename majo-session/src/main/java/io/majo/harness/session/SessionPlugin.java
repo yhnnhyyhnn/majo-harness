@@ -33,7 +33,7 @@ public final class SessionPlugin implements Plugin {
             }
             Object pathValue = map.get("path");
             if (pathValue != null) {
-                path = String.valueOf(pathValue);
+                path = expandHome(String.valueOf(pathValue));
             }
         }
         SessionStore impl;
@@ -54,5 +54,17 @@ public final class SessionPlugin implements Plugin {
     @Override
     public String name() {
         return NAME;
+    }
+
+    /** Expands a leading {@code ~/} against {@code user.home}. */
+    static String expandHome(String value) {
+        String home = System.getProperty("user.home");
+        if ("~".equals(value)) {
+            return home;
+        }
+        if (value.startsWith("~/")) {
+            return Path.of(home, value.substring(2)).toString();
+        }
+        return value;
     }
 }

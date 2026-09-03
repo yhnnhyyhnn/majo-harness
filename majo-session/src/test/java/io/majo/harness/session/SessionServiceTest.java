@@ -126,6 +126,15 @@ class SessionServiceTest {
     }
 
     @Test
+    void expandHomeTilde() {
+        String home = System.getProperty("user.home");
+        assertThat(SessionPlugin.expandHome("~")).isEqualTo(home);
+        assertThat(SessionPlugin.expandHome("~/sub/dir"))
+                .isEqualTo(java.nio.file.Path.of(home, "sub/dir").toString());
+        assertThat(SessionPlugin.expandHome("plain/path")).isEqualTo("plain/path");
+    }
+
+    @Test
     void fileStoreDefaultsToUserHome(@TempDir Path home) {
         String previous = System.getProperty("user.home");
         System.setProperty("user.home", home.toString());

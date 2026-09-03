@@ -2,13 +2,16 @@
 - id: session
   name: session
   config:
-    store: memory
+    store: file
+    path: ~/.majo-harness/web/sessions
 - id: session-projections
   name: session-projections
 - id: tools
   name: tools
 - id: settings
   name: settings
+  config:
+    path: ~/.majo-harness/web/settings.json
 - id: llm
   name: llm
   config:

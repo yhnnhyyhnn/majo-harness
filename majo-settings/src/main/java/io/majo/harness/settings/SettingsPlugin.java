@@ -18,10 +18,22 @@ public final class SettingsPlugin implements Plugin {
     public Object apply(Context ctx, Object config) {
         Path path = null;
         if (config instanceof Map<?, ?> map && map.get("path") != null) {
-            path = Path.of(String.valueOf(map.get("path")));
+            path = expandHome(String.valueOf(map.get("path")));
         }
         new SettingsService(ctx, path);
         return null;
+    }
+
+    /** Expands a leading ~/ against user.home. */
+    private static Path expandHome(String value) {
+        String home = System.getProperty("user.home");
+        if ("~".equals(value)) {
+            return Path.of(home);
+        }
+        if (value.startsWith("~/")) {
+            return Path.of(home, value.substring(2));
+        }
+        return Path.of(value);
     }
 
     @Override
