@@ -53,7 +53,7 @@ export default function App() {
 
 function AppShell() {
   const { state, actions } = useChat();
-  const { rails } = useSlots();
+  const { rails, sidebarSections } = useSlots();
 
   useEffect(() => {
     void actions.loadInitial();
@@ -109,6 +109,11 @@ function AppShell() {
             </button>
           ))}
         </nav>
+        <div id="sidebar-sections">
+          {sidebarSections.map((section) => (
+            <div key={section.id}>{section.render({})}</div>
+          ))}
+        </div>
       </aside>
       <main>
         <header id="chat-header">

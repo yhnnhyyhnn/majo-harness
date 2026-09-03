@@ -1,10 +1,12 @@
 import type {
   CreateSession,
   EventFrame,
+  Info,
   ModelState,
   Ok,
   SessionDetail,
   SessionsIndex,
+  SkillsIndex,
   StreamChunk,
   StreamDone,
   StreamFail,
@@ -65,6 +67,14 @@ export const api = {
 
   answerQuestion(id: string, answer: string): Promise<Ok> {
     return postJson("/api/questions/" + encodeURIComponent(id), { answer });
+  },
+
+  skills(): Promise<SkillsIndex> {
+    return rpc("/api/skills");
+  },
+
+  info(): Promise<Info> {
+    return rpc("/api/info");
   },
 };
 

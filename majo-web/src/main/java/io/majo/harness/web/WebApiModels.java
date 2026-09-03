@@ -30,6 +30,14 @@ public final class WebApiModels {
 
     public record CreateSession(String id) {}
 
+    /** One skill listed in the Skills panel. */
+    public record SkillInfo(String name, @OptionalWire String description) {}
+
+    public record SkillsIndex(List<SkillInfo> skills) {}
+
+    /** Harness facts for the Settings panel. */
+    public record Info(String version, List<String> models, List<String> tools, int skills) {}
+
     /** One-shot turn result (legacy JSON turn endpoint). */
     public record TurnResult(String sessionId, String answer, List<EventFrame> events) {}
 

@@ -428,3 +428,48 @@ li.message.user { align-self: flex-end; }
 }
 
 #rail-region { display: flex; flex-direction: column; gap: 8px; padding: 10px 20px 0; }
+
+/* sidebar feature sections */
+#sidebar-sections {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.side-section-head {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.side-section-head:hover { background: var(--panel-2); }
+.side-section-head .caret { float: right; color: var(--muted); }
+
+.side-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 8px 8px;
+}
+
+.side-item { font-size: 12.5px; word-break: break-word; }
+.side-item .meta { display: block; }
+
+.side-refresh {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 1px 8px;
+  cursor: pointer;
+}

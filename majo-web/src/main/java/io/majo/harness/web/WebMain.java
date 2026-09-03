@@ -19,6 +19,7 @@ import io.majo.harness.session.SessionEvent;
 import io.majo.harness.session.SessionEventType;
 import io.majo.harness.session.SessionService;
 import io.majo.harness.settings.SettingsService;
+import io.majo.harness.skill.SkillRegistry;
 import io.majo.harness.title.SessionTitleService;
 import java.io.IOException;
 import java.io.InputStream;
@@ -117,6 +118,10 @@ public final class WebMain {
                 throw new IllegalArgumentException("missing question id");
             } else if ("POST".equals(exchange.getRequestMethod()) && path.startsWith("/api/questions/")) {
                 json(exchange, 200, answerQuestion(exchange, path.substring("/api/questions/".length())));
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/skills".equals(path)) {
+                json(exchange, 200, skillsIndex());
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/info".equals(path)) {
+                json(exchange, 200, info());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
                 json(exchange, 200, modelState());
             } else if ("PUT".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
@@ -164,6 +169,27 @@ public final class WebMain {
         SessionTitleService titles = boot.service(SessionTitleService.NAME);
         return new WebApiModels.SessionDetail(
                 sessionId, titles.title(sessionId), eventsJson(sessions.events(sessionId)));
+    }
+
+    private WebApiModels.SkillsIndex skillsIndex() {
+        SkillRegistry skills = boot.ctx().get(SkillRegistry.NAME);
+        if (skills == null) {
+            return new WebApiModels.SkillsIndex(List.of());
+        }
+        return new WebApiModels.SkillsIndex(skills.skills().stream()
+                .map(skill -> new WebApiModels.SkillInfo(skill.name(), skill.description()))
+                .toList());
+    }
+
+    private WebApiModels.Info info() {
+        LLMService llm = boot.ctx().get(LLMService.NAME);
+        List<String> models = llm == null ? List.of() : llm.registeredModels();
+        io.majo.harness.tools.ToolRegistry tools = boot.ctx().get(io.majo.harness.tools.ToolRegistry.NAME);
+        List<String> toolNames = tools == null ? List.of()
+                : tools.specs().stream().map(spec -> spec.name()).sorted().toList();
+        SkillRegistry skills = boot.ctx().get(SkillRegistry.NAME);
+        int skillCount = skills == null ? 0 : skills.skills().size();
+        return new WebApiModels.Info("0.1.0", models, toolNames, skillCount);
     }
 
     private WebApiModels.CreateSession createSession() {

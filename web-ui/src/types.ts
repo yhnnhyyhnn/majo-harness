@@ -34,6 +34,13 @@ export interface EventFrame {
   toolNames?: string[];
 }
 
+export interface Info {
+  version: string;
+  models: string[];
+  tools: string[];
+  skills: number;
+}
+
 export interface ModelState {
   model?: string;
   models: string[];
@@ -66,6 +73,15 @@ export interface SessionInfo {
 
 export interface SessionsIndex {
   sessions: SessionInfo[];
+}
+
+export interface SkillInfo {
+  name: string;
+  description?: string;
+}
+
+export interface SkillsIndex {
+  skills: SkillInfo[];
 }
 
 export interface StreamChunk {
