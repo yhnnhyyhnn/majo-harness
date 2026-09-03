@@ -11,6 +11,7 @@ import type {
   StreamDone,
   StreamFail,
   StreamEvent,
+  SubagentsIndex,
 } from "./types";
 
 // Typed HTTP + SSE client for the majo-web API ("connection" layer). Payload
@@ -71,6 +72,10 @@ export const api = {
 
   skills(): Promise<SkillsIndex> {
     return rpc("/api/skills");
+  },
+
+  subagents(): Promise<SubagentsIndex> {
+    return rpc("/api/subagents");
   },
 
   info(): Promise<Info> {

@@ -473,3 +473,7 @@ li.message.user { align-self: flex-end; }
   padding: 1px 8px;
   cursor: pointer;
 }
+
+.status { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; border-radius: 4px; padding: 0 5px; }
+.status-done { background: #1d4a2a; color: #9fe0b4; }
+.status-blocked, .status-failed { background: #4a2222; color: #f0a6a6; }

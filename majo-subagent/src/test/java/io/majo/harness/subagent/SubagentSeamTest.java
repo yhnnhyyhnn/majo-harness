@@ -67,6 +67,28 @@ class SubagentSeamTest {
     }
 
     @Test
+    void recentRunsLogSuccessAndBlocked() {
+        Context ctx = stack(3);
+        SubagentService subagent = ctx.get(SubagentService.NAME);
+        assertThat(subagent.recentRuns()).isEmpty();
+        subagent.delegate("ok task");
+
+        assertThat(subagent.recentRuns()).extracting(SubagentService.Delegation::status).containsExactly("done");
+        assertThat(subagent.recentRuns().get(0)).satisfies(delegation -> {
+            assertThat(delegation.task()).isEqualTo("ok task");
+            assertThat(delegation.detail()).isEqualTo("child-result");
+        });
+        ctx.fiber().disposeAsync().join();
+
+        Context blockedCtx = stack(0); // maxDepth 0: every delegation is blocked and logged
+        SubagentService blocked = blockedCtx.get(SubagentService.NAME);
+        assertThatThrownBy(() -> blocked.delegate("nested")).isInstanceOf(SubagentException.class);
+        assertThat(blocked.recentRuns()).extracting(SubagentService.Delegation::status).containsExactly("blocked");
+        assertThat(blocked.recentRuns().get(0).task()).isEqualTo("nested");
+        blockedCtx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void recursionDepthIsGuardedLoudly() {
         Context ctx = stack(0); // maxDepth 0: any delegation exceeds it
         SubagentService subagent = ctx.get(SubagentService.NAME);

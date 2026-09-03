@@ -20,6 +20,7 @@ import io.majo.harness.session.SessionEventType;
 import io.majo.harness.session.SessionService;
 import io.majo.harness.settings.SettingsService;
 import io.majo.harness.skill.SkillRegistry;
+import io.majo.harness.subagent.SubagentService;
 import io.majo.harness.title.SessionTitleService;
 import java.io.IOException;
 import java.io.InputStream;
@@ -120,6 +121,8 @@ public final class WebMain {
                 json(exchange, 200, answerQuestion(exchange, path.substring("/api/questions/".length())));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/skills".equals(path)) {
                 json(exchange, 200, skillsIndex());
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/subagents".equals(path)) {
+                json(exchange, 200, subagentsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/info".equals(path)) {
                 json(exchange, 200, info());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
@@ -178,6 +181,17 @@ public final class WebMain {
         }
         return new WebApiModels.SkillsIndex(skills.skills().stream()
                 .map(skill -> new WebApiModels.SkillInfo(skill.name(), skill.description()))
+                .toList());
+    }
+
+    private WebApiModels.SubagentsIndex subagentsIndex() {
+        SubagentService subagent = boot.ctx().get(SubagentService.NAME);
+        if (subagent == null) {
+            return new WebApiModels.SubagentsIndex(List.of());
+        }
+        return new WebApiModels.SubagentsIndex(subagent.recentRuns().stream()
+                .map(run -> new WebApiModels.SubagentRun(
+                        run.task(), run.status(), run.detail(), run.atMillis()))
                 .toList());
     }
 

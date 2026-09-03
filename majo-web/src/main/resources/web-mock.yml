@@ -32,5 +32,19 @@
   name: tool-approval
   config:
     tools: [calc]
+- id: skills
+  name: skills
+- id: skill-files
+  name: skill-files
+  config:
+    path: skills   # repo-relative (run from repo root)
+- id: skill-tools
+  name: skill-tools
+- id: subagent
+  name: subagent
+  config:
+    maxDepth: 3
+- id: subagent-tools
+  name: subagent-tools
 - id: calc
   name: calc

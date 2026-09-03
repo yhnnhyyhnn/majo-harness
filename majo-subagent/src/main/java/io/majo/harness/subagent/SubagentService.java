@@ -4,6 +4,8 @@ import io.jcordis.core.context.Context;
 import io.jcordis.core.service.Service;
 import io.majo.harness.agent.loop.AgentLoopService;
 import io.majo.harness.session.SessionService;
+import java.util.ArrayDeque;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -26,6 +28,13 @@ public final class SubagentService extends Service {
     private final SessionService sessions;
     private final int maxDepth;
     private final AtomicInteger depth = new AtomicInteger();
+
+    /** Bounded recent-delegation log surfaced to UI ({@code /api/subagents}). */
+    private static final int MAX_RECENT = 25;
+    private final ArrayDeque<Delegation> recent = new ArrayDeque<>();
+
+    /** One delegation attempt as shown in the Subagents panel. */
+    public record Delegation(String task, String status, String detail, long atMillis) {}
 
     public SubagentService(Context ctx, Object config) {
         super(ctx, NAME);
@@ -58,13 +67,43 @@ public final class SubagentService extends Service {
         int entered = depth.incrementAndGet();
         try {
             if (entered > maxDepth) {
-                throw new SubagentException("subagent: delegation depth " + entered
+                SubagentException blocked = new SubagentException("subagent: delegation depth " + entered
                         + " exceeds maxDepth " + maxDepth);
+                record(new Delegation(task, "blocked", blocked.getMessage(), System.currentTimeMillis()));
+                throw blocked;
             }
             String childSessionId = sessions.createSession();
-            return loop.runTurn(childSessionId, task);
+            try {
+                String answer = loop.runTurn(childSessionId, task);
+                record(new Delegation(task, "done", preview(answer), System.currentTimeMillis()));
+                return answer;
+            } catch (RuntimeException failure) {
+                record(new Delegation(task, "failed", String.valueOf(failure.getMessage()),
+                        System.currentTimeMillis()));
+                throw failure;
+            }
         } finally {
             depth.decrementAndGet();
         }
+    }
+
+    /** Newest-first snapshot of recent delegations (never fails when empty). */
+    public synchronized List<Delegation> recentRuns() {
+        return List.copyOf(recent);
+    }
+
+    private synchronized void record(Delegation delegation) {
+        recent.addFirst(delegation);
+        while (recent.size() > MAX_RECENT) {
+            recent.removeLast();
+        }
+    }
+
+    private static String preview(String text) {
+        if (text == null) {
+            return null;
+        }
+        String oneLine = text.replaceAll("\\s+", " ").trim();
+        return oneLine.length() <= 120 ? oneLine : oneLine.substring(0, 120) + "…";
     }
 }

@@ -35,6 +35,11 @@ public final class WebApiModels {
 
     public record SkillsIndex(List<SkillInfo> skills) {}
 
+    /** One subagent delegation as shown in the Subagents panel. */
+    public record SubagentRun(String task, String status, @OptionalWire String detail, long atMillis) {}
+
+    public record SubagentsIndex(List<SubagentRun> runs) {}
+
     /** Harness facts for the Settings panel. */
     public record Info(String version, List<String> models, List<String> tools, int skills) {}
 

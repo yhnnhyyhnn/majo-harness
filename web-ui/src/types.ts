@@ -97,6 +97,17 @@ export interface StreamFail {
   message: string;
 }
 
+export interface SubagentRun {
+  task: string;
+  status: string;
+  detail?: string;
+  atMillis: number;
+}
+
+export interface SubagentsIndex {
+  runs: SubagentRun[];
+}
+
 export interface ToolCallFrame {
   name: string;
   arguments?: string;
