@@ -6,6 +6,7 @@ import type {
   Info,
   ModelState,
   Ok,
+  PluginsIndex,
   SessionDetail,
   SessionsIndex,
   SkillDetail,
@@ -117,6 +118,10 @@ export const api = {
 
   skills(): Promise<SkillsIndex> {
     return rpc("/api/skills");
+  },
+
+  plugins(): Promise<PluginsIndex> {
+    return rpc("/api/plugins");
   },
 
   skillDetail(name: string): Promise<SkillDetail> {

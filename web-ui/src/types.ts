@@ -66,6 +66,15 @@ export interface Ok {
   ok: boolean;
 }
 
+export interface PluginInfo {
+  name: string;
+  url: string;
+}
+
+export interface PluginsIndex {
+  plugins: PluginInfo[];
+}
+
 export interface QuestionAnswer {
   answer?: string;
 }

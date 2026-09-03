@@ -38,3 +38,7 @@ release.properties
 # web UI build artifacts (source tracked; dist committed into majo-web resources)
 web-ui/node_modules/
 web-ui/dist/
+
+# example plugin build output
+/examples/web-plugin-demo/target/
+/examples/web-plugin-demo/web-demo.jar

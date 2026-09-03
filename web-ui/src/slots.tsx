@@ -30,7 +30,8 @@ export interface RailProps {
 }
 
 export interface SectionProps {
-  // shared sidebar seat for feature sections; extend when a feature needs it
+  /** Opens a mounted plugin's hosted frontend in the main pane. */
+  openPlugin?: (name: string, url: string) => void;
 }
 
 /**

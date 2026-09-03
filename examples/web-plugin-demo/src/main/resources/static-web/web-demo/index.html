@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>web-demo plugin</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        font: 14px/1.5 system-ui, sans-serif;
+        margin: 0;
+        background: #10141c;
+        color: #e8ecf3;
+        padding: 24px;
+      }
+      h1 { font-size: 18px; color: #5b93ff; }
+      .card {
+        background: #1e2430;
+        border: 1px solid #2a3242;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin: 12px 0;
+      }
+      button {
+        background: #2f63c9;
+        border: none;
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 14px;
+        cursor: pointer;
+      }
+      pre { white-space: pre-wrap; background: #141a26; padding: 10px; border-radius: 8px; }
+      .meta { color: #97a1b3; }
+    </style>
+  </head>
+  <body>
+    <h1>▶ web-demo plugin</h1>
+    <p class="meta">This page is served straight from the plugin jar
+      (<code>static-web/web-demo/</code>) by the majo-web host.</p>
+    <div class="card">
+      <strong>Sessions on the host:</strong>
+      <pre id="out">loading…</pre>
+    </div>
+    <div class="card">
+      <strong>Model state:</strong>
+      <pre id="model">loading…</pre>
+    </div>
+    <button id="refresh" type="button">refresh</button>
+    <script src="app.js"></script>
+  </body>
+</html>

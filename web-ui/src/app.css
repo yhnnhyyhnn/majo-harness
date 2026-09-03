@@ -665,3 +665,31 @@ pre.code.seg.stderr { border-left: 2px solid #7a3b3b; }
   padding: 1px 6px;
   word-break: break-all;
 }
+
+/* plugin frontends in the main pane */
+.plugin-open { width: 100%; text-align: left; }
+.plugin-open code { font-size: 11px; }
+#plugin-pane { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+#plugin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+#plugin-toolbar button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+#plugin-toolbar button:hover { background: var(--panel-2); }
+#plugin-toolbar strong { color: var(--accent); }
+.plugin-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+}

@@ -204,7 +204,11 @@ function AppShell() {
         </nav>
         <div id="sidebar-sections">
           {sidebarSections.map((section) => (
-            <div key={section.id}>{section.render({})}</div>
+            <div key={section.id}>
+              {section.render({
+                openPlugin: (name, url) => actions.openPlugin(name, url),
+              })}
+            </div>
           ))}
         </div>
       </aside>
@@ -244,21 +248,38 @@ function AppShell() {
             </label>
           )}
         </header>
-        {railNodes.length > 0 && (
-          <div id="rail-region">
-            {railNodes.map((item) => (
-              <div key={item.id}>{item.node}</div>
-            ))}
+        {state.pluginView ? (
+          <div id="plugin-pane">
+            <div id="plugin-toolbar">
+              <button type="button" onClick={actions.closePlugin}>
+                ← back to chat
+              </button>
+              <strong>{state.pluginView.name}</strong>
+            </div>
+            <iframe
+              title={state.pluginView.name}
+              src={state.pluginView.url}
+              className="plugin-frame"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            />
           </div>
-        )}
-        <Conversation
-          events={state.events}
-          live={state.busy ? state.live : null}
-          onOpenSession={(id) => void actions.selectSession(id)}
-          feedback={state.feedback}
-          onRate={(seq, value) => void actions.rate(seq, value)}
-        />
-        <form id="composer" onSubmit={send}>
+        ) : (
+          <>
+            {railNodes.length > 0 && (
+              <div id="rail-region">
+                {railNodes.map((item) => (
+                  <div key={item.id}>{item.node}</div>
+                ))}
+              </div>
+            )}
+            <Conversation
+              events={state.events}
+              live={state.busy ? state.live : null}
+              onOpenSession={(id) => void actions.selectSession(id)}
+              feedback={state.feedback}
+              onRate={(seq, value) => void actions.rate(seq, value)}
+            />
+            <form id="composer" onSubmit={send}>
           <textarea
             id="input"
             rows={1}
@@ -287,6 +308,8 @@ function AppShell() {
         <footer id="status" className={state.offline ? "error" : "online"}>
           {state.offline ? "offline" : "online"}
         </footer>
+          </>
+        )}
       </main>
     </>
   );

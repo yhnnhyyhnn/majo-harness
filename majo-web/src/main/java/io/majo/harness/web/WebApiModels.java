@@ -39,6 +39,11 @@ public final class WebApiModels {
 
     public record FeedbackIndex(List<FeedbackEntry> entries) {}
 
+    /** One mounted web plugin with a hosted frontend. */
+    public record PluginInfo(String name, String url) {}
+
+    public record PluginsIndex(List<PluginInfo> plugins) {}
+
     public record CreateSession(String id) {}
 
     /** One skill listed in the Skills panel. */

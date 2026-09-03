@@ -18,6 +18,8 @@ export interface ChatState {
   models: string[];
   /** Transient banner text (slash-command feedback). */
   notice: string | null;
+  /** Opened plugin frontend (name + hosted url); null = conversation view. */
+  pluginView: { name: string; url: string } | null;
   input: string;
   busy: boolean;
   offline: boolean;
@@ -35,6 +37,8 @@ export interface ChatActions {
   deleteSession(id: string): Promise<void>;
   changeSessionModel(model: string | null): Promise<void>;
   rate(seq: number, value: "up" | "down" | null): Promise<void>;
+  openPlugin(name: string, url: string): void;
+  closePlugin(): void;
   setNotice(message: string | null): void;
   setInput(value: string): void;
   setQInput(value: string): void;
@@ -57,6 +61,7 @@ const initial = (): ChatState => ({
   model: null,
   models: [],
   notice: null,
+  pluginView: null,
   input: "",
   busy: false,
   offline: false,
@@ -335,6 +340,13 @@ export function createChat(store: Store<ChatState>): ChatActions {
       } catch {
         // transient: next poll retries; conversation stays usable offline
       }
+    },
+    openPlugin(name, url) {
+      closeStream();
+      store.set({ pluginView: { name, url } });
+    },
+    closePlugin() {
+      store.set({ pluginView: null });
     },
     setNotice(message) {
       if (noticeTimer !== undefined) {

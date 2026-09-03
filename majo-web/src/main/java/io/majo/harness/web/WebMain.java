@@ -61,8 +61,14 @@ public final class WebMain {
     private final HttpServer server;
     private final ReentrantLock turnLock = new ReentrantLock();
     private final PendingInteractions pending = new PendingInteractions();
+    /** Booted plugin jars mounted with {@code --plugin name=jar}; serves their static-web/ frontends. */
+    private final java.util.Map<String, io.jcordis.core.registry.Plugin> webPlugins = new java.util.TreeMap<>();
 
     public WebMain(int port, String profile) throws IOException {
+        this(port, profile, java.util.List.of());
+    }
+
+    public WebMain(int port, String profile, java.util.List<String> pluginArgs) throws IOException {
         this.port = port;
         Context root = Context.create();
         new ConsoleExporter(root);
@@ -80,6 +86,19 @@ public final class WebMain {
             }
         } else {
             profileText = java.nio.file.Files.readString(java.nio.file.Path.of(profile));
+        }
+        // mount external plugin jars before the profile boots so profile rows
+        // can reference them by name (capabilities + static frontends)
+        for (String pluginArg : pluginArgs) {
+            int equals = pluginArg.indexOf('=');
+            if (equals <= 0 || equals == pluginArg.length() - 1) {
+                throw new IllegalArgumentException("--plugin expects name=path, got \"" + pluginArg + "\"");
+            }
+            String name = pluginArg.substring(0, equals);
+            java.nio.file.Path jar = java.nio.file.Path.of(pluginArg.substring(equals + 1));
+            io.jcordis.core.registry.Plugin plugin = boot.loadPluginJar(jar, name);
+            webPlugins.put(name, plugin);
+            System.out.println("majo-web: mounted plugin \"" + name + "\" from " + jar);
         }
         boot.launch(boot.readProfileText(profileText, hint));
         restoreModelPreference();
@@ -147,6 +166,8 @@ public final class WebMain {
                 json(exchange, 200, skillDetail(name));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/subagents".equals(path)) {
                 json(exchange, 200, subagentsIndex());
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/plugins".equals(path)) {
+                json(exchange, 200, pluginsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/info".equals(path)) {
                 json(exchange, 200, info());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
@@ -199,6 +220,8 @@ public final class WebMain {
                 json(exchange, 200, sessionDetail(sessionId));
             } else if ("POST".equals(exchange.getRequestMethod()) && "/api/turn".equals(path)) {
                 json(exchange, 200, turn(exchange));
+            } else if ("GET".equals(exchange.getRequestMethod()) && path.startsWith("/plugins/")) {
+                pluginAsset(exchange, path);
             } else if ("GET".equals(exchange.getRequestMethod())) {
                 staticAsset(exchange, path);
             } else {
@@ -713,6 +736,46 @@ public final class WebMain {
 
     // ----- static & plumbing -----
 
+    /** Plugins that ship a static frontend ({@code static-web/<name>/}). */
+    private WebApiModels.PluginsIndex pluginsIndex() {
+        List<WebApiModels.PluginInfo> list = new ArrayList<>();
+        for (java.util.Map.Entry<String, io.jcordis.core.registry.Plugin> entry : webPlugins.entrySet()) {
+            if (entry.getValue().getClass().getClassLoader()
+                    .getResource("static-web/" + entry.getKey() + "/index.html") != null) {
+                list.add(new WebApiModels.PluginInfo(entry.getKey(),
+                        "/plugins/" + entry.getKey() + "/index.html"));
+            }
+        }
+        return new WebApiModels.PluginsIndex(list);
+    }
+
+    /** Serves {@code static-web/<name>/<rest>} from the plugin jar. */
+    private void pluginAsset(HttpExchange exchange, String path) throws IOException {
+        int slash = path.indexOf('/', "/plugins/".length());
+        if (slash < 0) {
+            json(exchange, 404, Map.of("error", "not found: " + path));
+            return;
+        }
+        String name = path.substring("/plugins/".length(), slash);
+        String rest = path.substring(slash + 1);
+        io.jcordis.core.registry.Plugin plugin = webPlugins.get(name);
+        if (plugin == null || rest.contains("..")) {
+            json(exchange, 404, Map.of("error", "not found: " + path));
+            return;
+        }
+        String resource = "static-web/" + name + "/" + rest;
+        try (InputStream stream = plugin.getClass().getClassLoader().getResourceAsStream(resource)) {
+            if (stream == null) {
+                json(exchange, 404, Map.of("error", "not found: " + path));
+                return;
+            }
+            byte[] payload = stream.readAllBytes();
+            exchange.getResponseHeaders().set("Content-Type", contentType(rest));
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+        }
+    }
+
     private static void staticAsset(HttpExchange exchange, String path) throws IOException {
         if ("/".equals(path)) {
             path = "/index.html";
@@ -743,6 +806,21 @@ public final class WebMain {
         if (path.endsWith(".svg")) {
             return "image/svg+xml";
         }
+        if (path.endsWith(".png")) {
+            return "image/png";
+        }
+        if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (path.endsWith(".ico")) {
+            return "image/x-icon";
+        }
+        if (path.endsWith(".woff2")) {
+            return "font/woff2";
+        }
+        if (path.endsWith(".json")) {
+            return "application/json";
+        }
         return "application/octet-stream";
     }
 
@@ -756,17 +834,19 @@ public final class WebMain {
     public static void main(String[] args) throws IOException {
         int port = 8787;
         String profile = "web";
+        java.util.List<String> plugins = new java.util.ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port" -> port = Integer.parseInt(args[++i]);
                 case "--profile" -> profile = args[++i];
+                case "--plugin" -> plugins.add(args[++i]);
                 default -> {
-                    System.err.println("usage: majo-web [--port <n>] [--profile web|<file.yml>]");
+                    System.err.println("usage: majo-web [--port <n>] [--profile web|<file.yml>] [--plugin name=jar]");
                     System.exit(2);
                 }
             }
         }
-        WebMain app = new WebMain(port, profile);
+        WebMain app = new WebMain(port, profile, plugins);
         System.out.println("majo web: http://localhost:" + app.port());
         System.out.println("press Ctrl+C to stop");
         Runtime.getRuntime().addShutdownHook(new Thread(app::close));
