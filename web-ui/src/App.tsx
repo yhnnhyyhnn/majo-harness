@@ -92,6 +92,16 @@ function AppShell() {
   // postMessage bridge: hosted plugin pages (source majo-plugin) may drive
   // the host — open a session, run a task, start a new chat, flash notices.
   useEffect(() => {
+    const onFlash = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      if (typeof detail === "string") flash(detail);
+    };
+    window.addEventListener("majo:flash", onFlash);
+    return () => window.removeEventListener("majo:flash", onFlash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const frame = frameRef.current;
       if (!frame || event.source !== frame.contentWindow) return;

@@ -69,6 +69,8 @@ export interface Ok {
 export interface PluginInfo {
   name: string;
   url: string;
+  title?: string;
+  module?: string;
 }
 
 export interface PluginsIndex {

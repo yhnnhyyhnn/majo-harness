@@ -740,11 +740,28 @@ public final class WebMain {
     private WebApiModels.PluginsIndex pluginsIndex() {
         List<WebApiModels.PluginInfo> list = new ArrayList<>();
         for (java.util.Map.Entry<String, io.jcordis.core.registry.Plugin> entry : webPlugins.entrySet()) {
-            if (entry.getValue().getClass().getClassLoader()
-                    .getResource("static-web/" + entry.getKey() + "/index.html") != null) {
-                list.add(new WebApiModels.PluginInfo(entry.getKey(),
-                        "/plugins/" + entry.getKey() + "/index.html"));
+            String name = entry.getKey();
+            ClassLoader loader = entry.getValue().getClass().getClassLoader();
+            if (loader.getResource("static-web/" + name + "/index.html") == null) {
+                continue;
             }
+            String title = name;
+            String module = null;
+            try (InputStream manifest = loader.getResourceAsStream("static-web/" + name + "/plugin.json")) {
+                if (manifest != null) {
+                    var meta = JSON.readTree(manifest.readAllBytes());
+                    if (meta.hasNonNull("title")) {
+                        title = meta.get("title").asText();
+                    }
+                }
+            } catch (IOException ignored) {
+                // a broken manifest falls back to the plugin name
+            }
+            if (loader.getResource("static-web/" + name + "/plugin.mjs") != null) {
+                module = "/plugins/" + name + "/plugin.mjs";
+            }
+            list.add(new WebApiModels.PluginInfo(name,
+                    "/plugins/" + name + "/index.html", title, module));
         }
         return new WebApiModels.PluginsIndex(list);
     }

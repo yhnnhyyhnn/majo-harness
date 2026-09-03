@@ -40,7 +40,8 @@ public final class WebApiModels {
     public record FeedbackIndex(List<FeedbackEntry> entries) {}
 
     /** One mounted web plugin with a hosted frontend. */
-    public record PluginInfo(String name, String url) {}
+    public record PluginInfo(String name, String url,
+            @OptionalWire String title, @OptionalWire String module) {}
 
     public record PluginsIndex(List<PluginInfo> plugins) {}
 
