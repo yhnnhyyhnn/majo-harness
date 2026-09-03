@@ -1,54 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, type FormEvent, type ReactNode } from "react";
+import type { EventFrame, ToolCallFrame } from "./types";
+import { useChat } from "./useChat";
 
-// ---------- shared types (mirror the /api JSON) ----------
-
-type EventKind =
-  | "TURN_START"
-  | "TURN_END"
-  | "USER_MESSAGE"
-  | "ASSISTANT_MESSAGE"
-  | "TOOL_RESULT"
-  | "REQUEST_HEADER";
-
-interface ToolCallFrame {
-  name: string;
-  arguments?: string;
-}
-
-interface EventFrame {
-  seq: number;
-  kind: EventKind;
-  content?: string | null;
-  toolCalls?: ToolCallFrame[];
-  toolName?: string;
-  ok?: boolean;
-  model?: string;
-  toolNames?: string[];
-}
-
-interface SessionInfo {
-  id: string;
-  title?: string | null;
-  eventCount: number;
-}
-
-interface ApprovalFrame {
-  id: string;
-  summary: string;
-  details?: string;
-}
-
-interface QuestionFrame {
-  id: string;
-  text: string;
-}
-
-// ---------- small safe markdown-lite ----------
+// ---------- markdown-lite ----------
 
 const escapeHtml = (value: unknown): string =>
   String(value ?? "").replace(/[&<>"']/g, (c) => {
     const entities: Record<string, string> = {
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
     };
     return entities[c] ?? c;
   });
@@ -61,20 +24,6 @@ const prettyJson = (raw: string): string => {
   }
 };
 
-async function api(path: string, options?: RequestInit): Promise<Record<string, unknown>> {
-  const response = await fetch(path, options);
-  let body: Record<string, unknown>;
-  try {
-    body = await response.json();
-  } catch {
-    throw new Error("bad response from server (HTTP " + response.status + ")");
-  }
-  if (!response.ok) throw new Error(String(body.error || "HTTP " + response.status));
-  return body;
-}
-
-// ---------- rendering ----------
-
 function MarkdownText({ text }: { text: string }) {
   const inline = (input: string): string =>
     input
@@ -86,56 +35,50 @@ function MarkdownText({ text }: { text: string }) {
         '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
       );
 
-  const html = useMemo(() => {
-    const parts = String(text ?? "").split(/```/);
-    let out = "";
-    for (let i = 0; i < parts.length; i++) {
-      if (i % 2 === 1) {
-        const code = escapeHtml(parts[i]).replace(/^[a-zA-Z0-9_-]+\n/, "").replace(/\n$/, "");
-        out += '<pre class="code"><code>' + code + "</code></pre>";
-        continue;
-      }
-      const lines = escapeHtml(parts[i]).split("\n");
-      const rendered: string[] = [];
-      let list: string | null = null;
-      const flushList = () => {
-        if (list) {
-          rendered.push(list + "</ul>");
-          list = null;
-        }
-      };
-      for (const raw of lines) {
-        const heading = raw.match(/^(#{1,4})\s+(.*)$/);
-        const bullet = raw.match(/^\s*[-*]\s+(.*)$/);
-        const ordered = raw.match(/^\s*\d+[.)]\s+(.*)$/);
-        const quote = raw.match(/^\s*>\s?(.*)$/);
-        if (/^\s*---+\s*$/.test(raw)) {
-          flushList();
-          rendered.push("<hr>");
-        } else if (heading) {
-          flushList();
-          rendered.push(`<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`);
-        } else if (bullet || ordered) {
-          list = list ?? "<ul>";
-          list += `<li>${inline((bullet ?? ordered)?.[1] ?? "")}</li>`;
-        } else if (quote) {
-          flushList();
-          rendered.push("<blockquote>" + inline(quote[1]) + "</blockquote>");
-        } else if (raw.trim().length === 0) {
-          flushList();
-          rendered.push("<br>");
-        } else {
-          flushList();
-          rendered.push(inline(raw));
-        }
-      }
-      flushList();
-      out += rendered.join("\n");
+  let out = "";
+  const parts = String(text ?? "").split(/```/);
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) {
+      const code = escapeHtml(parts[i]).replace(/^[a-zA-Z0-9_-]+\n/, "").replace(/\n$/, "");
+      out += '<pre class="code"><code>' + code + "</code></pre>";
+      continue;
     }
-    return out;
-  }, [text]);
-
-  return <div className="bubble rich" dangerouslySetInnerHTML={{ __html: html }} />;
+    const lines = escapeHtml(parts[i]).split("\n");
+    let list: string | null = null;
+    const flushList = () => {
+      if (list) {
+        out += list + "</ul>";
+        list = null;
+      }
+    };
+    for (const raw of lines) {
+      const heading = raw.match(/^(#{1,4})\s+(.*)$/);
+      const bullet = raw.match(/^\s*[-*]\s+(.*)$/);
+      const ordered = raw.match(/^\s*\d+[.)]\s+(.*)$/);
+      const quote = raw.match(/^\s*>\s?(.*)$/);
+      if (/^\s*---+\s*$/.test(raw)) {
+        flushList();
+        out += "<hr>";
+      } else if (heading) {
+        flushList();
+        out += `<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`;
+      } else if (bullet || ordered) {
+        list = list ?? "<ul>";
+        list += `<li>${inline((bullet ?? ordered)?.[1] ?? "")}</li>`;
+      } else if (quote) {
+        flushList();
+        out += "<blockquote>" + inline(quote[1]) + "</blockquote>";
+      } else if (raw.trim().length === 0) {
+        flushList();
+        out += "<br>";
+      } else {
+        flushList();
+        out += inline(raw);
+      }
+    }
+    flushList();
+  }
+  return <div className="bubble rich" dangerouslySetInnerHTML={{ __html: out }} />;
 }
 
 async function copyText(text: string): Promise<void> {
@@ -151,33 +94,16 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
-function IconActions({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    await copyText(text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  };
+// ---------- rendering ----------
+
+function CopyButton({ onCopy }: { onCopy: () => void }) {
   return (
     <span className="icon-actions">
-      <button type="button" title="copy" onClick={() => void copy()}>
-        {copied ? "✓ copied" : "⧉ copy"}
+      <button type="button" title="copy" onClick={onCopy}>
+        ⧉ copy
       </button>
     </span>
   );
-}
-
-function AssistantMessage({ content, streaming }: { content: string; streaming?: boolean }) {
-  return (
-    <div className="msg">
-      <MarkdownText text={content} />
-      {!streaming && <IconActions text={content} />}
-    </div>
-  );
-}
-
-function UserMessage({ content }: { content: string }) {
-  return <div className="bubble">{content}</div>;
 }
 
 function ToolCallRow({ calls }: { calls: ToolCallFrame[] }) {
@@ -195,19 +121,16 @@ function ToolCallRow({ calls }: { calls: ToolCallFrame[] }) {
   );
 }
 
-function ToolResultRow({ event }: { event: EventFrame }) {
-  return (
-    <div className="tool-block result">
-      <span className={"dot " + (event.ok ? "ok" : "err")} />
-      <span className="tool-name">{event.toolName}</span>
-      <span className="result-text">{event.content ?? ""}</span>
-    </div>
-  );
-}
-
-function ChatView({ events, live }: { events: EventFrame[]; live: string | null }) {
-  const listRef = useRef<HTMLOListElement | null>(null);
-  const rows: React.ReactNode[] = [];
+function Conversation({
+  events,
+  live,
+  onCopy,
+}: {
+  events: EventFrame[];
+  live: string | null;
+  onCopy: (text: string) => void;
+}) {
+  const rows: ReactNode[] = [];
   let last = -1;
   for (const event of events) {
     if (typeof event.seq === "number") {
@@ -228,7 +151,7 @@ function ChatView({ events, live }: { events: EventFrame[]; live: string | null 
       case "USER_MESSAGE":
         rows.push(
           <li className="message user" key={"u" + event.seq}>
-            <UserMessage content={event.content ?? ""} />
+            <div className="bubble">{event.content ?? ""}</div>
           </li>
         );
         break;
@@ -242,7 +165,10 @@ function ChatView({ events, live }: { events: EventFrame[]; live: string | null 
         } else if (event.content != null) {
           rows.push(
             <li className="message" key={"m" + event.seq}>
-              <AssistantMessage content={event.content} />
+              <div className="msg">
+                <MarkdownText text={event.content} />
+                <CopyButton onCopy={() => onCopy(event.content!)} />
+              </div>
             </li>
           );
         }
@@ -250,7 +176,11 @@ function ChatView({ events, live }: { events: EventFrame[]; live: string | null 
       case "TOOL_RESULT":
         rows.push(
           <li className="group tool" key={"tr" + event.seq}>
-            <ToolResultRow event={event} />
+            <div className="tool-block result">
+              <span className={"dot " + (event.ok ? "ok" : "err")} />
+              <span className="tool-name">{event.toolName}</span>
+              <span className="result-text">{event.content ?? ""}</span>
+            </div>
           </li>
         );
         break;
@@ -259,233 +189,36 @@ function ChatView({ events, live }: { events: EventFrame[]; live: string | null 
   if (live !== null) {
     rows.push(
       <li className="message streaming" key="live">
-        <AssistantMessage content={live || "…"} streaming />
+        <MarkdownText text={live || "…"} />
       </li>
     );
   }
-  useEffect(() => {
-    const node = listRef.current;
-    if (node) node.scrollTop = node.scrollHeight;
-  }, [events.length, live, last]);
-  return (
-    <ol id="conversation" ref={listRef}>
-      {rows}
-    </ol>
-  );
+  return <ol id="conversation">{rows}</ol>;
 }
 
 // ---------- app ----------
 
 export default function App() {
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [events, setEvents] = useState<EventFrame[]>([]);
-  const [title, setTitle] = useState("New chat");
-  const [model, setModel] = useState<string | null>(null);
-  const [models, setModels] = useState<string[]>([]);
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [offline, setOffline] = useState(false);
-  const [live, setLive] = useState<string | null>(null);
-  const [approvals, setApprovals] = useState<ApprovalFrame[]>([]);
-  const [question, setQuestion] = useState<QuestionFrame | null>(null);
-  const [qInput, setQInput] = useState("");
-  const sourceRef = useRef<EventSource | null>(null);
-
-  const loadModel = useCallback(async () => {
-    try {
-      const state = await api("/api/settings/model");
-      setModels((state.models as string[]) || []);
-      setModel((state.model as string | null) || null);
-    } catch {
-      // settings endpoint absent on older profiles: keep defaults
-    }
-  }, []);
-
-  const changeModel = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-    try {
-      const state = await api("/api/settings/model", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: event.target.value }),
-      });
-      setModel((state.model as string) || null);
-    } catch (error) {
-      console.error("model switch failed", error);
-    }
-  };
-
-  const loadSessions = useCallback(async (): Promise<SessionInfo[]> => {
-    const index = await api("/api/sessions");
-    const all = (index.sessions as SessionInfo[]) || [];
-    setSessions([...all].reverse());
-    setOffline(false);
-    return all;
-  }, []);
-
-  const closeStream = () => {
-    const source = sourceRef.current;
-    if (source) {
-      sourceRef.current = null;
-      source.close();
-    }
-  };
-
-  const refresh = useCallback(async () => {
-    try {
-      const all = await loadSessions();
-      let id = sessionId;
-      if (!id && all.length) id = all[all.length - 1].id;
-      if (id) {
-        setSessionId(id);
-        const detail = await api("/api/sessions/" + encodeURIComponent(id));
-        setTitle((detail.title as string) || "New chat");
-        setEvents((detail.events as EventFrame[]) || []);
-      } else {
-        setEvents([]);
-      }
-    } catch (error) {
-      setOffline(true);
-      console.error("backend unreachable", error);
-    }
-  }, [sessionId, loadSessions]);
+  const { state, actions } = useChat();
 
   useEffect(() => {
-    void refresh();
-    void loadModel();
-  }, [refresh, loadModel]);
+    void actions.loadInitial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const push = (event: EventFrame) => setEvents((prev) => [...prev, event]);
-
-  const select = async (id: string) => {
-    closeStream();
-    setSessionId(id);
-    const detail = await api("/api/sessions/" + encodeURIComponent(id));
-    setTitle((detail.title as string) || "New chat");
-    setEvents((detail.events as EventFrame[]) || []);
-    setApprovals([]);
-    setQuestion(null);
-    void loadSessions();
-  };
-
-  const decide = async (id: string, granted: boolean) => {
-    try {
-      await api("/api/approvals/" + encodeURIComponent(id), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision: granted ? "allow" : "reject" }),
-      });
-    } catch (error) {
-      console.error("approval decision failed", error);
-    }
-    setApprovals((prev) => prev.filter((approval) => approval.id !== id));
-  };
-
-  const answerAsk = async () => {
-    if (!question) return;
-    const id = question.id;
-    try {
-      await api("/api/questions/" + encodeURIComponent(id), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answer: qInput }),
-      });
-    } catch (error) {
-      console.error("answer failed", error);
-    }
-    setQuestion(null);
-    setQInput("");
-  };
-
-  const send = async (formEvent: React.SyntheticEvent) => {
-    formEvent.preventDefault();
-    const task = input.trim();
-    if (!task || busy) return;
-    setBusy(true);
-    setLive("");
-    try {
-      let id = sessionId;
-      if (!id) {
-        const created = await api("/api/sessions", { method: "POST" });
-        id = created.id as string;
-        setSessionId(id);
-      }
-      push({ seq: -Date.now(), kind: "USER_MESSAGE", content: task });
-      const url =
-        "/api/turn/stream?sessionId=" + encodeURIComponent(id) + "&task=" + encodeURIComponent(task);
-      const source = new EventSource(url);
-      sourceRef.current = source;
-
-      source.addEventListener("log", (e) => push(JSON.parse((e as MessageEvent).data) as EventFrame));
-      source.addEventListener("chunk", (e) => {
-        const frame = JSON.parse((e as MessageEvent).data) as { text: string };
-        setLive((prev) => (prev || "") + frame.text);
-      });
-      source.addEventListener("done", async (e) => {
-        const frame = JSON.parse((e as MessageEvent).data) as { sessionId: string; answer: string };
-        setLive(null);
-        setApprovals([]);
-        setQuestion(null);
-        push({ seq: 1e12, kind: "ASSISTANT_MESSAGE", content: frame.answer });
-        const all = await loadSessions();
-        const mine = all.find((s) => s.id === frame.sessionId);
-        if (mine) setTitle(mine.title || "New chat");
-        closeStream();
-        setBusy(false);
-        setInput("");
-      });
-      source.addEventListener("fail", (e) => {
-        const frame = JSON.parse((e as MessageEvent).data) as { message: string };
-        setLive(null);
-        setApprovals([]);
-        setQuestion(null);
-        push({ seq: 1e12 + 1, kind: "ASSISTANT_MESSAGE", content: "error: " + frame.message });
-        closeStream();
-        setBusy(false);
-      });
-      source.addEventListener("approval", (e) => {
-        const frame = JSON.parse((e as MessageEvent).data) as ApprovalFrame;
-        setApprovals((prev) => [...prev, frame]);
-      });
-      source.addEventListener("question", (e) => {
-        const frame = JSON.parse((e as MessageEvent).data) as QuestionFrame;
-        setQuestion(frame);
-      });
-      source.onerror = () => {
-        if (sourceRef.current === source) {
-          closeStream();
-          setBusy(false);
-        }
-      };
-    } catch (error) {
-      setLive(null);
-      push({ seq: 1e12 + 2, kind: "ASSISTANT_MESSAGE", content: "error: " + String(error) });
-      setBusy(false);
-    }
-  };
-
-  const newChat = () => {
-    closeStream();
-    setSessionId(null);
-    setEvents([]);
-    setTitle("New chat");
-    setLive(null);
-    setApprovals([]);
-    setQuestion(null);
-    void loadSessions().catch(() => {});
-  };
-
-  const retry = () => {
-    setOffline(false);
-    void refresh();
+  const send = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    void actions.sendTask();
   };
 
   return (
     <>
-      {offline && (
+      {state.offline && (
         <div id="banner" role="alert">
           Cannot reach the harness backend — is `java -jar majo-web…` running?
-          <button type="button" onClick={retry}>Retry</button>
+          <button type="button" onClick={actions.retry}>
+            Retry
+          </button>
         </div>
       )}
       <aside id="sidebar">
@@ -493,17 +226,17 @@ export default function App() {
           <strong>majo</strong>
           <span>harness</span>
         </header>
-        <button id="new-chat" type="button" onClick={newChat}>
+        <button id="new-chat" type="button" onClick={actions.newChat}>
           + New chat
         </button>
         <nav id="session-list">
-          {sessions.length === 0 && <div className="meta">no sessions yet</div>}
-          {sessions.map((s) => (
+          {state.sessions.length === 0 && <div className="meta">no sessions yet</div>}
+          {state.sessions.map((s) => (
             <button
               key={s.id}
               type="button"
-              className={"session" + (s.id === sessionId ? " active" : "")}
-              onClick={() => void select(s.id)}
+              className={"session" + (s.id === state.sessionId ? " active" : "")}
+              onClick={() => void actions.selectSession(s.id)}
             >
               <span className="title">{s.title || "Untitled " + s.id.slice(0, 8)}</span>
               <span className="meta">{s.eventCount} events</span>
@@ -513,12 +246,16 @@ export default function App() {
       </aside>
       <main>
         <header id="chat-header">
-          <span id="current-title">{title}</span>
+          <span id="current-title">{state.title}</span>
           <label className="model-picker">
             model
-            <select value={model || ""} onChange={changeModel} disabled={busy}>
-              {models.length === 0 && <option value="">—</option>}
-              {models.map((m) => (
+            <select
+              value={state.model || ""}
+              disabled={state.busy}
+              onChange={(e) => void actions.changeModel(e.target.value)}
+            >
+              {state.models.length === 0 && <option value="">—</option>}
+              {state.models.map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
@@ -526,38 +263,40 @@ export default function App() {
             </select>
           </label>
         </header>
-        {(approvals.length > 0 || question) && (
+        {(state.approvals.length > 0 || state.question) && (
           <div id="approval-rail">
-            {approvals.map((approval) => (
+            {state.approvals.map((approval) => (
               <div className="approval-card" key={approval.id}>
                 <div className="approval-head">
                   <span className="dot pending" /> waiting for approval
                 </div>
                 <div className="approval-body">{approval.summary}</div>
                 <div className="approval-actions">
-                  <button type="button" onClick={() => void decide(approval.id, false)}>Reject</button>
-                  <button type="button" className="primary" onClick={() => void decide(approval.id, true)}>
+                  <button type="button" onClick={() => void actions.decide(approval.id, false)}>
+                    Reject
+                  </button>
+                  <button type="button" className="primary" onClick={() => void actions.decide(approval.id, true)}>
                     Allow once
                   </button>
                 </div>
               </div>
             ))}
-            {question && (
+            {state.question && (
               <div className="approval-card question">
                 <div className="approval-head">
                   <span className="dot pending" /> the agent asks
                 </div>
-                <div className="approval-body">{question.text}</div>
+                <div className="approval-body">{state.question.text}</div>
                 <form
                   className="question-form"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    void answerAsk();
+                    void actions.answerAsk();
                   }}
                 >
                   <input
-                    value={qInput}
-                    onChange={(e) => setQInput(e.target.value)}
+                    value={state.qInput}
+                    onChange={(e) => actions.setQInput(e.target.value)}
                     placeholder="your answer…"
                     autoFocus
                   />
@@ -567,30 +306,30 @@ export default function App() {
             )}
           </div>
         )}
-        <ChatView events={events} live={busy ? live : null} />
-        <form id="composer" onSubmit={(e) => void send(e)}>
+        <Conversation events={state.events} live={state.busy ? state.live : null} onCopy={(t) => void copyText(t)} />
+        <form id="composer" onSubmit={send}>
           <textarea
             id="input"
             rows={1}
-            value={input}
+            value={state.input}
             placeholder="Type a task… (Enter to send, Shift+Enter for a new line)"
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => actions.setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                void send(e);
+                void actions.sendTask();
               }
             }}
           />
-          <button id="send" type="submit" disabled={busy}>
+          <button id="send" type="submit" disabled={state.busy}>
             Send
           </button>
         </form>
-        <div id="busy" hidden={!busy}>
+        <div id="busy" hidden={!state.busy}>
           <span className="spinner" /> running…
         </div>
-        <footer id="status" className={offline ? "error" : "online"}>
-          {offline ? "offline" : "online"}
+        <footer id="status" className={state.offline ? "error" : "online"}>
+          {state.offline ? "offline" : "online"}
         </footer>
       </main>
     </>
