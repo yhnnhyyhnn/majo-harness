@@ -34,7 +34,7 @@
 - id: tool-approval
   name: tool-approval
   config:
-    tools: [calc]
+    tools: [calc, read_file, run_shell, run_command]
 - id: skills
   name: skills
 - id: skill-files
@@ -49,5 +49,19 @@
     maxDepth: 3
 - id: subagent-tools
   name: subagent-tools
+- id: fs
+  name: fs
+  config:
+    cwd: .
+- id: fs-tools
+  name: fs-tools
+- id: subprocess
+  name: subprocess
+- id: subprocess-tools
+  name: subprocess-tools
+- id: shell
+  name: shell
+- id: shell-tools
+  name: shell-tools
 - id: calc
   name: calc
