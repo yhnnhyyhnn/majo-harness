@@ -20,8 +20,8 @@
 | turn/请求元信息 | 🟡 | REQUEST_HEADER 元行（model、工具列表） |
 | 流式 token 显示 | ✅ | SSE `/api/turn/stream`：chunk 帧喂入 live 气泡 |
 | 增量追加（免全量重绘） | ✅ | 每个 log/chunk 帧只推一条事件；done 收尾 |
-| 消息复制/反馈（👍👎） | ⬜ | 对应 `ui-message-feedback`；后端需反馈接缝 |
-| 回答的 Markdown/代码渲染 | ⬜ | 对应 `ui-renderer`；加一个小而安全渲染器 |
+| 消息复制/反馈（👍👎） | ✅ | assistant 文本与工具卡 ⧉ 复制；用户气泡复制；👍👎 按 durable seq 持久化（`/api/messages/…/feedback`） |
+| 回答的 Markdown/代码渲染 | ⬜ | `ui-renderer`；已有代码块/链接/列表；表格与语言标签待补 |
 | ask-user 行内问题气泡 | ✅ | approval/ask 特性 rail（`ctx.interactions` 队列 → SSE） |
 | 审批提示 UI | ✅ | rail 提供 allow/reject（`ctx.interactions`+`tool-approval`） |
 
@@ -30,8 +30,8 @@
 | dsh 功能 | majo | 说明 |
 |---|---|---|
 | 会话改名/删除 | ✅ | `PUT/DELETE /api/sessions/:id`（+`/title`）；内存与文件 store；活跃会话自动切换 |
-| 模型选择控件 | ✅ | 头部 `<select>` 走 `GET/PUT /api/settings/model`（经 `ctx.settings` 持久化） |
-| 斜杠命令（`ui-commands`） | ⬜ | 后端暂无 commands 接缝 |
+| 模型选择控件 | ✅ | 头部两个下拉：全局（`GET/PUT /api/settings/model`）+ 按会话覆盖（`PUT/DELETE /api/sessions/:id/model`）；`REQUEST_HEADER` 记录实际所用模型 |
+| 斜杠命令（`ui-commands`） | ✅ | commands 槽：`/help /clear /new /model /session-model`；feature 经 `addCommand` 扩展 |
 | 设置（通用/模型/插件） | ✅ | 侧栏 Settings 区：版本/模型/工具/技能事实（`/api/info`） |
 | 主题切换 | ⬜ | CSS 变量化后成本极低 |
 | 连接状态与重连横幅 | ✅ | offline 横幅 + Retry |
@@ -45,7 +45,7 @@
 | Jobs（`ui-jobs`） | 后端未建 | ⬜ |
 | Schedule（`ui-schedule`） | 后端未建 | ⬜ |
 | Workflow（`ui-workflow-run`） | 后端未建 | ⬜ |
-| Subagent 活动（`ui-subagent`） | 后端已有 subagent | ✅ 侧栏区（近期委派，轮询） |
+| Subagent 活动（`ui-subagent`） | 后端已有 subagent | ✅ 侧栏区（近期委派，轮询）+ delegate 卡的父→子转写链接 |
 | Skills 面板（`ui-skill`） | 后端已有 skills | ✅ 侧栏区（`/api/skills`，轮询） |
 | Agent team（实验） | 后端未建 | ⬜ |
 | 轨迹（`ui-trajectory`） | 会话日志已含一切 | 🟡 经转写 |
@@ -53,8 +53,9 @@
 ## 线契约与面板机制
 
 - 类型单一真源：`WebApiModels` DTO + `SessionEventType` 枚举 → `WebTypesGenerator` → `web-ui/src/types.ts`；后端按同一 DTO 序列化（`@OptionalWire` 配合 `NON_NULL`）。
-- 端点：`GET/POST /api/sessions`、`GET/PUT/DELETE /api/sessions/:id`（`PUT …/title`）、`GET/PUT /api/settings/model`、`GET /api/skills`、`GET /api/subagents`、`GET /api/info`、审批/问答决策、SSE `/api/turn/stream`。
-- UI 装配仍只靠注册：`features/*` 填 message-renderer/rail/sidebar 槽（经 `FEATURES` 编译期列表）；壳层只渲染槽。
+- 端点：`GET/POST /api/sessions`、`GET/PUT/DELETE /api/sessions/:id`（`PUT …/title`、`PUT/DELETE …/model`、`GET …/events?since=`、`GET …/feedback`）、`GET/PUT /api/settings/model`、`GET /api/skills`、`GET /api/subagents`、`GET /api/info`、审批/问答决策、`PUT/DELETE /api/messages/:id/:seq/feedback`、SSE `/api/turn/stream`。
+- 工具结果在线路上携带可选结构化 `data`（退出码、hits、child 会话 id…），卡片无需再解析文本；文本仍是模型可见的唯一真源。
+- UI 装配仍只靠注册：`features/*` 填 message-renderer/rail/sidebar/command 槽（经 `FEATURES` 编译期列表）；壳层只渲染槽并在运行时注入座位（`openSession`、`rate`、command `run`）。
 
 ## 搜索/抓取后端（服务端 web 能力族）
 

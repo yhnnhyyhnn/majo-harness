@@ -105,7 +105,7 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhos
 java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # 离线（mock llm）
 ```
 
-打开 http://localhost:8787：会话侧栏（每行支持改名 ✎ / 删除 ✕）、用户/工具/assistant 消息气泡、提交器，以及可折叠的侧栏区（Skills / Settings / Subagents）——特性模块只做注册，壳层只渲染槽。这是 `web-ui/` 下的 React/Vite **TypeScript** 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。UI 的线类型由 Java 契约生成：改 `WebApiModels`/`SessionEventType` 后跑 `bash scripts/gen-web-types.sh` 再重建；构建走 Maven（`mvn -pl web-ui generate-resources`，需 npm）。
+打开 http://localhost:8787：会话侧栏（每行支持改名 ✎ / 删除 ✕）、用户/工具/assistant 消息气泡、提交器，以及可折叠的侧栏区（Skills / Settings / Subagents）——特性模块只做注册，壳层只渲染槽。头部有两个模型下拉（全局 + 按会话覆盖）；assistant 消息支持 👍/👎 反馈（持久化），用户/工具/assistant 文本均可 ⧉ 复制；composer 支持斜杠命令（`/help`、`/clear`、`/new`、`/model`、`/session-model`）。这是 `web-ui/` 下的 React/Vite **TypeScript** 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。UI 的线类型由 Java 契约生成：改 `WebApiModels`/`SessionEventType` 后跑 `bash scripts/gen-web-types.sh` 再重建；构建走 Maven（`mvn -pl web-ui generate-resources`，需 npm）。工具结果在线路上携带结构化 `data`（退出码、web hits、子会话 id…），结果卡无需再解析文本即可渲染——`delegate_task` 卡甚至可直接跳转子会话转写。
 
 随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）——**无需 API key**（免费层偶发上游 502，重试即可）；同时挂载真实无 key Wikipedia 搜索后端（`web-search-wiki`）与仓库 `skills/` 目录下的两个示例技能（`summarize`、`check-style`）。`web-mock.yml` 让同一组面板完全离线可用（确定性 mock）。
 
@@ -120,6 +120,11 @@ curl -X DELETE http://localhost:8787/api/sessions/<id>
 curl http://localhost:8787/api/skills
 curl http://localhost:8787/api/subagents
 curl http://localhost:8787/api/info
+curl "http://localhost:8787/api/sessions/<id>/events?since=0"
+curl -X PUT -H 'Content-Type: application/json' -d '{"model":"mock"}' http://localhost:8787/api/sessions/<id>/model
+curl -X DELETE http://localhost:8787/api/sessions/<id>/model
+curl -X PUT -H 'Content-Type: application/json' -d '{"value":"up"}' http://localhost:8787/api/messages/<id>/<seq>/feedback
+curl http://localhost:8787/api/sessions/<id>/feedback
 ```
 
 排障：若页面一片空白，最常见原因是 **8787 被旧实例占用**——新进程会以清晰的 “port … is already in use” 退出，而浏览器仍在访问旧进程。停掉旧的 `java` 进程或换端口（`--port 9000`），再强制刷新（Ctrl+F5）。后端不可达时页面显示可见的 “offline” 横幅，而不是静默空白。

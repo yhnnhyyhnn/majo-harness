@@ -105,7 +105,7 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhos
 java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # offline (mock llm)
 ```
 
-Open http://localhost:8787: a session sidebar (rename ✎ / delete ✕ per row), user/tool/assistant bubbles, a composer, and collapsible sidebar sections (Skills / Settings / Subagents) that fill registration-only slots. The app is a React/Vite TypeScript app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Its wire types are generated from the Java contract: edit `WebApiModels`/`SessionEventType`, run `bash scripts/gen-web-types.sh`, then rebuild. UI builds happen through Maven (`mvn -pl web-ui generate-resources`, needs npm).
+Open http://localhost:8787: a session sidebar (rename ✎ / delete ✕ per row), user/tool/assistant bubbles, a composer, and collapsible sidebar sections (Skills / Settings / Subagents) that fill registration-only slots. The header carries two model pickers — the global model and a per-session override — and assistant messages accept 👍/👎 feedback (persisted) plus ⧉ copy on user/tool/assistant text. Slash commands work in the composer (`/help`, `/clear`, `/new`, `/model`, `/session-model`). The app is a React/Vite TypeScript app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Its wire types are generated from the Java contract: edit `WebApiModels`/`SessionEventType`, run `bash scripts/gen-web-types.sh`, then rebuild. UI builds happen through Maven (`mvn -pl web-ui generate-resources`, needs npm). Tool results ship structured `data` on the wire (exit codes, web hits, child session ids…) so result cards render without re-parsing text — `delegate_task` cards even link straight to their child transcript.
 
 The shipped `web.yml` points at the kilo free tier over the OpenAI-compatible gateway — **no API key required** (free tier can occasionally return upstream 502s; retry). `web.yml` also mounts the real no-key Wikipedia search backend (`web-search-wiki`) and two sample skills from the repo `skills/` directory (`summarize`, `check-style`); `web-mock.yml` keeps the same panels working fully offline with the deterministic mock.
 
@@ -120,6 +120,11 @@ curl -X DELETE http://localhost:8787/api/sessions/<id>
 curl http://localhost:8787/api/skills
 curl http://localhost:8787/api/subagents
 curl http://localhost:8787/api/info
+curl "http://localhost:8787/api/sessions/<id>/events?since=0"
+curl -X PUT -H 'Content-Type: application/json' -d '{"model":"mock"}' http://localhost:8787/api/sessions/<id>/model
+curl -X DELETE http://localhost:8787/api/sessions/<id>/model
+curl -X PUT -H 'Content-Type: application/json' -d '{"value":"up"}' http://localhost:8787/api/messages/<id>/<seq>/feedback
+curl http://localhost:8787/api/sessions/<id>/feedback
 ```
 
 Troubleshooting: if the page stays blank, an older instance is usually still holding port 8787 — the new process exits with a clear "port … is already in use" message while the browser keeps talking to the stale one. Stop old `java` processes or pick another port (`--port 9000`), then hard-refresh (Ctrl+F5). The page shows a visible "offline" banner instead of failing silently when the backend cannot be reached.

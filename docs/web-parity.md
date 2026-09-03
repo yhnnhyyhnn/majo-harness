@@ -21,8 +21,8 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Turn/request metadata | 🟡 | REQUEST_HEADER meta line (model, tool list) |
 | Streaming token display | ✅ | SSE `/api/turn/stream`: chunk frames feed the live bubble |
 | Incremental append (no full re-render) | ✅ | each log/chunk frame pushes one event; stream closes on done |
-| Message copy / feedback (👍👎) | ⬜ | `ui-message-feedback`; backend feedback seam needed |
-| Markdown/code rendering in answers | ⬜ | `ui-renderer`; add a small safe renderer |
+| Message copy / feedback (👍👎) | ✅ | assistant text + tool cards ⧉ copy; user bubbles copy; 👍👎 persisted per durable seq (`/api/messages/…/feedback`) |
+| Markdown/code rendering in answers | ⬜ | `ui-renderer`; code blocks + links + lists exist; tables/language tags pending |
 | Ask-user inline question bubble | ✅ | rail in approval/ask features (`ctx.interactions` queue → SSE) |
 | Approval prompt UI | ✅ | rail with allow/reject (`ctx.interactions` + `tool-approval`) |
 
@@ -31,8 +31,8 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | dsh feature | majo | Notes |
 |---|---|---|
 | Rename / delete session | ✅ | `PUT/DELETE /api/sessions/:id` (+ `/title`); memory & file stores; active-session fallback |
-| Model selection control | ✅ | header `<select>` over `GET/PUT /api/settings/model` (persisted via `ctx.settings`) |
-| Slash commands (`ui-commands`) | ⬜ | backend has no commands seam yet |
+| Model selection control | ✅ | header selects: global (`GET/PUT /api/settings/model`) + per-session override (`PUT/DELETE /api/sessions/:id/model`); `REQUEST_HEADER` logs the actual model |
+| Slash commands (`ui-commands`) | ✅ | commands slot: `/help /clear /new /model /session-model`; features extend via `addCommand` |
 | Settings (general/models/plugins) | ✅ | sidebar Settings section: version/models/tools/skills facts (`/api/info`) |
 | Theme switching | ⬜ | trivial CSS once colors are variables |
 | Web/ACP connectivity & reconnect banner | ✅ | offline banner + retry |
@@ -46,7 +46,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Jobs (`ui-jobs`) | backend jobs not built | ⬜ |
 | Schedule (`ui-schedule`) | backend not built | ⬜ |
 | Workflow run (`ui-workflow-run`) | backend not built | ⬜ |
-| Subagent activity (`ui-subagent`) | backend subagent exists | ✅ sidebar section (recent delegations, polls) |
+| Subagent activity (`ui-subagent`) | backend subagent exists | ✅ sidebar section (recent delegations, polls) + parent→child transcript link from delegate cards |
 | Skills panel (`ui-skill`) | backend skills exists | ✅ sidebar section (`/api/skills`, polls) |
 | Agent team (`ui-agent-team`, experimental) | backend not built | ⬜ |
 | Trajectory (`ui-trajectory`) | backend session log has everything | 🟡 via transcript |
@@ -54,8 +54,9 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 ## Wire contract & panels plumbing
 
 - Typed single source of truth: `WebApiModels` DTO records + `SessionEventType` enum → `WebTypesGenerator` → `web-ui/src/types.ts`; the backend serializes the same DTOs (`NON_NULL` for `@OptionalWire`).
-- Endpoints: `GET/POST /api/sessions`, `GET/PUT/DELETE /api/sessions/:id` (`PUT …/title`), `GET/PUT /api/settings/model`, `GET /api/skills`, `GET /api/subagents`, `GET /api/info`, approvals/questions decisions, SSE `/api/turn/stream`.
-- UI assembly stays registration-only: `features/*` modules fill message-renderer/rail/sidebar slots through `FEATURES` (compile-time list); shell code only renders slots.
+- Endpoints: `GET/POST /api/sessions`, `GET/PUT/DELETE /api/sessions/:id` (`PUT …/title`, `PUT/DELETE …/model`, `GET …/events?since=`, `GET …/feedback`), `GET/PUT /api/settings/model`, `GET /api/skills`, `GET /api/subagents`, `GET /api/info`, approvals/questions decisions, `PUT/DELETE /api/messages/:id/:seq/feedback`, SSE `/api/turn/stream`.
+- Tool results carry optional structured `data` on the wire (exit codes, hits, child session ids…) so cards render without re-parsing text; text stays the model-visible truth.
+- UI assembly stays registration-only: `features/*` modules fill message-renderer/rail/sidebar/command slots through `FEATURES` (compile-time list); shell code only renders slots and injects runtime seats (`openSession`, `rate`, command `run`).
 
 ## Search/fetch backends (server-side web family)
 
