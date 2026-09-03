@@ -1,6 +1,7 @@
 import type {
   CreateSession,
   EventFrame,
+  EventsDelta,
   Info,
   ModelState,
   Ok,
@@ -58,6 +59,10 @@ export const api = {
 
   session(id: string): Promise<SessionDetail> {
     return rpc("/api/sessions/" + encodeURIComponent(id));
+  },
+
+  eventsSince(id: string, since: number): Promise<EventsDelta> {
+    return rpc("/api/sessions/" + encodeURIComponent(id) + "/events?since=" + since);
   },
 
   renameSession(id: string, title: string): Promise<Ok> {

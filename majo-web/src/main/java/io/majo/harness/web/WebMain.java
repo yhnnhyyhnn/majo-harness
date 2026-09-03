@@ -147,6 +147,12 @@ public final class WebMain {
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/turn/stream".equals(path)) {
                 streamTurn(exchange);
             } else if ("GET".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")
+                    && path.endsWith("/events")) {
+                String sessionId = path.substring("/api/sessions/".length(),
+                        path.length() - "/events".length());
+                json(exchange, 200, eventsSince(sessionId, query(exchange)));
+            } else if ("GET".equals(exchange.getRequestMethod())
                     && path.startsWith("/api/sessions/")) {
                 String sessionId = path.substring("/api/sessions/".length());
                 json(exchange, 200, sessionDetail(sessionId));
@@ -506,6 +512,34 @@ public final class WebMain {
                 event.type() == SessionEventType.TOOL_RESULT
                         && fields.get(SessionEvent.FIELD_DATA) instanceof Map<?, ?> data
                                 ? (Map<String, Object>) (Map<?, ?>) data : null);
+    }
+
+    /** Events after a durable cursor (lightweight catch-up for big sessions). */
+    private WebApiModels.EventsDelta eventsSince(String sessionId, Map<String, String> query) {
+        SessionService sessions = boot.service(SessionService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
+        long since = 0;
+        if (query.get("since") != null && !query.get("since").isBlank()) {
+            try {
+                since = Long.parseLong(query.get("since"));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("since must be a non-negative number");
+            }
+            if (since < 0) {
+                throw new IllegalArgumentException("since must be a non-negative number");
+            }
+        }
+        List<WebApiModels.EventFrame> newer = new ArrayList<>();
+        long last = since;
+        for (SessionEvent event : sessions.events(sessionId)) {
+            if (event.seq() > since) {
+                newer.add(frameOf(event));
+            }
+            last = Math.max(last, event.seq());
+        }
+        return new WebApiModels.EventsDelta(since, last, newer);
     }
 
     private static String stringField(Map<?, ?> map, String key) {

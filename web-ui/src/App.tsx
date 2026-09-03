@@ -68,6 +68,15 @@ function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // idle catch-up: while a session is open and not busy, poll events newer
+  // than our cursor (covers other tabs / child runs finishing off-stream)
+  useEffect(() => {
+    if (!state.sessionId || state.busy) return;
+    const timer = window.setInterval(() => void actions.syncEvents(), 12000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.sessionId, state.busy]);
+
   const send = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     void actions.sendTask();

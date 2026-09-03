@@ -7,6 +7,8 @@ export interface ChatState {
   sessions: SessionInfo[];
   sessionId: string | null;
   events: EventFrame[];
+  /** Highest durable seq already in {@code events} (poll cursor). */
+  cursor: number;
   title: string;
   model: string | null;
   models: string[];
@@ -30,6 +32,7 @@ export interface ChatActions {
   sendTask(): Promise<void>;
   decide(id: string, granted: boolean): Promise<void>;
   answerAsk(): Promise<void>;
+  syncEvents(): Promise<void>;
   retry(): void;
   loadInitial(): Promise<void>;
 }
@@ -38,6 +41,7 @@ const initial = (): ChatState => ({
   sessions: [],
   sessionId: null,
   events: [],
+  cursor: 0,
   title: "New chat",
   model: null,
   models: [],
@@ -65,7 +69,13 @@ export function createChat(store: Store<ChatState>): ChatActions {
   };
 
   const push = (event: EventFrame) =>
-    store.set((state) => ({ events: [...state.events, event] }));
+    store.set((state) => {
+      const seq = typeof event.seq === "number" && event.seq > 0 ? event.seq : 0;
+      return {
+        events: [...state.events, event],
+        cursor: seq > state.cursor ? seq : state.cursor,
+      };
+    });
 
   const sendTask = async () => {
     const task = store.get().input.trim();
@@ -132,10 +142,15 @@ export function createChat(store: Store<ChatState>): ChatActions {
     async selectSession(id) {
       closeStream();
       const detail = await api.session(id);
+      const cursor = detail.events.reduce(
+        (max, event) => (typeof event.seq === "number" && event.seq > 0 ? Math.max(max, event.seq) : max),
+        0
+      );
       store.set({
         sessionId: id,
         title: detail.title || "New chat",
         events: detail.events,
+        cursor,
         approvals: [],
         question: null,
       });
@@ -189,7 +204,7 @@ export function createChat(store: Store<ChatState>): ChatActions {
           question: null,
         });
       } else if (wasActive) {
-        store.set({ sessionId: null, events: [], title: "New chat", live: null });
+        store.set({ sessionId: null, events: [], title: "New chat", cursor: 0 });
       }
     },
     setInput(value) {
@@ -217,6 +232,19 @@ export function createChat(store: Store<ChatState>): ChatActions {
         console.error("answer failed", error);
       }
       store.set({ question: null, qInput: "" });
+    },
+    async syncEvents() {
+      const current = store.get();
+      if (!current.sessionId || current.busy) return;
+      try {
+        const delta = await api.eventsSince(current.sessionId, current.cursor);
+        for (const event of delta.events) push(event);
+        if (delta.lastSeq > current.cursor) {
+          store.set({ cursor: delta.lastSeq });
+        }
+      } catch {
+        // transient: next poll retries; conversation stays usable offline
+      }
     },
     retry() {
       store.set({ offline: false });

@@ -30,6 +30,9 @@ public final class WebApiModels {
 
     public record SessionDetail(String id, @OptionalWire String title, List<EventFrame> events) {}
 
+    /** Events newer than a cursor ({@code since}); lastSeq feeds the next poll. */
+    public record EventsDelta(long since, long lastSeq, List<EventFrame> events) {}
+
     public record CreateSession(String id) {}
 
     /** One skill listed in the Skills panel. */

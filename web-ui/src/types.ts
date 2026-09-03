@@ -35,6 +35,12 @@ export interface EventFrame {
   data?: Record<string, unknown>;
 }
 
+export interface EventsDelta {
+  since: number;
+  lastSeq: number;
+  events: EventFrame[];
+}
+
 export interface Info {
   version: string;
   models: string[];
