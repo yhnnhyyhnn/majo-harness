@@ -78,7 +78,7 @@ public final class AgentLoopService extends Service {
      * without a text sink.
      */
     public String runTurn(String sessionId, String userText) {
-        return runTurn(sessionId, userText, null);
+        return runTurn(sessionId, userText, null, null);
     }
 
     /**
@@ -89,6 +89,16 @@ public final class AgentLoopService extends Service {
      * non-UI callers keep the plain path.
      */
     public String runTurn(String sessionId, String userText, java.util.function.Consumer<String> textSink) {
+        return runTurn(sessionId, userText, textSink, null);
+    }
+
+    /**
+     * Like {@link #runTurn(String, String, java.util.function.Consumer)} but
+     * with an explicit model name for this turn ({@code null} = the service
+     * default). Per-session overrides ride through this argument.
+     */
+    public String runTurn(String sessionId, String userText,
+            java.util.function.Consumer<String> textSink, String modelOverride) {
         sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
         sessions.append(sessionId, SessionEventType.USER_MESSAGE,
                 Map.of(SessionEvent.FIELD_CONTENT, userText));
@@ -98,7 +108,7 @@ public final class AgentLoopService extends Service {
                         + "\" exceeded maxSteps=" + maxSteps + " without a final answer");
             }
             ChatRequest request = new ChatRequest(buildMessages(sessionId),
-                    tools.specs(), null);
+                    tools.specs(), modelOverride);
             // log the request composition before it reaches the model so the
             // header (model, system prompt, offered tool names) is durable
             // even when the completion itself fails

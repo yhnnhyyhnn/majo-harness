@@ -69,6 +69,7 @@ export interface QuestionFrame {
 export interface SessionDetail {
   id: string;
   title?: string;
+  sessionModel?: string;
   events: EventFrame[];
 }
 

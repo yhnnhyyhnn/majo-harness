@@ -10,6 +10,8 @@ export interface ChatState {
   /** Highest durable seq already in {@code events} (poll cursor). */
   cursor: number;
   title: string;
+  /** Per-session model override (null = follow the global model). */
+  sessionModel: string | null;
   model: string | null;
   models: string[];
   input: string;
@@ -27,6 +29,7 @@ export interface ChatActions {
   newChat(): void;
   renameSession(id: string, title: string): Promise<void>;
   deleteSession(id: string): Promise<void>;
+  changeSessionModel(model: string | null): Promise<void>;
   setInput(value: string): void;
   setQInput(value: string): void;
   sendTask(): Promise<void>;
@@ -43,6 +46,7 @@ const initial = (): ChatState => ({
   events: [],
   cursor: 0,
   title: "New chat",
+  sessionModel: null,
   model: null,
   models: [],
   input: "",
@@ -139,6 +143,20 @@ export function createChat(store: Store<ChatState>): ChatActions {
       const state = await api.setModel(model);
       store.set({ model: state.model });
     },
+    async changeSessionModel(model) {
+      const id = store.get().sessionId;
+      if (!id || store.get().busy) return;
+      try {
+        if (model) {
+          await api.setSessionModel(id, model);
+        } else {
+          await api.clearSessionModel(id);
+        }
+        store.set({ sessionModel: model });
+      } catch (error) {
+        console.error("session model change failed", error);
+      }
+    },
     async selectSession(id) {
       closeStream();
       const detail = await api.session(id);
@@ -149,6 +167,7 @@ export function createChat(store: Store<ChatState>): ChatActions {
       store.set({
         sessionId: id,
         title: detail.title || "New chat",
+        sessionModel: detail.sessionModel ?? null,
         events: detail.events,
         cursor,
         approvals: [],
@@ -266,6 +285,7 @@ export function createChat(store: Store<ChatState>): ChatActions {
           store.set({
             sessionId: id,
             title: detail.title || "New chat",
+            sessionModel: detail.sessionModel ?? null,
             events: detail.events,
           });
         }

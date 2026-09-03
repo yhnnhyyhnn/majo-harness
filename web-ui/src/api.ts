@@ -73,6 +73,14 @@ export const api = {
     return rpc("/api/sessions/" + encodeURIComponent(id), { method: "DELETE" });
   },
 
+  setSessionModel(id: string, model: string): Promise<Ok> {
+    return putJson("/api/sessions/" + encodeURIComponent(id) + "/model", { model });
+  },
+
+  clearSessionModel(id: string): Promise<Ok> {
+    return rpc("/api/sessions/" + encodeURIComponent(id) + "/model", { method: "DELETE" });
+  },
+
   modelState(): Promise<ModelState> {
     return rpc("/api/settings/model");
   },

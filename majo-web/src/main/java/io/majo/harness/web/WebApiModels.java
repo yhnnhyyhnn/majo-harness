@@ -28,7 +28,8 @@ public final class WebApiModels {
 
     public record SessionsIndex(List<SessionInfo> sessions) {}
 
-    public record SessionDetail(String id, @OptionalWire String title, List<EventFrame> events) {}
+    public record SessionDetail(String id, @OptionalWire String title,
+            @OptionalWire String sessionModel, List<EventFrame> events) {}
 
     /** Events newer than a cursor ({@code since}); lastSeq feeds the next poll. */
     public record EventsDelta(long since, long lastSeq, List<EventFrame> events) {}

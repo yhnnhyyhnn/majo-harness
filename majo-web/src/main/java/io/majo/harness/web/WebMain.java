@@ -140,6 +140,18 @@ public final class WebMain {
                 String sessionId = path.substring("/api/sessions/".length(),
                         path.length() - "/title".length());
                 json(exchange, 200, renameSession(exchange, sessionId));
+            } else if ("PUT".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")
+                    && path.endsWith("/model")) {
+                String sessionId = path.substring("/api/sessions/".length(),
+                        path.length() - "/model".length());
+                json(exchange, 200, setSessionModel(exchange, sessionId));
+            } else if ("DELETE".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")
+                    && path.endsWith("/model")) {
+                String sessionId = path.substring("/api/sessions/".length(),
+                        path.length() - "/model".length());
+                json(exchange, 200, clearSessionModel(sessionId));
             } else if ("DELETE".equals(exchange.getRequestMethod())
                     && path.startsWith("/api/sessions/")) {
                 String sessionId = path.substring("/api/sessions/".length());
@@ -184,6 +196,7 @@ public final class WebMain {
     }
 
     private static final String TITLE_PREFIX = "session.title.";
+    private static final String SESSION_MODEL_PREFIX = "session.model.";
 
     private WebApiModels.SessionDetail sessionDetail(String sessionId) {
         SessionService sessions = boot.service(SessionService.NAME);
@@ -191,7 +204,18 @@ public final class WebMain {
             throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
         }
         return new WebApiModels.SessionDetail(
-                sessionId, titleFor(sessionId), eventsJson(sessions.events(sessionId)));
+                sessionId, titleFor(sessionId), sessionModelFor(sessionId),
+                eventsJson(sessions.events(sessionId)));
+    }
+
+    /** The per-session model override (settings), or {@code null}. */
+    private String sessionModelFor(String sessionId) {
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings == null) {
+            return null;
+        }
+        String override = settings.get(SESSION_MODEL_PREFIX + sessionId);
+        return override == null || override.isBlank() ? null : override;
     }
 
     /** User rename wins; otherwise the derived heuristic title. */
@@ -203,6 +227,42 @@ public final class WebMain {
         }
         SessionTitleService titles = boot.service(SessionTitleService.NAME);
         return titles.title(sessionId);
+    }
+
+    private WebApiModels.Ok setSessionModel(HttpExchange exchange, String sessionId)
+            throws IOException {
+        SessionService sessions = boot.service(SessionService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        Object modelValue = request.get("model");
+        if (modelValue == null || String.valueOf(modelValue).isBlank()) {
+            throw new IllegalArgumentException("model must not be blank");
+        }
+        String model = String.valueOf(modelValue);
+        LLMService llm = boot.service(LLMService.NAME);
+        if (!llm.registeredModels().contains(model)) {
+            throw new IllegalArgumentException("unknown model \"" + model + "\"");
+        }
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings == null) {
+            throw new IllegalArgumentException("settings service unavailable — cannot persist model");
+        }
+        settings.set(SESSION_MODEL_PREFIX + sessionId, model);
+        return new WebApiModels.Ok(true);
+    }
+
+    private WebApiModels.Ok clearSessionModel(String sessionId) {
+        SessionService sessions = boot.service(SessionService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings != null) {
+            settings.unset(SESSION_MODEL_PREFIX + sessionId);
+        }
+        return new WebApiModels.Ok(true);
     }
 
     private WebApiModels.Ok renameSession(HttpExchange exchange, String sessionId)
@@ -241,6 +301,7 @@ public final class WebMain {
             SettingsService settings = boot.ctx().get(SettingsService.NAME);
             if (settings != null) {
                 settings.unset(TITLE_PREFIX + sessionId);
+                settings.unset(SESSION_MODEL_PREFIX + sessionId);
             }
             return new WebApiModels.Ok(true);
         } finally {
@@ -403,7 +464,8 @@ public final class WebMain {
                         }
                     };
                     String answer = loop.runTurn(sessionId, task, delta ->
-                            frame(out, "chunk", new WebApiModels.StreamChunk(delta)));
+                            frame(out, "chunk", new WebApiModels.StreamChunk(delta)),
+                            sessionModelFor(sessionId));
                     frame(out, "done", new WebApiModels.StreamDone(sessionId, answer));
                 } finally {
                     pending.notifier = null;
@@ -461,7 +523,7 @@ public final class WebMain {
             String sessionId = request.get("sessionId") == null
                     ? sessions.createSession()
                     : String.valueOf(request.get("sessionId"));
-            String answer = loop.runTurn(sessionId, task);
+            String answer = loop.runTurn(sessionId, task, null, sessionModelFor(sessionId));
             return new WebApiModels.TurnResult(sessionId, answer, eventsJson(sessions.events(sessionId)));
         } finally {
             turnLock.unlock();

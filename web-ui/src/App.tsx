@@ -181,6 +181,23 @@ function AppShell() {
               ))}
             </select>
           </label>
+          {state.sessionId && (
+            <label className="model-picker">
+              session
+              <select
+                value={state.sessionModel ?? ""}
+                disabled={state.busy}
+                onChange={(e) => void actions.changeSessionModel(e.target.value || null)}
+              >
+                <option value="">default</option>
+                {state.models.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </header>
         {railNodes.length > 0 && (
           <div id="rail-region">
