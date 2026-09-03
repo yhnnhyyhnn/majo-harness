@@ -107,7 +107,7 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # 离
 
 打开 http://localhost:8787：会话侧栏（每行支持改名 ✎ / 删除 ✕）、用户/工具/assistant 消息气泡、提交器，以及可折叠的侧栏区（Skills / Settings / Subagents）——特性模块只做注册，壳层只渲染槽。头部有两个模型下拉（全局 + 按会话覆盖）；assistant 消息支持 👍/👎 反馈（持久化），用户/工具/assistant 文本均可 ⧉ 复制；composer 支持斜杠命令（`/help`、`/clear`、`/new`、`/model`、`/session-model`）。这是 `web-ui/` 下的 React/Vite **TypeScript** 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。UI 的线类型由 Java 契约生成：改 `WebApiModels`/`SessionEventType` 后跑 `bash scripts/gen-web-types.sh` 再重建；构建走 Maven（`mvn -pl web-ui generate-resources`，需 npm）。工具结果在线路上携带结构化 `data`（退出码、web hits、子会话 id…），结果卡无需再解析文本即可渲染——`delegate_task` 卡甚至可直接跳转子会话转写。
 
-随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）——**无需 API key**（免费层偶发上游 502，重试即可）；同时挂载真实无 key Wikipedia 搜索后端（`web-search-wiki`）与仓库 `skills/` 目录下的两个示例技能（`summarize`、`check-style`）。`web-mock.yml` 让同一组面板完全离线可用（确定性 mock）。
+随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）——**无需 API key**（免费层偶发上游 502，重试即可）；同时挂载真实无 key Wikipedia 搜索后端（`web-search-wiki`）与仓库 `skills/` 目录下的两个示例技能（`summarize`、`check-style`）。`web-mock.yml` 让同一组面板完全离线可用（确定性 mock）。会话、改名、模型选择（全局 + 按会话）与消息打分都会跨重启持久化到 `~/.majo-harness/web/`（JSONL 会话文件 + `settings.json`）；换一个 `user.home` 启动即可隔离演示环境。
 
 其他客户端用 JSON API：
 
