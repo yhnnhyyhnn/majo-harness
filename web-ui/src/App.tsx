@@ -1,135 +1,19 @@
-import { useEffect, type FormEvent, type ReactNode } from "react";
-import type { EventFrame, ToolCallFrame } from "./types";
+import { useEffect, type ReactNode } from "react";
+import { SlotRoot, useSlots, type RailProps } from "./slots";
+import { FEATURES } from "./features";
+import type { EventFrame, EventKind } from "./types";
 import { useChat } from "./useChat";
 
-// ---------- markdown-lite ----------
-
-const escapeHtml = (value: unknown): string =>
-  String(value ?? "").replace(/[&<>"']/g, (c) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    };
-    return entities[c] ?? c;
-  });
-
-const prettyJson = (raw: string): string => {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
+// li wrapper styles are a shell concern; inner content comes from slots.
+const kindStyle: Partial<Record<EventKind, string>> = {
+  USER_MESSAGE: "message user",
+  ASSISTANT_MESSAGE: "message",
+  REQUEST_HEADER: "group meta",
+  TOOL_RESULT: "group tool",
 };
 
-function MarkdownText({ text }: { text: string }) {
-  const inline = (input: string): string =>
-    input
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-      .replace(
-        /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-      );
-
-  let out = "";
-  const parts = String(text ?? "").split(/```/);
-  for (let i = 0; i < parts.length; i++) {
-    if (i % 2 === 1) {
-      const code = escapeHtml(parts[i]).replace(/^[a-zA-Z0-9_-]+\n/, "").replace(/\n$/, "");
-      out += '<pre class="code"><code>' + code + "</code></pre>";
-      continue;
-    }
-    const lines = escapeHtml(parts[i]).split("\n");
-    let list: string | null = null;
-    const flushList = () => {
-      if (list) {
-        out += list + "</ul>";
-        list = null;
-      }
-    };
-    for (const raw of lines) {
-      const heading = raw.match(/^(#{1,4})\s+(.*)$/);
-      const bullet = raw.match(/^\s*[-*]\s+(.*)$/);
-      const ordered = raw.match(/^\s*\d+[.)]\s+(.*)$/);
-      const quote = raw.match(/^\s*>\s?(.*)$/);
-      if (/^\s*---+\s*$/.test(raw)) {
-        flushList();
-        out += "<hr>";
-      } else if (heading) {
-        flushList();
-        out += `<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`;
-      } else if (bullet || ordered) {
-        list = list ?? "<ul>";
-        list += `<li>${inline((bullet ?? ordered)?.[1] ?? "")}</li>`;
-      } else if (quote) {
-        flushList();
-        out += "<blockquote>" + inline(quote[1]) + "</blockquote>";
-      } else if (raw.trim().length === 0) {
-        flushList();
-        out += "<br>";
-      } else {
-        flushList();
-        out += inline(raw);
-      }
-    }
-    flushList();
-  }
-  return <div className="bubble rich" dangerouslySetInnerHTML={{ __html: out }} />;
-}
-
-async function copyText(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const area = document.createElement("textarea");
-    area.value = text;
-    document.body.appendChild(area);
-    area.select();
-    document.execCommand("copy");
-    area.remove();
-  }
-}
-
-// ---------- rendering ----------
-
-function CopyButton({ onCopy }: { onCopy: () => void }) {
-  return (
-    <span className="icon-actions">
-      <button type="button" title="copy" onClick={onCopy}>
-        ⧉ copy
-      </button>
-    </span>
-  );
-}
-
-function ToolCallRow({ calls }: { calls: ToolCallFrame[] }) {
-  return (
-    <div className="tool-block">
-      <div className="tool-head">
-        <span className="tool-name">tool · {calls.map((c) => c.name).join(", ")}</span>
-      </div>
-      {calls.map((call, index) => (
-        <pre className="code args" key={call.name + index}>
-          {prettyJson(call.arguments || "{}")}
-        </pre>
-      ))}
-    </div>
-  );
-}
-
-function Conversation({
-  events,
-  live,
-  onCopy,
-}: {
-  events: EventFrame[];
-  live: string | null;
-  onCopy: (text: string) => void;
-}) {
+function Conversation({ events, live }: { events: EventFrame[]; live: string | null }) {
+  const { messageRenderer } = useSlots();
   const rows: ReactNode[] = [];
   let last = -1;
   for (const event of events) {
@@ -137,79 +21,61 @@ function Conversation({
       if (event.seq <= last) continue;
       last = event.seq;
     }
-    switch (event.kind) {
-      case "TURN_START":
-      case "TURN_END":
-        break;
-      case "REQUEST_HEADER":
-        rows.push(
-          <li className="group meta" key={"h" + event.seq}>
-            model {event.model} · tools [{(event.toolNames || []).join(", ")}]
-          </li>
-        );
-        break;
-      case "USER_MESSAGE":
-        rows.push(
-          <li className="message user" key={"u" + event.seq}>
-            <div className="bubble">{event.content ?? ""}</div>
-          </li>
-        );
-        break;
-      case "ASSISTANT_MESSAGE":
-        if (event.toolCalls && event.toolCalls.length) {
-          rows.push(
-            <li className="group tool" key={"tc" + event.seq}>
-              <ToolCallRow calls={event.toolCalls} />
-            </li>
-          );
-        } else if (event.content != null) {
-          rows.push(
-            <li className="message" key={"m" + event.seq}>
-              <div className="msg">
-                <MarkdownText text={event.content} />
-                <CopyButton onCopy={() => onCopy(event.content!)} />
-              </div>
-            </li>
-          );
-        }
-        break;
-      case "TOOL_RESULT":
-        rows.push(
-          <li className="group tool" key={"tr" + event.seq}>
-            <div className="tool-block result">
-              <span className={"dot " + (event.ok ? "ok" : "err")} />
-              <span className="tool-name">{event.toolName}</span>
-              <span className="result-text">{event.content ?? ""}</span>
-            </div>
-          </li>
-        );
-        break;
-    }
-  }
-  if (live !== null) {
+    const render = messageRenderer(event.kind);
+    if (!render) continue;
+    const style = kindStyle[event.kind];
     rows.push(
-      <li className="message streaming" key="live">
-        <MarkdownText text={live || "…"} />
+      <li className={style ?? "group"} key={event.kind + event.seq}>
+        {render({ event })}
       </li>
     );
+  }
+  if (live !== null) {
+    const assistant = messageRenderer("ASSISTANT_MESSAGE");
+    if (assistant) {
+      rows.push(
+        <li className="message streaming" key="live">
+          {assistant({ event: { seq: 1e12 + 5, kind: "ASSISTANT_MESSAGE", content: live || "…" }, streaming: true })}
+        </li>
+      );
+    }
   }
   return <ol id="conversation">{rows}</ol>;
 }
 
-// ---------- app ----------
-
 export default function App() {
+  return (
+    <SlotRoot features={FEATURES}>
+      <AppShell />
+    </SlotRoot>
+  );
+}
+
+function AppShell() {
   const { state, actions } = useChat();
+  const { rails } = useSlots();
 
   useEffect(() => {
     void actions.loadInitial();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const send = (e: FormEvent<HTMLFormElement>) => {
+  const send = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     void actions.sendTask();
   };
+
+  const railProps: RailProps = {
+    approvals: state.approvals,
+    question: state.question,
+    qInput: state.qInput,
+    onQInput: actions.setQInput,
+    onDecide: (id, granted) => void actions.decide(id, granted),
+    onAnswerAsk: () => void actions.answerAsk(),
+  };
+  const railNodes = rails
+    .map((rail) => ({ id: rail.id, node: rail.render(railProps) }))
+    .filter((item) => item.node !== null && item.node !== undefined);
 
   return (
     <>
@@ -263,50 +129,14 @@ export default function App() {
             </select>
           </label>
         </header>
-        {(state.approvals.length > 0 || state.question) && (
-          <div id="approval-rail">
-            {state.approvals.map((approval) => (
-              <div className="approval-card" key={approval.id}>
-                <div className="approval-head">
-                  <span className="dot pending" /> waiting for approval
-                </div>
-                <div className="approval-body">{approval.summary}</div>
-                <div className="approval-actions">
-                  <button type="button" onClick={() => void actions.decide(approval.id, false)}>
-                    Reject
-                  </button>
-                  <button type="button" className="primary" onClick={() => void actions.decide(approval.id, true)}>
-                    Allow once
-                  </button>
-                </div>
-              </div>
+        {railNodes.length > 0 && (
+          <div id="rail-region">
+            {railNodes.map((item) => (
+              <div key={item.id}>{item.node}</div>
             ))}
-            {state.question && (
-              <div className="approval-card question">
-                <div className="approval-head">
-                  <span className="dot pending" /> the agent asks
-                </div>
-                <div className="approval-body">{state.question.text}</div>
-                <form
-                  className="question-form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void actions.answerAsk();
-                  }}
-                >
-                  <input
-                    value={state.qInput}
-                    onChange={(e) => actions.setQInput(e.target.value)}
-                    placeholder="your answer…"
-                    autoFocus
-                  />
-                  <button type="submit">Send</button>
-                </form>
-              </div>
-            )}
           </div>
         )}
-        <Conversation events={state.events} live={state.busy ? state.live : null} onCopy={(t) => void copyText(t)} />
+        <Conversation events={state.events} live={state.busy ? state.live : null} />
         <form id="composer" onSubmit={send}>
           <textarea
             id="input"
