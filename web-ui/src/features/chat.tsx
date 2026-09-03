@@ -132,14 +132,101 @@ function ToolCallsRenderer({ event }: { event: { toolCalls?: ToolCallFrame[] } }
   );
 }
 
-function ToolResultRenderer({ event }: { event: { toolName?: string; ok?: boolean; content?: string | null } }) {
+function GenericResultCard({
+  toolName,
+  ok,
+  text,
+}: {
+  toolName?: string;
+  ok?: boolean;
+  text: string;
+}) {
   return (
     <div className="tool-block result">
-      <span className={"dot " + (event.ok ? "ok" : "err")} />
-      <span className="tool-name">{event.toolName}</span>
-      <span className="result-text">{event.content ?? ""}</span>
+      <span className={"dot " + (ok ? "ok" : "err")} />
+      <span className="tool-name">{toolName}</span>
+      <span className={"badge " + (ok ? "ok" : "err")}>{ok ? "ok" : "error"}</span>
+      <span className="spacer" />
+      <button type="button" className="mini" title="copy" onClick={() => void copyText(text)}>
+        ⧉
+      </button>
+      {text && <pre className="code result-text">{text}</pre>}
     </div>
   );
+}
+
+interface SearchHit {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+// web_search results arrive as one deterministic text block:
+//   external web results (untrusted):
+//   - Title
+//     https://…
+//     snippet words…
+const parseSearchHits = (text: string): SearchHit[] | null => {
+  if (!/external web results/i.test(text)) return null;
+  const hits: SearchHit[] = [];
+  let current: SearchHit | null = null;
+  for (const raw of text.split("\n").slice(1)) {
+    const bullet = raw.match(/^\s*-\s+(.*)$/);
+    if (bullet) {
+      current = { title: bullet[1], url: "", snippet: "" };
+      hits.push(current);
+      continue;
+    }
+    const line = raw.trim();
+    if (!current || !line) continue;
+    if (!current.url && /^https?:\/\//.test(line)) {
+      current.url = line;
+    } else {
+      current.snippet = current.snippet ? current.snippet + " " + line : line;
+    }
+  }
+  return hits.length ? hits : null;
+};
+
+function SearchResultsCard({ toolName, text }: { toolName?: string; text: string }) {
+  const hits = parseSearchHits(text);
+  return (
+    <div className="tool-block result">
+      <span className="dot ok" />
+      <span className="tool-name">{toolName}</span>
+      <span className="badge ext">external · untrusted</span>
+      <span className="spacer" />
+      <button type="button" className="mini" title="copy" onClick={() => void copyText(text)}>
+        ⧉
+      </button>
+      {hits ? (
+        <ol className="search-list">
+          {hits.map((hit, index) => (
+            <li key={index}>
+              {hit.url ? (
+                <a href={hit.url} target="_blank" rel="noopener noreferrer">
+                  {hit.title}
+                </a>
+              ) : (
+                <span className="result-title">{hit.title}</span>
+              )}
+              {hit.snippet && <div className="meta">{hit.snippet}</div>}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        text && <pre className="code result-text">{text}</pre>
+      )}
+    </div>
+  );
+}
+
+function ToolResultRenderer({ event }: { event: { toolName?: string; ok?: boolean; content?: string | null } }) {
+  const text = event.content ?? "";
+  if (event.toolName === "web_search") {
+    return <SearchResultsCard toolName={event.toolName} text={text} />;
+  }
+  return <GenericResultCard toolName={event.toolName} ok={event.ok} text={text} />;
 }
 
 function RequestHeaderRenderer({ event }: { event: { model?: string; toolNames?: string[] } }) {
