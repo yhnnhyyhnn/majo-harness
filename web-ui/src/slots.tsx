@@ -12,6 +12,9 @@ export interface ChatFrameProps {
   streaming?: boolean;
   /** Opens another session in the transcript (child links, …). */
   openSession?: (id: string) => void;
+  /** User rating for this event's message (durable seq only). */
+  rate?: "up" | "down" | null;
+  onRate?: (seq: number, value: "up" | "down" | null) => void;
 }
 
 export type MessageRenderer = (props: ChatFrameProps) => ReactNode;

@@ -41,6 +41,15 @@ export interface EventsDelta {
   events: EventFrame[];
 }
 
+export interface FeedbackEntry {
+  seq: number;
+  value: string;
+}
+
+export interface FeedbackIndex {
+  entries: FeedbackEntry[];
+}
+
 export interface Info {
   version: string;
   models: string[];

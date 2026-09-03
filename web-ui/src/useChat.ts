@@ -9,6 +9,8 @@ export interface ChatState {
   events: EventFrame[];
   /** Highest durable seq already in {@code events} (poll cursor). */
   cursor: number;
+  /** Durable seq → "up" | "down" for the open session. */
+  feedback: Record<number, "up" | "down">;
   title: string;
   /** Per-session model override (null = follow the global model). */
   sessionModel: string | null;
@@ -30,6 +32,7 @@ export interface ChatActions {
   renameSession(id: string, title: string): Promise<void>;
   deleteSession(id: string): Promise<void>;
   changeSessionModel(model: string | null): Promise<void>;
+  rate(seq: number, value: "up" | "down" | null): Promise<void>;
   setInput(value: string): void;
   setQInput(value: string): void;
   sendTask(): Promise<void>;
@@ -45,6 +48,7 @@ const initial = (): ChatState => ({
   sessionId: null,
   events: [],
   cursor: 0,
+  feedback: {},
   title: "New chat",
   sessionModel: null,
   model: null,
@@ -70,6 +74,19 @@ export function createChat(store: Store<ChatState>): ChatActions {
     const index = await api.sessions();
     store.set({ sessions: [...index.sessions].reverse(), offline: false });
     return index.sessions;
+  };
+
+  const feedbackOf = async (sessionId: string): Promise<Record<number, "up" | "down">> => {
+    try {
+      const index = await api.feedback(sessionId);
+      const record: Record<number, "up" | "down"> = {};
+      for (const entry of index.entries) {
+        if (entry.value === "up" || entry.value === "down") record[entry.seq] = entry.value;
+      }
+      return record;
+    } catch {
+      return {};
+    }
   };
 
   const push = (event: EventFrame) =>
@@ -110,11 +127,27 @@ export function createChat(store: Store<ChatState>): ChatActions {
               break;
             case "done":
               store.set({ live: null, approvals: [], question: null });
-              push({ seq: 1e12, kind: "ASSISTANT_MESSAGE", content: event.data.answer });
-              void loadSessions().then((all) => {
-                const mine = all.find((s) => s.id === event.data.sessionId);
-                if (mine) store.set({ title: mine.title || "New chat" });
-              });
+              // durable log is the source of truth: re-fetch the session so
+              // the transcript, cursor and feedback align on real seqs
+              void api
+                .session(id)
+                .then(async (detail) => {
+                  const cursor = detail.events.reduce(
+                    (max, e) => (typeof e.seq === "number" && e.seq > 0 ? Math.max(max, e.seq) : max),
+                    0
+                  );
+                  store.set({
+                    events: detail.events,
+                    cursor,
+                    title: detail.title || "New chat",
+                    sessionModel: detail.sessionModel ?? null,
+                    feedback: await feedbackOf(id),
+                  });
+                  void loadSessions().catch(() => {});
+                })
+                .catch(() => {
+                  push({ seq: 1e12, kind: "ASSISTANT_MESSAGE", content: event.data.answer });
+                });
               closeStream();
               store.set({ busy: false, input: "" });
               break;
@@ -170,6 +203,7 @@ export function createChat(store: Store<ChatState>): ChatActions {
         sessionModel: detail.sessionModel ?? null,
         events: detail.events,
         cursor,
+        feedback: await feedbackOf(id),
         approvals: [],
         question: null,
       });
@@ -233,6 +267,38 @@ export function createChat(store: Store<ChatState>): ChatActions {
       store.set({ qInput: value });
     },
     sendTask,
+    async rate(seq, value) {
+      const id = store.get().sessionId;
+      if (!id || store.get().busy || typeof seq !== "number" || seq <= 0) return;
+      const previous = store.get().feedback[seq];
+      store.set((state) => {
+        const feedback = { ...state.feedback };
+        if (value) {
+          feedback[seq] = value;
+        } else {
+          delete feedback[seq];
+        }
+        return { feedback };
+      });
+      try {
+        if (value) {
+          await api.rate(id, seq, value);
+        } else {
+          await api.clearRate(id, seq);
+        }
+      } catch (error) {
+        console.error("rating failed", error);
+        store.set((state) => {
+          const feedback = { ...state.feedback };
+          if (previous) {
+            feedback[seq] = previous;
+          } else {
+            delete feedback[seq];
+          }
+          return { feedback };
+        });
+      }
+    },
     async decide(id, granted) {
       try {
         await api.decideApproval(id, granted);
@@ -287,6 +353,7 @@ export function createChat(store: Store<ChatState>): ChatActions {
             title: detail.title || "New chat",
             sessionModel: detail.sessionModel ?? null,
             events: detail.events,
+            feedback: await feedbackOf(id),
           });
         }
       } catch {

@@ -94,10 +94,62 @@ export async function copyText(text: string): Promise<void> {
 }
 
 function UserRenderer({ event }: { event: { content?: string | null } }) {
-  return <div className="bubble">{event.content ?? ""}</div>;
+  const content = event.content ?? "";
+  return (
+    <div className="bubble">
+      {content}
+      {content && (
+        <span className="icon-actions">
+          <button type="button" title="copy" onClick={() => void copyText(content)}>
+            ⧉ copy
+          </button>
+        </span>
+      )}
+    </div>
+  );
 }
 
-function AssistantRenderer({ event }: { event: { content?: string | null; toolCalls?: ToolCallFrame[] } }) {
+function FeedbackButtons({
+  seq,
+  rate,
+  onRate,
+}: {
+  seq: number;
+  rate?: "up" | "down" | null;
+  onRate?: (seq: number, value: "up" | "down" | null) => void;
+}) {
+  if (!onRate || typeof seq !== "number" || seq <= 0) return null;
+  return (
+    <span className="feedback">
+      <button
+        type="button"
+        title="good answer"
+        className={rate === "up" ? "on" : undefined}
+        onClick={() => onRate(seq, rate === "up" ? null : "up")}
+      >
+        👍
+      </button>
+      <button
+        type="button"
+        title="bad answer"
+        className={rate === "down" ? "on" : undefined}
+        onClick={() => onRate(seq, rate === "down" ? null : "down")}
+      >
+        👎
+      </button>
+    </span>
+  );
+}
+
+function AssistantRenderer({
+  event,
+  rate,
+  onRate,
+}: {
+  event: { content?: string | null; toolCalls?: ToolCallFrame[]; seq?: number };
+  rate?: "up" | "down" | null;
+  onRate?: (seq: number, value: "up" | "down" | null) => void;
+}) {
   if (event.toolCalls && event.toolCalls.length) {
     return <ToolCallsRenderer event={event} />;
   }
@@ -105,11 +157,14 @@ function AssistantRenderer({ event }: { event: { content?: string | null; toolCa
   return (
     <div className="msg">
       <MarkdownText text={content} />
-      {content && (
+      {(content || onRate) && (
         <span className="icon-actions">
-          <button type="button" title="copy" onClick={() => void copyText(content)}>
-            ⧉ copy
-          </button>
+          {content && (
+            <button type="button" title="copy" onClick={() => void copyText(content)}>
+              ⧉ copy
+            </button>
+          )}
+          <FeedbackButtons seq={event.seq ?? 0} rate={rate} onRate={onRate} />
         </span>
       )}
     </div>
@@ -304,7 +359,9 @@ export const chatFeature: Feature = {
     context.renderMessage("TURN_START", NoneRenderer);
     context.renderMessage("TURN_END", NoneRenderer);
     context.renderMessage("USER_MESSAGE", (props) => <UserRenderer event={props.event} />);
-    context.renderMessage("ASSISTANT_MESSAGE", (props) => <AssistantRenderer event={props.event} />);
+    context.renderMessage("ASSISTANT_MESSAGE", (props) => (
+      <AssistantRenderer event={props.event} rate={props.rate} onRate={props.onRate} />
+    ));
     context.renderMessage("TOOL_RESULT", (props) => (
       <ToolResultRenderer event={props.event} openSession={props.openSession} />
     ));

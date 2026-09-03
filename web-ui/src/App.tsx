@@ -16,10 +16,14 @@ function Conversation({
   events,
   live,
   onOpenSession,
+  feedback,
+  onRate,
 }: {
   events: EventFrame[];
   live: string | null;
   onOpenSession: (id: string) => void;
+  feedback: Record<number, "up" | "down">;
+  onRate: (seq: number, value: "up" | "down" | null) => void;
 }) {
   const { messageRenderer } = useSlots();
   const rows: ReactNode[] = [];
@@ -34,7 +38,12 @@ function Conversation({
     const style = kindStyle[event.kind];
     rows.push(
       <li className={style ?? "group"} key={event.kind + event.seq}>
-        {render({ event, openSession: onOpenSession })}
+        {render({
+          event,
+          openSession: onOpenSession,
+          rate: typeof event.seq === "number" && event.seq > 0 ? feedback[event.seq] ?? null : null,
+          onRate,
+        })}
       </li>
     );
   }
@@ -210,6 +219,8 @@ function AppShell() {
           events={state.events}
           live={state.busy ? state.live : null}
           onOpenSession={(id) => void actions.selectSession(id)}
+          feedback={state.feedback}
+          onRate={(seq, value) => void actions.rate(seq, value)}
         />
         <form id="composer" onSubmit={send}>
           <textarea

@@ -120,6 +120,25 @@ public final class WebMain {
                 throw new IllegalArgumentException("missing question id");
             } else if ("POST".equals(exchange.getRequestMethod()) && path.startsWith("/api/questions/")) {
                 json(exchange, 200, answerQuestion(exchange, path.substring("/api/questions/".length())));
+            } else if (("PUT".equals(exchange.getRequestMethod()) || "DELETE".equals(exchange.getRequestMethod()))
+                    && path.startsWith("/api/messages/")
+                    && path.endsWith("/feedback")) {
+                String rest = path.substring("/api/messages/".length(),
+                        path.length() - "/feedback".length());
+                int slash = rest.lastIndexOf('/');
+                if (slash <= 0) {
+                    throw new IllegalArgumentException("feedback path needs sessionId and seq");
+                }
+                String sessionId = rest.substring(0, slash);
+                long seq;
+                try {
+                    seq = Long.parseLong(rest.substring(slash + 1));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("seq must be a number");
+                }
+                json(exchange, 200, "DELETE".equals(exchange.getRequestMethod())
+                        ? clearFeedback(sessionId, seq)
+                        : rateMessage(exchange, sessionId, seq));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/skills".equals(path)) {
                 json(exchange, 200, skillsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/subagents".equals(path)) {
@@ -160,6 +179,12 @@ public final class WebMain {
                 streamTurn(exchange);
             } else if ("GET".equals(exchange.getRequestMethod())
                     && path.startsWith("/api/sessions/")
+                    && path.endsWith("/feedback")) {
+                String sessionId = path.substring("/api/sessions/".length(),
+                        path.length() - "/feedback".length());
+                json(exchange, 200, feedbackIndex(sessionId));
+            } else if ("GET".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")
                     && path.endsWith("/events")) {
                 String sessionId = path.substring("/api/sessions/".length(),
                         path.length() - "/events".length());
@@ -197,6 +222,7 @@ public final class WebMain {
 
     private static final String TITLE_PREFIX = "session.title.";
     private static final String SESSION_MODEL_PREFIX = "session.model.";
+    private static final String FEEDBACK_PREFIX = "feedback.";
 
     private WebApiModels.SessionDetail sessionDetail(String sessionId) {
         SessionService sessions = boot.service(SessionService.NAME);
@@ -227,6 +253,66 @@ public final class WebMain {
         }
         SessionTitleService titles = boot.service(SessionTitleService.NAME);
         return titles.title(sessionId);
+    }
+
+    private WebApiModels.FeedbackIndex feedbackIndex(String sessionId) {
+        SessionService sessions = boot.service(SessionService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        List<WebApiModels.FeedbackEntry> entries = new ArrayList<>();
+        if (settings != null) {
+            String prefix = FEEDBACK_PREFIX + sessionId + ".";
+            for (Map.Entry<String, String> entry : settings.entries(prefix).entrySet()) {
+                String seqText = entry.getKey().substring(prefix.length());
+                try {
+                    entries.add(new WebApiModels.FeedbackEntry(
+                            Long.parseLong(seqText), entry.getValue()));
+                } catch (NumberFormatException ignored) {
+                    // tolerate stray keys; ratings are best-effort facts
+                }
+            }
+        }
+        entries.sort(java.util.Comparator.comparingLong(WebApiModels.FeedbackEntry::seq));
+        return new WebApiModels.FeedbackIndex(entries);
+    }
+
+    private WebApiModels.Ok rateMessage(HttpExchange exchange, String sessionId, long seq)
+            throws IOException {
+        requireKnownMessage(sessionId, seq);
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        Object value = request.get("value");
+        String rating = value == null ? null : String.valueOf(value);
+        if (!"up".equals(rating) && !"down".equals(rating)) {
+            throw new IllegalArgumentException("value must be up or down");
+        }
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings == null) {
+            throw new IllegalArgumentException("settings service unavailable — cannot store feedback");
+        }
+        settings.set(FEEDBACK_PREFIX + sessionId + "." + seq, rating);
+        return new WebApiModels.Ok(true);
+    }
+
+    private WebApiModels.Ok clearFeedback(String sessionId, long seq) {
+        requireKnownMessage(sessionId, seq);
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings != null) {
+            settings.unset(FEEDBACK_PREFIX + sessionId + "." + seq);
+        }
+        return new WebApiModels.Ok(true);
+    }
+
+    private void requireKnownMessage(String sessionId, long seq) {
+        SessionService sessions = boot.service(SessionService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
+        boolean known = sessions.events(sessionId).stream().anyMatch(event -> event.seq() == seq);
+        if (!known) {
+            throw new IllegalArgumentException("unknown event seq " + seq + " in session " + sessionId);
+        }
     }
 
     private WebApiModels.Ok setSessionModel(HttpExchange exchange, String sessionId)

@@ -34,6 +34,11 @@ public final class WebApiModels {
     /** Events newer than a cursor ({@code since}); lastSeq feeds the next poll. */
     public record EventsDelta(long since, long lastSeq, List<EventFrame> events) {}
 
+    /** One user rating on a durable assistant message. */
+    public record FeedbackEntry(long seq, String value) {}
+
+    public record FeedbackIndex(List<FeedbackEntry> entries) {}
+
     public record CreateSession(String id) {}
 
     /** One skill listed in the Skills panel. */

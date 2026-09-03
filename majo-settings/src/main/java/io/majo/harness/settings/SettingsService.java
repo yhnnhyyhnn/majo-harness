@@ -81,6 +81,17 @@ public final class SettingsService extends Service {
         }
     }
 
+    /** All stored keys starting with {@code prefix} (keys untouched). */
+    public synchronized Map<String, String> entries(String prefix) {
+        Map<String, String> matches = new java.util.TreeMap<>();
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            if (entry.getKey().startsWith(prefix)) {
+                matches.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return java.util.Collections.unmodifiableMap(matches);
+    }
+
     /** The stored keys, sorted. */
     public List<String> keys() {
         return List.copyOf(new TreeMap<>(values).keySet());

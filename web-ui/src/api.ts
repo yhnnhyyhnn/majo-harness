@@ -2,6 +2,7 @@ import type {
   CreateSession,
   EventFrame,
   EventsDelta,
+  FeedbackIndex,
   Info,
   ModelState,
   Ok,
@@ -79,6 +80,20 @@ export const api = {
 
   clearSessionModel(id: string): Promise<Ok> {
     return rpc("/api/sessions/" + encodeURIComponent(id) + "/model", { method: "DELETE" });
+  },
+
+  feedback(id: string): Promise<FeedbackIndex> {
+    return rpc("/api/sessions/" + encodeURIComponent(id) + "/feedback");
+  },
+
+  rate(id: string, seq: number, value: "up" | "down"): Promise<Ok> {
+    return putJson("/api/messages/" + encodeURIComponent(id) + "/" + seq + "/feedback", { value });
+  },
+
+  clearRate(id: string, seq: number): Promise<Ok> {
+    return rpc("/api/messages/" + encodeURIComponent(id) + "/" + seq + "/feedback", {
+      method: "DELETE",
+    });
   },
 
   modelState(): Promise<ModelState> {

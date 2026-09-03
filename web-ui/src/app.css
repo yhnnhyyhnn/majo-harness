@@ -553,3 +553,16 @@ li.message.user { align-self: flex-end; }
 
 .mini.link { color: var(--accent); }
 .mini.link:hover { background: var(--accent-2); color: #fff; }
+
+/* message rating */
+.feedback button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 1px 3px;
+  opacity: 0.55;
+  border-radius: 4px;
+}
+.feedback button:hover { opacity: 1; }
+.feedback button.on { opacity: 1; background: var(--panel-1); }
