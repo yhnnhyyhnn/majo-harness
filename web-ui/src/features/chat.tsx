@@ -34,12 +34,46 @@ function MarkdownText({ text }: { text: string }) {
         '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
       );
 
+  const splitCells = (line: string): string[] =>
+    line
+      .replace(/^\s*\|/, "")
+      .replace(/\|\s*$/, "")
+      .split("|")
+      .map((cell) => cell.trim());
+
+  const isSeparator = (line: string | undefined): boolean =>
+    !!line && /^\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?$/.test(line.trim());
+
+  // GFM pipe table: header row + separator row, then body rows while pipes last
+  const tableHtml = (lines: string[], start: number): { html: string; next: number } => {
+    const header = splitCells(lines[start]);
+    let row = start + 2;
+    const body: string[][] = [];
+    while (row < lines.length && lines[row].includes("|")) {
+      body.push(splitCells(lines[row]));
+      row++;
+    }
+    const cells = (values: string[], tag: string) =>
+      values
+        .map((cell) => `<${tag}>${inline(cell)}</${tag}>`)
+        .join("");
+    const head = `<thead><tr>${cells(header, "th")}</tr></thead>`;
+    const rows = body
+      .map((values) => `<tr>${cells(values, "td")}</tr>`)
+      .join("");
+    return { html: `<table>${head}<tbody>${rows}</tbody></table>`, next: row };
+  };
+
   let out = "";
   const parts = String(text ?? "").split(/```/);
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 1) {
-      const code = escapeHtml(parts[i]).replace(/^[a-zA-Z0-9_-]+\n/, "").replace(/\n$/, "");
-      out += '<pre class="code"><code>' + code + "</code></pre>";
+      const langMatch = parts[i].match(/^([A-Za-z0-9_+.-]+)\n/);
+      const lang = langMatch ? langMatch[1] : "";
+      const body = langMatch ? parts[i].slice(langMatch[0].length) : parts[i];
+      const code = escapeHtml(body).replace(/\n$/, "");
+      const figure = lang ? `<figure class="code-block"><figcaption>${escapeHtml(lang)}</figcaption>` : "";
+      out += figure + '<pre class="code"><code>' + code + "</code></pre>" + (lang ? "</figure>" : "");
       continue;
     }
     const lines = escapeHtml(parts[i]).split("\n");
@@ -50,7 +84,15 @@ function MarkdownText({ text }: { text: string }) {
         list = null;
       }
     };
-    for (const raw of lines) {
+    for (let li = 0; li < lines.length; li++) {
+      const raw = lines[li];
+      if (raw.includes("|") && isSeparator(lines[li + 1])) {
+        flushList();
+        const table = tableHtml(lines, li);
+        out += table.html;
+        li = table.next - 1;
+        continue;
+      }
       const heading = raw.match(/^(#{1,4})\s+(.*)$/);
       const bullet = raw.match(/^\s*[-*]\s+(.*)$/);
       const ordered = raw.match(/^\s*\d+[.)]\s+(.*)$/);

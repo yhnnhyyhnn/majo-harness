@@ -579,3 +579,38 @@ li.message.user { align-self: flex-end; }
   margin: 0 auto 6px;
   max-width: 720px;
 }
+
+/* markdown tables + code language tags */
+.bubble.rich table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12.5px;
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.bubble.rich th,
+.bubble.rich td {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+.bubble.rich thead th {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.bubble.rich .code-block { margin: 6px 0; }
+.bubble.rich .code-block figcaption {
+  font-size: 10.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--panel-2);
+  width: fit-content;
+}
+.bubble.rich .code-block pre { margin-top: 0; border-radius: 0 6px 6px 6px; }
