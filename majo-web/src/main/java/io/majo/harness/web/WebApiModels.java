@@ -13,7 +13,8 @@ public final class WebApiModels {
     private WebApiModels() {}
 
     /** One assistant tool call as logged (extra fields tolerated by the UI). */
-    public record ToolCallFrame(String name, @OptionalWire String arguments) {}
+    public record ToolCallFrame(String name, @OptionalWire String arguments,
+            @OptionalWire String toolCallId) {}
 
     /** One durable session event frame relayed to the UI. */
     public record EventFrame(long seq, String kind, @OptionalWire String content,
@@ -28,6 +29,9 @@ public final class WebApiModels {
     public record SessionDetail(String id, @OptionalWire String title, List<EventFrame> events) {}
 
     public record CreateSession(String id) {}
+
+    /** One-shot turn result (legacy JSON turn endpoint). */
+    public record TurnResult(String sessionId, String answer, List<EventFrame> events) {}
 
     public record ModelState(@OptionalWire String model, List<String> models) {}
 

@@ -84,6 +84,13 @@ export interface StreamFail {
 export interface ToolCallFrame {
   name: string;
   arguments?: string;
+  toolCallId?: string;
+}
+
+export interface TurnResult {
+  sessionId: string;
+  answer: string;
+  events: EventFrame[];
 }
 
 export type StreamEvent =

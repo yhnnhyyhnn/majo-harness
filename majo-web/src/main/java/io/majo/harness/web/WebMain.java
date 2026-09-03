@@ -45,6 +45,11 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class WebMain {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    static {
+        // optional wire fields (OptionalWire) stay absent instead of null
+        JSON.setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
+    }
     private static final String BUILTIN_PROFILE = "web.yml";
 
     private final int port;
@@ -143,31 +148,27 @@ public final class WebMain {
 
     // ----- API -----
 
-    private Map<String, Object> sessionsIndex() {
+    private WebApiModels.SessionsIndex sessionsIndex() {
         SessionService sessions = boot.service(SessionService.NAME);
         SessionTitleService titles = boot.service(SessionTitleService.NAME);
-        List<Map<String, Object>> list = new ArrayList<>();
+        List<WebApiModels.SessionInfo> list = new ArrayList<>();
         for (String sessionId : sessions.sessionIds()) {
-            list.add(Map.of(
-                    "id", sessionId,
-                    "title", titles.title(sessionId),
-                    "eventCount", sessions.events(sessionId).size()));
+            list.add(new WebApiModels.SessionInfo(
+                    sessionId, titles.title(sessionId), sessions.events(sessionId).size()));
         }
-        return Map.of("sessions", list);
+        return new WebApiModels.SessionsIndex(list);
     }
 
-    private Map<String, Object> sessionDetail(String sessionId) {
+    private WebApiModels.SessionDetail sessionDetail(String sessionId) {
         SessionService sessions = boot.service(SessionService.NAME);
         SessionTitleService titles = boot.service(SessionTitleService.NAME);
-        return Map.of(
-                "id", sessionId,
-                "title", titles.title(sessionId),
-                "events", eventsJson(sessions.events(sessionId)));
+        return new WebApiModels.SessionDetail(
+                sessionId, titles.title(sessionId), eventsJson(sessions.events(sessionId)));
     }
 
-    private Map<String, Object> createSession() {
+    private WebApiModels.CreateSession createSession() {
         SessionService sessions = boot.service(SessionService.NAME);
-        return Map.of("id", sessions.createSession());
+        return new WebApiModels.CreateSession(sessions.createSession());
     }
 
     /** Restores a persisted model choice ({@code settings.web.model}) if valid. */
@@ -185,7 +186,7 @@ public final class WebMain {
         }
     }
 
-    private Map<String, Object> decideApproval(HttpExchange exchange, String id) throws IOException {
+    private WebApiModels.Ok decideApproval(HttpExchange exchange, String id) throws IOException {
         Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
         Object decision = request.get("decision");
         boolean granted = "allow".equalsIgnoreCase(String.valueOf(decision));
@@ -195,10 +196,10 @@ public final class WebMain {
         if (!pending.decideApproval(id, granted)) {
             throw new IllegalArgumentException("unknown or expired approval " + id);
         }
-        return Map.of("ok", true);
+        return new WebApiModels.Ok(true);
     }
 
-    private Map<String, Object> answerQuestion(HttpExchange exchange, String id) throws IOException {
+    private WebApiModels.Ok answerQuestion(HttpExchange exchange, String id) throws IOException {
         Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
         Object answer = request.get("answer");
         if (answer == null) {
@@ -207,19 +208,19 @@ public final class WebMain {
         if (!pending.answerQuestion(id, String.valueOf(answer))) {
             throw new IllegalArgumentException("unknown or expired question " + id);
         }
-        return Map.of("ok", true);
+        return new WebApiModels.Ok(true);
     }
 
-    private Map<String, Object> modelState() {
+    private WebApiModels.ModelState modelState() {
         LLMService llm = boot.service(LLMService.NAME);
         List<String> models = llm.registeredModels();
         String current = llm.currentDefault() != null && models.contains(llm.currentDefault())
                 ? llm.currentDefault()
                 : models.isEmpty() ? null : models.get(0);
-        return Map.of("model", current, "models", models);
+        return new WebApiModels.ModelState(current, models);
     }
 
-    private Map<String, Object> setModel(HttpExchange exchange) throws IOException {
+    private WebApiModels.ModelState setModel(HttpExchange exchange) throws IOException {
         Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
         Object modelValue = request.get("model");
         if (modelValue == null || String.valueOf(modelValue).isBlank()) {
@@ -253,7 +254,7 @@ public final class WebMain {
         var out = exchange.getResponseBody();
         try {
             if (task == null || task.isBlank() || sessionId == null || sessionId.isBlank()) {
-                frame(out, "fail", Map.of("message", "sessionId and task query parameters are required"));
+                frame(out, "fail", new WebApiModels.StreamFail("sessionId and task query parameters are required"));
                 return;
             }
             SessionService sessions = boot.service(SessionService.NAME);
@@ -278,19 +279,18 @@ public final class WebMain {
                     pending.notifier = new PendingInteractions.Notifier() {
                         @Override
                         public void approval(ApprovalRequest request) {
-                            frame(out, "approval", Map.of(
-                                    "id", request.id(), "summary", request.summary(),
-                                    "details", request.details() == null ? "" : request.details()));
+                            frame(out, "approval", new WebApiModels.ApprovalFrame(
+                                    request.id(), request.summary(), request.details()));
                         }
 
                         @Override
                         public void question(Question question) {
-                            frame(out, "question", Map.of("id", question.id(), "text", question.text()));
+                            frame(out, "question", new WebApiModels.QuestionFrame(question.id(), question.text()));
                         }
                     };
                     String answer = loop.runTurn(sessionId, task, delta ->
-                            frame(out, "chunk", Map.of("text", delta)));
-                    frame(out, "done", Map.of("sessionId", sessionId, "answer", answer));
+                            frame(out, "chunk", new WebApiModels.StreamChunk(delta)));
+                    frame(out, "done", new WebApiModels.StreamDone(sessionId, answer));
                 } finally {
                     pending.notifier = null;
                     turnLock.unlock();
@@ -299,7 +299,7 @@ public final class WebMain {
                 listener.dispose();
             }
         } catch (Throwable failure) {
-            frame(out, "fail", Map.of("message", String.valueOf(failure.getMessage())));
+            frame(out, "fail", new WebApiModels.StreamFail(String.valueOf(failure.getMessage())));
         } finally {
             out.close();
         }
@@ -333,7 +333,7 @@ public final class WebMain {
         }
     }
 
-    private Map<String, Object> turn(HttpExchange exchange) throws IOException {
+    private WebApiModels.TurnResult turn(HttpExchange exchange) throws IOException {
         Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
         Object taskValue = request.get("task");
         if (taskValue == null || String.valueOf(taskValue).isBlank()) {
@@ -348,39 +348,58 @@ public final class WebMain {
                     ? sessions.createSession()
                     : String.valueOf(request.get("sessionId"));
             String answer = loop.runTurn(sessionId, task);
-            return Map.of(
-                    "sessionId", sessionId,
-                    "answer", answer,
-                    "events", eventsJson(sessions.events(sessionId)));
+            return new WebApiModels.TurnResult(sessionId, answer, eventsJson(sessions.events(sessionId)));
         } finally {
             turnLock.unlock();
         }
     }
 
-    private static List<Map<String, Object>> eventsJson(List<SessionEvent> events) {
-        List<Map<String, Object>> result = new ArrayList<>();
+    private static List<WebApiModels.EventFrame> eventsJson(List<SessionEvent> events) {
+        List<WebApiModels.EventFrame> result = new ArrayList<>();
         for (SessionEvent event : events) {
-            Map<String, Object> node = new LinkedHashMap<>();
-            node.put("seq", event.seq());
-            node.put("kind", event.type().name());
-            if (event.content() != null) {
-                node.put("content", event.content());
-            }
-            if (event.type() == SessionEventType.REQUEST_HEADER) {
-                node.put("model", event.fields().get(SessionEvent.FIELD_MODEL));
-                node.put("toolNames", event.fields().get(SessionEvent.FIELD_TOOL_NAMES));
-            }
-            if (event.type() == SessionEventType.ASSISTANT_MESSAGE
-                    && event.fields().containsKey(SessionEvent.FIELD_TOOL_CALLS)) {
-                node.put("toolCalls", event.fields().get(SessionEvent.FIELD_TOOL_CALLS));
-            }
-            if (event.type() == SessionEventType.TOOL_RESULT) {
-                node.put("toolName", event.fields().get(SessionEvent.FIELD_TOOL_NAME));
-                node.put("ok", event.fields().get(SessionEvent.FIELD_OK));
-            }
-            result.add(node);
+            result.add(frameOf(event));
         }
         return result;
+    }
+
+    private static WebApiModels.EventFrame frameOf(SessionEvent event) {
+        Map<String, Object> fields = event.fields();
+        List<WebApiModels.ToolCallFrame> toolCalls = null;
+        if (event.type() == SessionEventType.ASSISTANT_MESSAGE
+                && fields.containsKey(SessionEvent.FIELD_TOOL_CALLS)
+                && fields.get(SessionEvent.FIELD_TOOL_CALLS) instanceof List<?> calls) {
+            toolCalls = new ArrayList<>();
+            for (Object item : calls) {
+                if (item instanceof Map<?, ?> call) {
+                    toolCalls.add(new WebApiModels.ToolCallFrame(
+                            stringField(call, SessionEvent.FIELD_TOOL_NAME),
+                            stringField(call, SessionEvent.FIELD_ARGUMENTS),
+                            stringField(call, SessionEvent.FIELD_TOOL_CALL_ID)));
+                }
+            }
+        }
+        List<String> toolNames = null;
+        if (event.type() == SessionEventType.REQUEST_HEADER
+                && fields.get(SessionEvent.FIELD_TOOL_NAMES) instanceof List<?> raw) {
+            toolNames = raw.stream().map(String::valueOf).toList();
+        }
+        return new WebApiModels.EventFrame(
+                event.seq(),
+                event.type().name(),
+                event.content(),
+                toolCalls,
+                event.type() == SessionEventType.TOOL_RESULT
+                        ? stringField(fields, SessionEvent.FIELD_TOOL_NAME) : null,
+                event.type() == SessionEventType.TOOL_RESULT
+                        ? fields.get(SessionEvent.FIELD_OK) instanceof Boolean ok ? ok : null : null,
+                event.type() == SessionEventType.REQUEST_HEADER
+                        ? stringField(fields, SessionEvent.FIELD_MODEL) : null,
+                toolNames);
+    }
+
+    private static String stringField(Map<?, ?> map, String key) {
+        Object value = map.get(key);
+        return value == null ? null : String.valueOf(value);
     }
 
     // ----- static & plumbing -----
