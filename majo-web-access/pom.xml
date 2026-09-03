@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.majo.harness</groupId>
+    <artifactId>majo-harness-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>majo-web-access</artifactId>
+  <name>majo-web-access</name>
+  <description>Web access capability family (mirrors dsh web/): ctx.web service with swappable search/fetch providers, anonymous HTTP fetch backend, static search backend, and web_search/web_fetch tool consumers</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-util</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jcordis</groupId>
+      <artifactId>jcordis-all</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+  </dependencies>
+</project>

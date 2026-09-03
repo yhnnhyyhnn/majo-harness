@@ -26,6 +26,7 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-subagent` | subagent capability seam: `ctx.subagent` delegates a task to a child session driven by the agent loop (depth-guarded), `delegate_task` tool consumer | `ctx.subagent` (+ `ctx.tools`) | `subagent`, `subagent-tools` |
 | `majo-settings` | user settings: `ctx.settings` key/value store with optional JSON file provider | `ctx.settings` | `settings` |
 | `majo-credentials` | credentials: `ctx.credentials` resolves secrets through providers (env + `.env` file shipped), values never logged | `ctx.credentials` | `credentials` |
+| `majo-web-access` | web access capability family (dsh `web/`): `ctx.web` with swappable search/fetch providers, anonymous HTTP fetch backend, static search backend, `web_search`/`web_fetch` tools | `ctx.web` (+ `ctx.tools`) | `web`, `web-tools`, `web-fetch-http`, `web-search-static` |
 | `majo-title` | session titles: `ctx.sessionTitle` holds the sole title provider (heuristic shipped), derived from the session log | `ctx.sessionTitle` | `session-title`, `session-title-heuristic` |
 | `majo-boot` | profile-to-loader glue: ships plugins as builtins and boots an entry tree from YAML profiles | — | — |
 | `majo-headless` | one-shot headless app: sample `calc` tool, `run` entry, `headless.yml` profile, e2e tests | — | `calc`, `run` |
@@ -48,7 +49,7 @@ Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.z
 
 `majo-web` is the browser-facing entry (it both runs the backend service over a booted plugin tree and serves the compiled React UI). `majo-cli` is the script/one-shot entry. They share the same composable plugin tree — there is no privileged core.
 
-The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `interactions`, `tool-approval`, `skills`, `skill-files`, `skill-tools`, `subagent`, `subagent-tools`, `settings`, `credentials`, `session-title`, `session-title-heuristic`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
+The shipped plugins are already registered as loader builtins by `majo-boot.HarnessBoot` (`session`, `session-projections`, `tools`, `llm`, `llm-mock`, `llm-openai`, `fs`, `fs-tools`, `subprocess`, `subprocess-tools`, `shell`, `shell-tools`, `sandbox`, `interactions`, `tool-approval`, `skills`, `skill-files`, `skill-tools`, `subagent`, `subagent-tools`, `settings`, `credentials`, `session-title`, `session-title-heuristic`, `web`, `web-tools`, `web-fetch-http`, `web-search-static`, `agent-loop`). A profile picks the rows it needs — for example, adding file reads to a run:
 
 ```yaml
 - id: fs

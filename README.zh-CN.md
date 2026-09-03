@@ -26,6 +26,7 @@
 | `majo-subagent` | 子代理能力接缝：`ctx.subagent` 把任务委派给由 agent loop 驱动的子会话（深度受限），`delegate_task` 工具消费者 | `ctx.subagent`（+ `ctx.tools`） | `subagent`、`subagent-tools` |
 | `majo-settings` | 用户设置：`ctx.settings` 键值存储，可选 JSON 文件 provider | `ctx.settings` | `settings` |
 | `majo-credentials` | 凭据：`ctx.credentials` 经 provider（出厂 env + `.env` 文件）解析密钥，值永不入日志 | `ctx.credentials` | `credentials` |
+| `majo-web-access` | web 访问能力族（dsh `web/`）：可换 search/fetch provider 的 `ctx.web`、匿名 HTTP fetch 后端、静态搜索后端、`web_search`/`web_fetch` 工具 | `ctx.web`（+ `ctx.tools`） | `web`、`web-tools`、`web-fetch-http`、`web-search-static` |
 | `majo-title` | 会话标题：`ctx.sessionTitle` 持有唯一标题 provider（出厂 heuristic），由会话日志派生 | `ctx.sessionTitle` | `session-title`、`session-title-heuristic` |
 | `majo-boot` | profile→loader 胶水：内置插件注册 + 从 YAML profile 启动 entry 树 | — | — |
 | `majo-headless` | 一次性 headless 应用：示例 `calc` 工具、`run` entry、`headless.yml` profile、端到端测试 | — | `calc`、`run` |
@@ -48,7 +49,7 @@
 
 `majo-web` 是面向浏览器的入口（既作为后端服务在已启动的插件树上运行，又托管编译好的 React 页面）。`majo-cli` 是脚本/一次性任务入口。两者共享同一棵可组合插件树——没有特权内核。
 
-出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`shell`、`shell-tools`、`sandbox`、`interactions`、`tool-approval`、`skills`、`skill-files`、`skill-tools`、`subagent`、`subagent-tools`、`settings`、`credentials`、`session-title`、`session-title-heuristic`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
+出厂插件已由 `majo-boot.HarnessBoot` 注册为 loader builtins（`session`、`session-projections`、`tools`、`llm`、`llm-mock`、`llm-openai`、`fs`、`fs-tools`、`subprocess`、`subprocess-tools`、`shell`、`shell-tools`、`sandbox`、`interactions`、`tool-approval`、`skills`、`skill-files`、`skill-tools`、`subagent`、`subagent-tools`、`settings`、`credentials`、`session-title`、`session-title-heuristic`、`web`、`web-tools`、`web-fetch-http`、`web-search-static`、`agent-loop`）。profile 选取所需行即可——例如给一次运行加上文件读取能力：
 
 ```yaml
 - id: fs

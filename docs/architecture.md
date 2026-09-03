@@ -21,6 +21,7 @@ majo-harness is an **all-plugin agent harness**: every product capability is a p
 | interaction capability (dsh `interaction/`) | approval/ask-user handlers + tool gate | `majo-interaction` (`ctx.interactions`, `tool-approval`) |
 | skill capability (dsh `skill/`) | provider registry + local provider + catalog/loader tools | `majo-skill` (`ctx.skills`, `list_skills`/`load_skill`) |
 | subagent capability (dsh `subagent/`) | child-session delegation + depth guard | `majo-subagent` (`ctx.subagent`, `delegate_task`) |
+| web access family (dsh `web/` six packages) | neutral `ctx.web` + swappable backends + tools | `majo-web-access` (`ctx.web`, `web_search`/`web_fetch`) |
 | settings capability (dsh `settings/`) | user-settings store + file provider | `majo-settings` (`ctx.settings`) |
 | credentials capability (dsh `credentials/`) | secret resolution + env/.env provider | `majo-credentials` (`ctx.credentials`) |
 | session-title capability (dsh `session-title/`) | sole provider + heuristic default | `majo-title` (`ctx.sessionTitle`) |
@@ -47,6 +48,8 @@ Subagents delegate within the same tree: `SubagentService` (`ctx.subagent`) open
 Settings and credentials give hosts and providers their configuration without hardcoding: `SettingsService` (`ctx.settings`) is a validated string key/value store whose optional `path` enables the JSON file provider (write-through after every set, atomic replace, loud on corrupt files). `CredentialsService` (`ctx.credentials`) resolves secrets through registered `CredentialProvider`s in order; the shipped env provider merges `.env` (KEY=VALUE, comments, quotes) under real environment variables. Credential values never enter exceptions or messages.
 
 Session titles round out the log spine: `SessionTitleService` (`ctx.sessionTitle`) holds the **sole** registered `SessionTitleProvider` (duplicates fail loudly) and derives a session's title from its durable events; the heuristic provider titles from the first user message (whitespace-collapsed, truncated), and an LLM-backed provider swaps in behind the same seam. Titles may be `null` until a session has content worth titling.
+
+Web access mirrors the dsh six-package family in one module: `WebAccessService` (`ctx.web`) is provider-neutral — search and fetch backends plug in as swappable providers and the service picks the first usable one (or an explicit id) per operation, with one error vocabulary. The anonymous HTTP fetch backend converts HTML to readable text (redirects followed, body capped, scripts/styles removed); the static search backend keeps the seam usable offline, and vendor search backends (dsh exa/perplexity/deepseek) implement the same `SearchProvider` interface with their keys. `web-tools` registers `web_search`/`web_fetch`; tools stay visible when no provider is mounted and then fail with a structured error, and provider text is always labeled external/untrusted.
 
 There is deliberately **no privileged core module** in M1: like dsh's independent packages under `packages/core/`, each capability owns its interfaces next to its implementation and plugin, and consumers (the agent loop, the boot) depend on those modules only through their service seams. If a neutral "API spine" module ever becomes justified (typed event dictionary shared across modules), extract it the same way.
 
@@ -82,6 +85,10 @@ majo-credentials/ CredentialProvider seam + EnvCredentialProvider (.env parse)
                   / CredentialsService / CredentialsPlugin
 majo-title/       SessionTitleProvider seam + HeuristicSessionTitleProvider
                   / SessionTitleService / SessionTitlePlugin / HeuristicTitlePlugin
+majo-web-access/  SearchProvider/FetchProvider seams + FetchHttpProvider (anonymous,
+                  HTML→text) / StaticSearchProvider / WebAccessService (ctx.web)
+                  / WebPlugin/FetchHttpPlugin/StaticSearchPlugin
+                  / WebSearchTool/WebFetchTool/WebToolsPlugin (web_search/web_fetch)
 majo-util/        Disposables (composite disposer factory)
 majo-boot/        HarnessBoot (builtins registration, profile parsing, launch)
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
@@ -110,6 +117,7 @@ majo-web/         WebMain (JDK HttpServer over the booted tree, static chat UI)
 | `settings` | `settings` | `SettingsService` | validated key/value store (JSON file-backed when configured) |
 | `credentials` | `credentials` | `CredentialsService` | resolves secrets through registered providers |
 | `sessionTitle` | `session-title` | `SessionTitleService` | derives titles via the sole registered provider |
+| `web` | `web` | `WebAccessService` | search/fetch through swappable backends |
 | `fs` | `fs` | `FileSystemService` | text read/write/glob through `fs/*` waterfalls |
 
 | event | kind | args | semantics |

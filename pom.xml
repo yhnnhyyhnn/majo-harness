@@ -39,6 +39,7 @@
     <module>majo-web</module>
     <module>majo-shell</module>
     <module>majo-subprocess</module>
+    <module>majo-web-access</module>
     <module>majo-boot</module>
     <module>majo-headless</module>
   </modules>

@@ -21,6 +21,7 @@ majo-harness 是一个**全插件式 agent harness**：每一项产品能力都�
 | interaction 能力（dsh `interaction/`） | 审批/ask-user handler + 工具门禁 | `majo-interaction`（`ctx.interactions`、`tool-approval`） |
 | skill 能力（dsh `skill/`） | provider 注册表 + 本地 provider + catalog/loader 工具 | `majo-skill`（`ctx.skills`、`list_skills`/`load_skill`） |
 | subagent 能力（dsh `subagent/`） | 子会话委派 + 深度受限 | `majo-subagent`（`ctx.subagent`、`delegate_task`） |
+| web 访问族（dsh `web/` 六包） | 中立 `ctx.web` + 可换后端 + 工具 | `majo-web-access`（`ctx.web`、`web_search`/`web_fetch`） |
 | settings 能力（dsh `settings/`） | 用户设置存储 + 文件 provider | `majo-settings`（`ctx.settings`） |
 | credentials 能力（dsh `credentials/`） | 密钥解析 + env/.env provider | `majo-credentials`（`ctx.credentials`） |
 | 会话标题能力（dsh `session-title/`） | 唯一 provider + heuristic 默认 | `majo-title`（`ctx.sessionTitle`） |
@@ -47,6 +48,8 @@ subagent 在同一棵树内委派：`SubagentService`（`ctx.subagent`）开启�
 settings 与 credentials 为宿主与 provider 提供免硬编码的配置：`SettingsService`（`ctx.settings`）是校验过的字符串键值存储，配置 `path` 即启用 JSON 文件 provider（每次 set 直写、原子替换、损坏文件 loud）。`CredentialsService`（`ctx.credentials`）按序经注册的 `CredentialProvider` 解析密钥；出厂 env provider 把 `.env`（KEY=VALUE、注释、引号）合并到真实环境变量之下。凭据值绝不进入异常或消息。
 
 会话标题补全日志主轴：`SessionTitleService`（`ctx.sessionTitle`）持有**唯一**注册的 `SessionTitleProvider`（重复注册 loud），由持久事件派生会话标题；heuristic provider 用首条用户消息起标题（折叠空白、截断），LLM provider 可同一接缝替换。标题在会话有可命名内容前为 `null`。
+
+web 访问把 dsh 六包能力族收进一个模块：`WebAccessService`（`ctx.web`）provider 中立——search/fetch 后端以可换 provider 接入，服务按操作取第一个可用后端（或显式 id），单一错误词汇。匿名 HTTP fetch 后端把 HTML 转可读文本（跟随重定向、限制体积、去脚本/样式）；静态搜索后端让接缝离线可用；厂商搜索后端（dsh 的 exa/perplexity/deepseek）用各自 key 实现同一 `SearchProvider` 接口。`web-tools` 注册 `web_search`/`web_fetch`；无后端时工具仍可见并返回结构化错误，provider 文本始终标注为外部/不可信。
 
 M1 **刻意不设特权核心模块**：与 dsh 在 `packages/core/` 下彼此独立的包一样，每个能力在自己的模块里同时拥有接口、实现与插件；消费者（agent loop、boot）只通过服务接缝依赖这些模块。若未来确实需要一个中立的"API 主轴"模块（例如跨模块共享的 typed 事件字典），同样以抽模块的方式引入。
 
@@ -82,6 +85,10 @@ majo-credentials/ CredentialProvider 接缝 + EnvCredentialProvider（.env 解�
                   / CredentialsService / CredentialsPlugin
 majo-title/       SessionTitleProvider 接缝 + HeuristicSessionTitleProvider
                   / SessionTitleService / SessionTitlePlugin / HeuristicTitlePlugin
+majo-web-access/  SearchProvider/FetchProvider 接缝 + FetchHttpProvider（匿名、HTML→文本）
+                  / StaticSearchProvider / WebAccessService（`ctx.web`）
+                  / WebPlugin/FetchHttpPlugin/StaticSearchPlugin
+                  / WebSearchTool/WebFetchTool/WebToolsPlugin（web_search/web_fetch）
 majo-util/        Disposables（组合 disposer 工厂）
 majo-boot/        HarnessBoot（builtins 注册、profile 解析、launch）
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
@@ -110,6 +117,7 @@ docs/             本文档（中英双语）
 | `settings` | `settings` | `SettingsService` | 校验键值存储（配置 path 时 JSON 文件持久化） |
 | `credentials` | `credentials` | `CredentialsService` | 经注册 provider 解析密钥 |
 | `sessionTitle` | `session-title` | `SessionTitleService` | 经唯一注册 provider 派生标题 |
+| `web` | `web` | `WebAccessService` | 经可换后端做搜索/抓取 |
 | `fs` | `fs` | `FileSystemService` | 经 `fs/*` waterfall 做文本读/写/glob |
 
 | 事件 | 类型 | 参数 | 语义 |
