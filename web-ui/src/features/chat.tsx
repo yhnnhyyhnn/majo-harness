@@ -361,6 +361,86 @@ function SearchResultsCard({
   );
 }
 
+const asText = (value: unknown): string =>
+  typeof value === "string" ? value : value == null ? "" : String(value);
+
+function ShellResultCard({
+  toolName,
+  ok,
+  data,
+}: {
+  toolName?: string;
+  ok?: boolean;
+  data: Record<string, unknown>;
+}) {
+  const exit = typeof data.exitCode === "number" ? data.exitCode : null;
+  const stdout = asText(data.stdout).replace(/\s+$/, "");
+  const stderr = asText(data.stderr).replace(/\s+$/, "");
+  const copyBody =
+    (stdout ? stdout + "\n" : "") + (stderr ? "[stderr]\n" + stderr : "").trimEnd();
+  return (
+    <div className={"tool-block result card-shell"}>
+      <span className={"dot " + (ok ? "ok" : "err")} />
+      <span className="tool-name">{toolName}</span>
+      <span className={"badge " + (ok ? "ok" : "err")}>{ok ? "ok" : "error"}</span>
+      {exit !== null && <span className={"badge exit-" + (ok ? "ok" : "err")}>exit {exit}</span>}
+      <span className="spacer" />
+      <button
+        type="button"
+        className="mini"
+        title="copy"
+        onClick={() => void copyText(copyBody || "(no output)")}
+      >
+        ⧉
+      </button>
+      <div className="card-body">
+        {stdout ? (
+          <>
+            <div className="seg-label">stdout</div>
+            <pre className="code seg">{stdout}</pre>
+          </>
+        ) : (
+          ok && <div className="meta">(no output)</div>
+        )}
+        {!ok && stderr && (
+          <>
+            <div className="seg-label stderr">stderr</div>
+            <pre className="code seg stderr">{stderr}</pre>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FileResultCard({
+  toolName,
+  ok,
+  data,
+  text,
+}: {
+  toolName?: string;
+  ok?: boolean;
+  data: Record<string, unknown>;
+  text: string;
+}) {
+  const path = asText(data.path);
+  const lines = text ? text.split("\n").length : 0;
+  return (
+    <div className="tool-block result">
+      <span className={"dot " + (ok ? "ok" : "err")} />
+      <span className="tool-name">{toolName}</span>
+      {path && <code className="file-path">{path}</code>}
+      {ok && lines > 0 && <span className="meta">{lines} lines</span>}
+      <span className="spacer" />
+      <button type="button" className="mini" title="copy" onClick={() => void copyText(text)}>
+        ⧉
+      </button>
+      {text && <pre className="code result-text">{text}</pre>}
+    </div>
+  );
+}
+
 function ToolResultRenderer({
   event,
   openSession,
@@ -369,15 +449,27 @@ function ToolResultRenderer({
   openSession?: (id: string) => void;
 }) {
   const text = event.content ?? "";
-  if (event.toolName === "web_search") {
-    return <SearchResultsCard toolName={event.toolName} text={text} data={event.data} />;
+  const toolName = event.toolName;
+  const data = event.data;
+  if (toolName === "web_search") {
+    return <SearchResultsCard toolName={toolName} text={text} data={data} />;
+  }
+  if (
+    data &&
+    (toolName === "run_shell" || toolName === "run_command") &&
+    typeof data.exitCode === "number"
+  ) {
+    return <ShellResultCard toolName={toolName} ok={event.ok} data={data} />;
+  }
+  if (data && toolName === "read_file" && typeof data.path === "string") {
+    return <FileResultCard toolName={toolName} ok={event.ok} data={data} text={text} />;
   }
   return (
     <GenericResultCard
-      toolName={event.toolName}
+      toolName={toolName}
       ok={event.ok}
       text={text}
-      data={event.data}
+      data={data}
       onOpenSession={openSession}
     />
   );

@@ -637,3 +637,31 @@ li.message.user { align-self: flex-end; }
   white-space: pre-wrap;
   margin: 4px 0;
 }
+
+/* structured shell/file cards */
+.card-body { width: 100%; display: flex; flex-direction: column; gap: 4px; }
+.seg-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.seg-label.stderr { color: #f0a6a6; }
+pre.code.seg {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+pre.code.seg.stderr { border-left: 2px solid #7a3b3b; }
+.file-path {
+  font-size: 11.5px;
+  color: var(--accent);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 6px;
+  word-break: break-all;
+}
