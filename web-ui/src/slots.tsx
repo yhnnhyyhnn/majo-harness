@@ -10,6 +10,8 @@ import type { ApprovalFrame, EventFrame, EventKind, QuestionFrame } from "./type
 export interface ChatFrameProps {
   event: EventFrame;
   streaming?: boolean;
+  /** Opens another session in the transcript (child links, …). */
+  openSession?: (id: string) => void;
 }
 
 export type MessageRenderer = (props: ChatFrameProps) => ReactNode;

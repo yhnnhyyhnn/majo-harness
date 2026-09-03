@@ -137,19 +137,32 @@ function GenericResultCard({
   ok,
   text,
   data,
+  onOpenSession,
 }: {
   toolName?: string;
   ok?: boolean;
   text: string;
   data?: Record<string, unknown>;
+  onOpenSession?: (id: string) => void;
 }) {
   const exit = typeof data?.exitCode === "number" ? data.exitCode : null;
+  const child = typeof data?.childSessionId === "string" ? data.childSessionId : null;
   return (
     <div className="tool-block result">
       <span className={"dot " + (ok ? "ok" : "err")} />
       <span className="tool-name">{toolName}</span>
       <span className={"badge " + (ok ? "ok" : "err")}>{ok ? "ok" : "error"}</span>
       {exit !== null && <span className={"badge exit-" + (ok ? "ok" : "err")}>exit {exit}</span>}
+      {child && onOpenSession && (
+        <button
+          type="button"
+          className="mini link"
+          title="child session"
+          onClick={() => onOpenSession(child)}
+        >
+          ↪ child session
+        </button>
+      )}
       <span className="spacer" />
       <button type="button" className="mini" title="copy" onClick={() => void copyText(text)}>
         ⧉
@@ -251,12 +264,26 @@ function SearchResultsCard({
   );
 }
 
-function ToolResultRenderer({ event }: { event: { toolName?: string; ok?: boolean; content?: string | null; data?: Record<string, unknown> } }) {
+function ToolResultRenderer({
+  event,
+  openSession,
+}: {
+  event: { toolName?: string; ok?: boolean; content?: string | null; data?: Record<string, unknown> };
+  openSession?: (id: string) => void;
+}) {
   const text = event.content ?? "";
   if (event.toolName === "web_search") {
     return <SearchResultsCard toolName={event.toolName} text={text} data={event.data} />;
   }
-  return <GenericResultCard toolName={event.toolName} ok={event.ok} text={text} data={event.data} />;
+  return (
+    <GenericResultCard
+      toolName={event.toolName}
+      ok={event.ok}
+      text={text}
+      data={event.data}
+      onOpenSession={openSession}
+    />
+  );
 }
 
 function RequestHeaderRenderer({ event }: { event: { model?: string; toolNames?: string[] } }) {
@@ -278,7 +305,9 @@ export const chatFeature: Feature = {
     context.renderMessage("TURN_END", NoneRenderer);
     context.renderMessage("USER_MESSAGE", (props) => <UserRenderer event={props.event} />);
     context.renderMessage("ASSISTANT_MESSAGE", (props) => <AssistantRenderer event={props.event} />);
-    context.renderMessage("TOOL_RESULT", (props) => <ToolResultRenderer event={props.event} />);
+    context.renderMessage("TOOL_RESULT", (props) => (
+      <ToolResultRenderer event={props.event} openSession={props.openSession} />
+    ));
     context.renderMessage("REQUEST_HEADER", (props) => (
       <RequestHeaderRenderer event={props.event} />
     ));

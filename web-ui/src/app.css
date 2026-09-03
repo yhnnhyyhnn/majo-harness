@@ -550,3 +550,6 @@ li.message.user { align-self: flex-end; }
 
 .badge.exit-ok { background: #1d4a2a; color: #9fe0b4; }
 .badge.exit-err { background: #4a2222; color: #f0a6a6; }
+
+.mini.link { color: var(--accent); }
+.mini.link:hover { background: var(--accent-2); color: #fff; }

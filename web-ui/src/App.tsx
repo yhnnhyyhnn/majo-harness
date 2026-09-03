@@ -12,7 +12,15 @@ const kindStyle: Partial<Record<EventKind, string>> = {
   TOOL_RESULT: "group tool",
 };
 
-function Conversation({ events, live }: { events: EventFrame[]; live: string | null }) {
+function Conversation({
+  events,
+  live,
+  onOpenSession,
+}: {
+  events: EventFrame[];
+  live: string | null;
+  onOpenSession: (id: string) => void;
+}) {
   const { messageRenderer } = useSlots();
   const rows: ReactNode[] = [];
   let last = -1;
@@ -26,7 +34,7 @@ function Conversation({ events, live }: { events: EventFrame[]; live: string | n
     const style = kindStyle[event.kind];
     rows.push(
       <li className={style ?? "group"} key={event.kind + event.seq}>
-        {render({ event })}
+        {render({ event, openSession: onOpenSession })}
       </li>
     );
   }
@@ -172,7 +180,11 @@ function AppShell() {
             ))}
           </div>
         )}
-        <Conversation events={state.events} live={state.busy ? state.live : null} />
+        <Conversation
+          events={state.events}
+          live={state.busy ? state.live : null}
+          onOpenSession={(id) => void actions.selectSession(id)}
+        />
         <form id="composer" onSubmit={send}>
           <textarea
             id="input"

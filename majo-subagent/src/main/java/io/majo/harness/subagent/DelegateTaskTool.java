@@ -51,7 +51,9 @@ public final class DelegateTaskTool implements Tool {
             if (arguments == null || arguments.get("task") == null) {
                 return ToolResult.error("delegate_task: missing \"task\" argument");
             }
-            return ToolResult.ok(subagent.delegate(arguments.get("task").asText()));
+            SubagentService.DelegationOutcome outcome = subagent.delegateWithChild(
+                    arguments.get("task").asText());
+            return ToolResult.ok(outcome.answer(), java.util.Map.of("childSessionId", outcome.childSessionId()));
         } catch (SubagentException e) {
             return ToolResult.error("delegate_task: " + e.getMessage());
         } catch (Exception e) {

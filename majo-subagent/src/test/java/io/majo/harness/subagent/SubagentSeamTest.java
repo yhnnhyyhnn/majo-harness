@@ -63,6 +63,8 @@ class SubagentSeamTest {
                 SessionEventType.REQUEST_HEADER,
                 SessionEventType.ASSISTANT_MESSAGE,
                 SessionEventType.TURN_END);
+        // the structured payload names the child so the UI can link to it
+        assertThat(result.data()).containsEntry("childSessionId", child);
         ctx.fiber().disposeAsync().join();
     }
 

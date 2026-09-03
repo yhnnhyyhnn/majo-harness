@@ -36,6 +36,9 @@ public final class SubagentService extends Service {
     /** One delegation attempt as shown in the Subagents panel. */
     public record Delegation(String task, String status, String detail, long atMillis) {}
 
+    /** A finished delegation: the child session (for transcripts/UI links) + text. */
+    public record DelegationOutcome(String childSessionId, String answer) {}
+
     public SubagentService(Context ctx, Object config) {
         super(ctx, NAME);
         this.loop = require(ctx, AgentLoopService.NAME);
@@ -64,6 +67,11 @@ public final class SubagentService extends Service {
      * Recursive delegations nested deeper than {@code maxDepth} fail loudly.
      */
     public String delegate(String task) {
+        return delegateWithChild(task).answer();
+    }
+
+    /** Like {@link #delegate}, also returning the child session id. */
+    public DelegationOutcome delegateWithChild(String task) {
         int entered = depth.incrementAndGet();
         try {
             if (entered > maxDepth) {
@@ -76,7 +84,7 @@ public final class SubagentService extends Service {
             try {
                 String answer = loop.runTurn(childSessionId, task);
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis()));
-                return answer;
+                return new DelegationOutcome(childSessionId, answer);
             } catch (RuntimeException failure) {
                 record(new Delegation(task, "failed", String.valueOf(failure.getMessage()),
                         System.currentTimeMillis()));
