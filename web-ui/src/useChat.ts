@@ -35,6 +35,7 @@ export interface ChatActions {
   newChat(): void;
   renameSession(id: string, title: string): Promise<void>;
   deleteSession(id: string): Promise<void>;
+  runTask(task: string): Promise<void>;
   changeSessionModel(model: string | null): Promise<void>;
   rate(seq: number, value: "up" | "down" | null): Promise<void>;
   openPlugin(name: string, url: string): void;
@@ -230,6 +231,13 @@ export function createChat(store: Store<ChatState>): ChatActions {
         question: null,
       });
       void loadSessions().catch(() => {});
+    },
+    async runTask(task) {
+      const normalized = (task || "").trim();
+      if (!normalized || store.get().busy) return;
+      closeStream();
+      store.set({ input: normalized, pluginView: null });
+      await sendTask();
     },
     async renameSession(id, title) {
       const normalized = (title || "").trim();

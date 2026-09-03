@@ -18,5 +18,23 @@ async function refresh() {
   }
 }
 
+const send = (type, payload = {}) =>
+  window.parent?.postMessage({ source: "majo-plugin", type, ...payload }, "*");
+
+document.getElementById("send-task").addEventListener("click", () =>
+  send("sendTask", { task: "2+2" })
+);
+document.getElementById("open-session").addEventListener("click", async () => {
+  const sessions = await fetch("/api/sessions").then((r) => r.json());
+  const list = sessions.sessions || [];
+  if (list.length) send("openSession", { sessionId: list[list.length - 1].id });
+  else send("flash", { message: "no sessions yet" });
+});
+document.getElementById("new-chat").addEventListener("click", () => send("newChat"));
+document.getElementById("flash").addEventListener("click", () =>
+  send("flash", { message: "hello from web-demo plugin" })
+);
+document.getElementById("close").addEventListener("click", () => send("close"));
+
 document.getElementById("refresh").addEventListener("click", () => void refresh());
 void refresh();

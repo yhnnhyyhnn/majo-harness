@@ -45,6 +45,18 @@
       <pre id="model">loading…</pre>
     </div>
     <button id="refresh" type="button">refresh</button>
+    <h2 style="font-size:14px;margin-top:22px">Drive the host UI (postMessage bridge)</h2>
+    <div class="card">
+      <p class="meta">These buttons post messages the host listens for:
+        <code>{source:'majo-plugin', type:'sendTask'|'openSession'|'newChat'|'flash'|'close'}</code></p>
+      <p>
+        <button id="send-task" type="button">send task “2+2” to chat</button>
+        <button id="open-session" type="button">open newest session</button>
+        <button id="new-chat" type="button">new chat</button>
+        <button id="flash" type="button">flash hello</button>
+        <button id="close" type="button">back to chat</button>
+      </p>
+    </div>
     <script src="app.js"></script>
   </body>
 </html>

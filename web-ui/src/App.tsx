@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { SlotRoot, useSlots, type CommandSeat, type RailProps } from "./slots";
 import { FEATURES } from "./features";
 import type { EventFrame, EventKind } from "./types";
@@ -71,6 +71,7 @@ export default function App() {
 function AppShell() {
   const { state, actions } = useChat();
   const { rails, sidebarSections, commands } = useSlots();
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
     void actions.loadInitial();
@@ -87,6 +88,37 @@ function AppShell() {
   }, [state.sessionId, state.busy]);
 
   const flash = (message: string) => actions.setNotice(message);
+
+  // postMessage bridge: hosted plugin pages (source majo-plugin) may drive
+  // the host — open a session, run a task, start a new chat, flash notices.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const frame = frameRef.current;
+      if (!frame || event.source !== frame.contentWindow) return;
+      const msg = event.data as { source?: string; type?: string } & Record<string, unknown>;
+      if (!msg || msg.source !== "majo-plugin") return;
+      switch (msg.type) {
+        case "flash":
+          if (typeof msg.message === "string") flash(msg.message);
+          break;
+        case "newChat":
+          actions.newChat();
+          break;
+        case "close":
+          actions.closePlugin();
+          break;
+        case "sendTask":
+          if (typeof msg.task === "string") void actions.runTask(msg.task);
+          break;
+        case "openSession":
+          if (typeof msg.sessionId === "string") void actions.selectSession(msg.sessionId);
+          break;
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actions]);
 
   const runCommand = async (raw: string): Promise<void> => {
     const tokens = raw.trim().slice(1).split(/\s+/);
@@ -248,6 +280,7 @@ function AppShell() {
             </label>
           )}
         </header>
+        {state.notice && <div id="notice">{state.notice}</div>}
         {state.pluginView ? (
           <div id="plugin-pane">
             <div id="plugin-toolbar">
@@ -257,6 +290,7 @@ function AppShell() {
               <strong>{state.pluginView.name}</strong>
             </div>
             <iframe
+              ref={frameRef}
               title={state.pluginView.name}
               src={state.pluginView.url}
               className="plugin-frame"
@@ -301,15 +335,14 @@ function AppShell() {
             Send
           </button>
         </form>
-        {state.notice && <div id="notice">{state.notice}</div>}
-        <div id="busy" hidden={!state.busy}>
-          <span className="spinner" /> running…
-        </div>
         <footer id="status" className={state.offline ? "error" : "online"}>
           {state.offline ? "offline" : "online"}
         </footer>
           </>
         )}
+        <div id="busy" hidden={!state.busy}>
+          <span className="spinner" /> running…
+        </div>
       </main>
     </>
   );
