@@ -32,6 +32,7 @@ export interface EventFrame {
   ok?: boolean;
   model?: string;
   toolNames?: string[];
+  data?: Record<string, unknown>;
 }
 
 export interface Info {

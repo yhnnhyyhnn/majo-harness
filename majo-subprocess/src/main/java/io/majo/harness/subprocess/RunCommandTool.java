@@ -64,12 +64,16 @@ public final class RunCommandTool implements Tool {
                 argv.add(item.asText());
             }
             ProcessResult result = subprocess.run(Command.of(argv));
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("exitCode", result.exitCode());
+            data.put("stdout", result.stdout() == null ? "" : result.stdout());
+            data.put("stderr", result.stderr() == null ? "" : result.stderr());
             if (result.ok()) {
-                return ToolResult.ok(result.stdout().stripTrailing());
+                return ToolResult.ok(result.stdout().stripTrailing(), data);
             }
             String detail = result.stderr().isBlank() ? result.stdout() : result.stderr();
             return ToolResult.error("run_command exited " + result.exitCode()
-                    + ": " + detail.strip());
+                    + ": " + detail.strip(), data);
         } catch (SubprocessException e) {
             return ToolResult.error("run_command: " + e.getMessage());
         } catch (Exception e) {

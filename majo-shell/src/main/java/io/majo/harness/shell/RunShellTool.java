@@ -53,12 +53,16 @@ public final class RunShellTool implements Tool {
                 return ToolResult.error("run_shell: missing \"script\" argument");
             }
             ShellResult result = shell.run(ShellCommand.of(arguments.get("script").asText()));
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("exitCode", result.exitCode());
+            data.put("stdout", result.stdout() == null ? "" : result.stdout());
+            data.put("stderr", result.stderr() == null ? "" : result.stderr());
             if (result.ok()) {
-                return ToolResult.ok(result.stdout().stripTrailing());
+                return ToolResult.ok(result.stdout().stripTrailing(), data);
             }
             String detail = result.stderr().isBlank() ? result.stdout() : result.stderr();
             return ToolResult.error("run_shell exited " + result.exitCode()
-                    + ": " + detail.strip());
+                    + ": " + detail.strip(), data);
         } catch (ShellException e) {
             return ToolResult.error("run_shell: " + e.getMessage());
         } catch (Exception e) {

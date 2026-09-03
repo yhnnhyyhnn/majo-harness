@@ -56,7 +56,9 @@ public final class WebFetchTool implements Tool {
                     : result.text();
             String title = result.title() == null || result.title().isBlank()
                     ? "" : " (" + result.title() + ")";
-            return ToolResult.ok("[external web page" + title + "] " + result.url() + "\n" + text);
+            return ToolResult.ok("[external web page" + title + "] " + result.url() + "\n" + text,
+                    java.util.Map.of("url", result.url(),
+                            "title", result.title() == null ? "" : result.title()));
         } catch (WebAccessException e) {
             return ToolResult.error("web_fetch: " + e.getMessage());
         } catch (Exception e) {

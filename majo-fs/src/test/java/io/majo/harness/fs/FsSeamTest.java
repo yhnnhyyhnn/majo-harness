@@ -70,6 +70,7 @@ class FsSeamTest {
         ToolResult ok = tools.execute(ToolCall.of("read_file", arguments));
         assertThat(ok.ok()).isTrue();
         assertThat(ok.content()).isEqualTo("payload");
+        assertThat(ok.data()).containsKey("path");
 
         ToolResult missing = tools.execute(ToolCall.of("read_file",
                 MAPPER.writeValueAsString(Map.of("path", dir.resolve("gone.txt").toString()))));

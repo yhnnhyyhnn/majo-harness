@@ -116,11 +116,15 @@ public final class AgentLoopService extends Service {
             }
             for (ToolCall call : response.toolCalls()) {
                 ToolResult result = tools.execute(call);
-                sessions.append(sessionId, SessionEventType.TOOL_RESULT, Map.of(
-                        SessionEvent.FIELD_TOOL_CALL_ID, call.id(),
-                        SessionEvent.FIELD_TOOL_NAME, call.name(),
-                        SessionEvent.FIELD_OK, result.ok(),
-                        SessionEvent.FIELD_CONTENT, result.visibleText()));
+                java.util.Map<String, Object> fields = new java.util.HashMap<>();
+                fields.put(SessionEvent.FIELD_TOOL_CALL_ID, call.id());
+                fields.put(SessionEvent.FIELD_TOOL_NAME, call.name());
+                fields.put(SessionEvent.FIELD_OK, result.ok());
+                fields.put(SessionEvent.FIELD_CONTENT, result.visibleText());
+                if (result.data() != null) {
+                    fields.put(SessionEvent.FIELD_DATA, result.data());
+                }
+                sessions.append(sessionId, SessionEventType.TOOL_RESULT, fields);
             }
         }
         sessions.append(sessionId, SessionEventType.TURN_END, Map.of());

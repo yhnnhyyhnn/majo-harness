@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -501,7 +502,10 @@ public final class WebMain {
                         ? fields.get(SessionEvent.FIELD_OK) instanceof Boolean ok ? ok : null : null,
                 event.type() == SessionEventType.REQUEST_HEADER
                         ? stringField(fields, SessionEvent.FIELD_MODEL) : null,
-                toolNames);
+                toolNames,
+                event.type() == SessionEventType.TOOL_RESULT
+                        && fields.get(SessionEvent.FIELD_DATA) instanceof Map<?, ?> data
+                                ? (Map<String, Object>) (Map<?, ?>) data : null);
     }
 
     private static String stringField(Map<?, ?> map, String key) {

@@ -177,11 +177,14 @@ class ShellSeamTest {
                 MAPPER.writeValueAsString(Map.of("script", echoScript("tool-out")))));
         assertThat(ok.ok()).isTrue();
         assertThat(ok.content()).isEqualTo("tool-out");
+        assertThat(ok.data()).containsEntry("exitCode", 0);
+        assertThat(ok.data()).containsKey("stdout");
 
         ToolResult failing = tools.execute(ToolCall.of("run_shell",
                 MAPPER.writeValueAsString(Map.of("script", "exit 7"))));
         assertThat(failing.ok()).isFalse();
         assertThat(failing.visibleText()).contains("exited 7");
+        assertThat(failing.data()).containsEntry("exitCode", 7);
 
         ToolResult badArgs = tools.execute(ToolCall.of("run_shell", "{}"));
         assertThat(badArgs.ok()).isFalse();

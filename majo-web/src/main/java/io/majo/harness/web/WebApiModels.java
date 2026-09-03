@@ -1,6 +1,7 @@
 package io.majo.harness.web;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * The /api wire contract — single source of truth for the browser: DTO records
@@ -20,7 +21,8 @@ public final class WebApiModels {
     public record EventFrame(long seq, String kind, @OptionalWire String content,
             @OptionalWire List<ToolCallFrame> toolCalls, @OptionalWire String toolName,
             @OptionalWire Boolean ok, @OptionalWire String model,
-            @OptionalWire List<String> toolNames) {}
+            @OptionalWire List<String> toolNames,
+            @OptionalWire Map<String, Object> data) {}
 
     public record SessionInfo(String id, @OptionalWire String title, int eventCount) {}
 

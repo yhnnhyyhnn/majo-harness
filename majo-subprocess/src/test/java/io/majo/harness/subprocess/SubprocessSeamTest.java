@@ -107,6 +107,7 @@ class SubprocessSeamTest {
                 MAPPER.writeValueAsString(Map.of("argv", argv))));
         assertThat(ok.ok()).isTrue();
         assertThat(ok.content()).isEqualTo("tool-out");
+        assertThat(ok.data()).containsEntry("exitCode", 0);
 
         List<String> failing = WINDOWS
                 ? List.of("cmd", "/c", "exit 7")
@@ -115,6 +116,7 @@ class SubprocessSeamTest {
                 MAPPER.writeValueAsString(Map.of("argv", failing))));
         assertThat(failed.ok()).isFalse();
         assertThat(failed.visibleText()).contains("exited 7");
+        assertThat(failed.data()).containsEntry("exitCode", 7);
 
         ToolResult badArgs = tools.execute(ToolCall.of("run_command", "{\"argv\":\"oops\"}"));
         assertThat(badArgs.ok()).isFalse();

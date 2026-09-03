@@ -136,16 +136,20 @@ function GenericResultCard({
   toolName,
   ok,
   text,
+  data,
 }: {
   toolName?: string;
   ok?: boolean;
   text: string;
+  data?: Record<string, unknown>;
 }) {
+  const exit = typeof data?.exitCode === "number" ? data.exitCode : null;
   return (
     <div className="tool-block result">
       <span className={"dot " + (ok ? "ok" : "err")} />
       <span className="tool-name">{toolName}</span>
       <span className={"badge " + (ok ? "ok" : "err")}>{ok ? "ok" : "error"}</span>
+      {exit !== null && <span className={"badge exit-" + (ok ? "ok" : "err")}>exit {exit}</span>}
       <span className="spacer" />
       <button type="button" className="mini" title="copy" onClick={() => void copyText(text)}>
         ⧉
@@ -188,8 +192,34 @@ const parseSearchHits = (text: string): SearchHit[] | null => {
   return hits.length ? hits : null;
 };
 
-function SearchResultsCard({ toolName, text }: { toolName?: string; text: string }) {
-  const hits = parseSearchHits(text);
+// Structured path: the seam now ships data.hits; text parsing stays as the
+// fallback for logs recorded before this milestone.
+const dataHits = (data: Record<string, unknown> | undefined): SearchHit[] | null => {
+  if (!data || !Array.isArray(data.hits)) return null;
+  const hits: SearchHit[] = [];
+  for (const item of data.hits) {
+    if (typeof item !== "object" || item === null) continue;
+    const record = item as Record<string, unknown>;
+    if (typeof record.title !== "string") continue;
+    hits.push({
+      title: record.title,
+      url: typeof record.url === "string" ? record.url : "",
+      snippet: typeof record.snippet === "string" ? record.snippet : "",
+    });
+  }
+  return hits.length ? hits : null;
+};
+
+function SearchResultsCard({
+  toolName,
+  text,
+  data,
+}: {
+  toolName?: string;
+  text: string;
+  data?: Record<string, unknown>;
+}) {
+  const hits = dataHits(data) ?? parseSearchHits(text);
   return (
     <div className="tool-block result">
       <span className="dot ok" />
@@ -221,12 +251,12 @@ function SearchResultsCard({ toolName, text }: { toolName?: string; text: string
   );
 }
 
-function ToolResultRenderer({ event }: { event: { toolName?: string; ok?: boolean; content?: string | null } }) {
+function ToolResultRenderer({ event }: { event: { toolName?: string; ok?: boolean; content?: string | null; data?: Record<string, unknown> } }) {
   const text = event.content ?? "";
   if (event.toolName === "web_search") {
-    return <SearchResultsCard toolName={event.toolName} text={text} />;
+    return <SearchResultsCard toolName={event.toolName} text={text} data={event.data} />;
   }
-  return <GenericResultCard toolName={event.toolName} ok={event.ok} text={text} />;
+  return <GenericResultCard toolName={event.toolName} ok={event.ok} text={text} data={event.data} />;
 }
 
 function RequestHeaderRenderer({ event }: { event: { model?: string; toolNames?: string[] } }) {

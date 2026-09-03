@@ -547,3 +547,6 @@ li.message.user { align-self: flex-end; }
 .search-list li { margin: 6px 0; }
 .search-list a { color: var(--accent); word-break: break-word; }
 .search-list .result-title { font-weight: 600; }
+
+.badge.exit-ok { background: #1d4a2a; color: #9fe0b4; }
+.badge.exit-err { background: #4a2222; color: #f0a6a6; }

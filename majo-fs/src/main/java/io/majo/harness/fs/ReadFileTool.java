@@ -51,8 +51,9 @@ public final class ReadFileTool implements Tool {
             if (arguments == null || arguments.get("path") == null) {
                 return ToolResult.error("read_file: missing \"path\" argument");
             }
-            String content = fs.readText(arguments.get("path").asText());
-            return ToolResult.ok(content);
+            String path = arguments.get("path").asText();
+            String content = fs.readText(path);
+            return ToolResult.ok(content, java.util.Map.of("path", path));
         } catch (FsException e) {
             return ToolResult.error("read_file: " + e.getMessage());
         } catch (Exception e) {

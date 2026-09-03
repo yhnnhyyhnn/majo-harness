@@ -21,6 +21,8 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_ARGUMENTS = "arguments";
     /** Whether the tool execution succeeded. */
     public static final String FIELD_OK = "ok";
+    /** Structured tool metadata (exit code, hits…) that is not model text. */
+    public static final String FIELD_DATA = "data";
     /** The model id of a {@link SessionEventType#REQUEST_HEADER}. */
     public static final String FIELD_MODEL = "model";
     /** The system prompt of a {@link SessionEventType#REQUEST_HEADER}. */

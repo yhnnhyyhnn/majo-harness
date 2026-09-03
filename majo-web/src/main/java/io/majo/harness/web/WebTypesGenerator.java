@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -80,6 +81,9 @@ public final class WebTypesGenerator {
             if (parameterized.getRawType() == List.class) {
                 Type item = parameterized.getActualTypeArguments()[0];
                 return tsType(item) + "[]";
+            }
+            if (parameterized.getRawType() == Map.class) {
+                return "Record<string, unknown>";
             }
         }
         if (type == String.class) {
