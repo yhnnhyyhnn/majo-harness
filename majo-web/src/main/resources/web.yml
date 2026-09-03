@@ -56,5 +56,13 @@
     maxDepth: 3
 - id: subagent-tools
   name: subagent-tools
+- id: web
+  name: web
+- id: web-search-wiki
+  name: web-search-wiki
+  config:
+    lang: en
+- id: web-fetch-http
+  name: web-fetch-http
 - id: calc
   name: calc

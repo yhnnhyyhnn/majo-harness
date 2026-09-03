@@ -86,7 +86,7 @@ majo-credentials/ CredentialProvider 接缝 + EnvCredentialProvider（.env 解�
 majo-title/       SessionTitleProvider 接缝 + HeuristicSessionTitleProvider
                   / SessionTitleService / SessionTitlePlugin / HeuristicTitlePlugin
 majo-web-access/  SearchProvider/FetchProvider 接缝 + FetchHttpProvider（匿名、HTML→文本）
-                  / StaticSearchProvider / WebAccessService（`ctx.web`）
+                  / StaticSearchProvider + WikiSearchProvider（无 key、真实 HTTP）/ WebAccessService（`ctx.web`）
                   / WebPlugin/FetchHttpPlugin/StaticSearchPlugin
                   / WebSearchTool/WebFetchTool/WebToolsPlugin（web_search/web_fetch）
 majo-util/        Disposables（组合 disposer 工厂）

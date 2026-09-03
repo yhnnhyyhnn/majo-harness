@@ -19,6 +19,7 @@ import io.majo.harness.title.HeuristicTitlePlugin;
 import io.majo.harness.title.SessionTitlePlugin;
 import io.majo.harness.webaccess.FetchHttpPlugin;
 import io.majo.harness.webaccess.StaticSearchPlugin;
+import io.majo.harness.webaccess.WikiSearchPlugin;
 import io.majo.harness.webaccess.WebPlugin;
 import io.majo.harness.webaccess.WebToolsPlugin;
 import io.majo.harness.interaction.InteractionPlugin;
@@ -79,6 +80,7 @@ public final class HarnessBoot {
     public static final String PLUGIN_WEB_TOOLS = WebToolsPlugin.NAME;
     public static final String PLUGIN_WEB_FETCH_HTTP = FetchHttpPlugin.NAME;
     public static final String PLUGIN_WEB_SEARCH_STATIC = StaticSearchPlugin.NAME;
+    public static final String PLUGIN_WEB_SEARCH_WIKI = WikiSearchPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
 
     private final Context ctx;
@@ -119,6 +121,7 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_WEB_TOOLS, new WebToolsPlugin());
         loader.builtin(PLUGIN_WEB_FETCH_HTTP, new FetchHttpPlugin());
         loader.builtin(PLUGIN_WEB_SEARCH_STATIC, new StaticSearchPlugin());
+        loader.builtin(PLUGIN_WEB_SEARCH_WIKI, new WikiSearchPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
     }
 
