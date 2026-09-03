@@ -56,4 +56,9 @@ public final class SessionService extends Service {
     public List<String> sessionIds() {
         return store.sessionIds();
     }
+
+    /** Removes a session and its durable log (unknown ids fail loudly). */
+    public void remove(String sessionId) {
+        store.remove(sessionId);
+    }
 }

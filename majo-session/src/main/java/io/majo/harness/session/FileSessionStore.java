@@ -93,4 +93,15 @@ public final class FileSessionStore implements SessionStore {
             throw new IllegalStateException("cannot list session store directory " + directory, e);
         }
     }
+
+    @Override
+    public synchronized void remove(String sessionId) {
+        try {
+            if (!Files.deleteIfExists(fileOf(sessionId))) {
+                throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot remove session \"" + sessionId + "\"", e);
+        }
+    }
 }

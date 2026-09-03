@@ -41,4 +41,11 @@ public final class InMemorySessionStore implements SessionStore {
     public synchronized List<String> sessionIds() {
         return List.copyOf(sessions.keySet());
     }
+
+    @Override
+    public synchronized void remove(String sessionId) {
+        if (sessions.remove(sessionId) == null) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
+    }
 }

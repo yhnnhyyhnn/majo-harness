@@ -98,15 +98,46 @@ function AppShell() {
         <nav id="session-list">
           {state.sessions.length === 0 && <div className="meta">no sessions yet</div>}
           {state.sessions.map((s) => (
-            <button
+            <div
               key={s.id}
-              type="button"
-              className={"session" + (s.id === state.sessionId ? " active" : "")}
-              onClick={() => void actions.selectSession(s.id)}
+              className={"session-row" + (s.id === state.sessionId ? " active" : "")}
             >
-              <span className="title">{s.title || "Untitled " + s.id.slice(0, 8)}</span>
-              <span className="meta">{s.eventCount} events</span>
-            </button>
+              <button
+                type="button"
+                className="session"
+                onClick={() => void actions.selectSession(s.id)}
+              >
+                <span className="title">{s.title || "Untitled " + s.id.slice(0, 8)}</span>
+                <span className="meta">{s.eventCount} events</span>
+              </button>
+              <span className="session-ops">
+                <button
+                  type="button"
+                  title="rename"
+                  disabled={state.busy}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    const name = window.prompt("Session title", s.title || "");
+                    if (name !== null) void actions.renameSession(s.id, name);
+                  }}
+                >
+                  ✎
+                </button>
+                <button
+                  type="button"
+                  title="delete"
+                  disabled={state.busy}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (window.confirm("Delete this session and its log?")) {
+                      void actions.deleteSession(s.id);
+                    }
+                  }}
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
           ))}
         </nav>
         <div id="sidebar-sections">

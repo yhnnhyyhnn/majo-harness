@@ -90,6 +90,11 @@ public final class SessionProjections extends Service {
         }
     }
 
+    /** Forgets fold watermarks for a removed session (units keep derived state). */
+    public void drop(String sessionId) {
+        watermarks.remove(sessionId);
+    }
+
     private void fold(String sessionId, SessionEvent event) {
         TypedSessionEvent typed = TypedSessionEvent.of(event);
         for (Map.Entry<String, SessionProjection> entry : units.entrySet()) {

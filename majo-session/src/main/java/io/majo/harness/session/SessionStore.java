@@ -20,6 +20,12 @@ public interface SessionStore {
     /** Appends one event; unknown sessions are rejected loudly. */
     void append(String sessionId, SessionEvent event);
 
+    /**
+     * Removes a session and its log entirely; unknown sessions are rejected
+     * loudly, so callers can trust a successful return means gone.
+     */
+    void remove(String sessionId);
+
     /** All events of a session in append order (immutable copy). */
     List<SessionEvent> events(String sessionId);
 

@@ -7,6 +7,7 @@ import io.jcordis.core.context.Context;
 import io.jcordis.core.util.Disposable;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +86,42 @@ class SessionServiceTest {
                     .containsExactly(SessionEventType.TURN_START, SessionEventType.USER_MESSAGE);
             assertThat(sessions.events(sessionId).get(1).content()).isEqualTo("persisted");
             root.fiber().disposeAsync().join();
+        }
+    }
+
+    @Test
+    void removeDeletesFromMemoryAndFileStores() throws IOException {
+        // memory store: list shrinks and events become unknown
+        InMemorySessionStore memory = new InMemorySessionStore();
+        String memId = memory.createSession("a");
+        memory.createSession("b");
+        memory.remove(memId);
+        assertThat(memory.sessionIds()).containsExactly("b");
+        assertThatThrownBy(() -> memory.events(memId))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> memory.remove(memId))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        // file store: the durable file is deleted and ids stop listing it
+        Path directory = Files.createTempDirectory("majo-store-test");
+        try {
+            FileSessionStore file = new FileSessionStore(directory);
+            String fileId = file.createSession("x");
+            file.createSession("y");
+            file.append(fileId, new SessionEvent(1, SessionEventType.TURN_START,
+                    System.currentTimeMillis(), Map.of()));
+            assertThat(Files.exists(directory.resolve("x.jsonl"))).isTrue();
+            file.remove(fileId);
+            assertThat(Files.exists(directory.resolve("x.jsonl"))).isFalse();
+            assertThat(file.sessionIds()).containsExactly("y");
+            assertThatThrownBy(() -> file.remove(fileId))
+                    .isInstanceOf(IllegalArgumentException.class);
+        } finally {
+            // best-effort cleanup
+            try (var stream = Files.list(directory)) {
+                stream.forEach(path -> path.toFile().delete());
+            }
+            directory.toFile().delete();
         }
     }
 

@@ -39,6 +39,14 @@ function postJson<T>(path: string, payload: unknown): Promise<T> {
   });
 }
 
+function putJson<T>(path: string, payload: unknown): Promise<T> {
+  return rpc<T>(path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export const api = {
   sessions(): Promise<SessionsIndex> {
     return rpc("/api/sessions");
@@ -50,6 +58,14 @@ export const api = {
 
   session(id: string): Promise<SessionDetail> {
     return rpc("/api/sessions/" + encodeURIComponent(id));
+  },
+
+  renameSession(id: string, title: string): Promise<Ok> {
+    return putJson("/api/sessions/" + encodeURIComponent(id) + "/title", { title });
+  },
+
+  deleteSession(id: string): Promise<Ok> {
+    return rpc("/api/sessions/" + encodeURIComponent(id), { method: "DELETE" });
   },
 
   modelState(): Promise<ModelState> {

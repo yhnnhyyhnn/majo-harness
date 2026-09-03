@@ -73,6 +73,14 @@ public final class SettingsService extends Service {
         persist();
     }
 
+    /** Removes {@code key} (no-op when unset). */
+    public void unset(String key) {
+        requireKey(key);
+        if (values.remove(key) != null) {
+            persist();
+        }
+    }
+
     /** The stored keys, sorted. */
     public List<String> keys() {
         return List.copyOf(new TreeMap<>(values).keySet());

@@ -23,6 +23,8 @@ export interface ChatActions {
   changeModel(model: string): Promise<void>;
   selectSession(id: string): Promise<void>;
   newChat(): void;
+  renameSession(id: string, title: string): Promise<void>;
+  deleteSession(id: string): Promise<void>;
   setInput(value: string): void;
   setQInput(value: string): void;
   sendTask(): Promise<void>;
@@ -150,6 +152,45 @@ export function createChat(store: Store<ChatState>): ChatActions {
         question: null,
       });
       void loadSessions().catch(() => {});
+    },
+    async renameSession(id, title) {
+      const normalized = (title || "").trim();
+      if (!normalized || store.get().busy) return;
+      try {
+        await api.renameSession(id, normalized);
+        if (store.get().sessionId === id) {
+          store.set({ title: normalized });
+        }
+      } catch (error) {
+        console.error("rename failed", error);
+      }
+      void loadSessions().catch(() => {});
+    },
+    async deleteSession(id) {
+      if (store.get().busy) return;
+      const wasActive = store.get().sessionId === id;
+      try {
+        await api.deleteSession(id);
+      } catch (error) {
+        console.error("delete failed", error);
+        return;
+      }
+      closeStream();
+      const list = await loadSessions();
+      const fallback = list.length > 0 ? list[list.length - 1] : null;
+      if (wasActive && fallback) {
+        const detail = await api.session(fallback.id);
+        store.set({
+          sessionId: fallback.id,
+          title: detail.title || "New chat",
+          events: detail.events,
+          live: null,
+          approvals: [],
+          question: null,
+        });
+      } else if (wasActive) {
+        store.set({ sessionId: null, events: [], title: "New chat", live: null });
+      }
     },
     setInput(value) {
       store.set({ input: value });

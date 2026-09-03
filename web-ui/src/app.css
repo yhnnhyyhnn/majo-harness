@@ -477,3 +477,36 @@ li.message.user { align-self: flex-end; }
 .status { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; border-radius: 4px; padding: 0 5px; }
 .status-done { background: #1d4a2a; color: #9fe0b4; }
 .status-blocked, .status-failed { background: #4a2222; color: #f0a6a6; }
+
+/* session rows with hover ops */
+.session-row {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+}
+.session-row:hover { background: var(--panel-2); }
+.session-row .session {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+.session-row.active .session .title { color: var(--accent); font-weight: 700; }
+.session-ops { display: none; padding-right: 4px; }
+.session-row:hover .session-ops,
+.session-row.active .session-ops { display: inline-flex; gap: 2px; }
+.session-ops button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 4px;
+}
+.session-ops button:hover { color: var(--text); background: var(--panel-1); }
+.session-ops button:disabled { opacity: 0.4; cursor: default; }

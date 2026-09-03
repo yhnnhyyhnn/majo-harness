@@ -133,6 +133,16 @@ public final class WebMain {
                 json(exchange, 200, sessionsIndex());
             } else if ("POST".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
                 json(exchange, 200, createSession());
+            } else if ("PUT".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")
+                    && path.endsWith("/title")) {
+                String sessionId = path.substring("/api/sessions/".length(),
+                        path.length() - "/title".length());
+                json(exchange, 200, renameSession(exchange, sessionId));
+            } else if ("DELETE".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")) {
+                String sessionId = path.substring("/api/sessions/".length());
+                json(exchange, 200, deleteSession(sessionId));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/turn/stream".equals(path)) {
                 streamTurn(exchange);
             } else if ("GET".equals(exchange.getRequestMethod())
@@ -158,20 +168,77 @@ public final class WebMain {
 
     private WebApiModels.SessionsIndex sessionsIndex() {
         SessionService sessions = boot.service(SessionService.NAME);
-        SessionTitleService titles = boot.service(SessionTitleService.NAME);
         List<WebApiModels.SessionInfo> list = new ArrayList<>();
         for (String sessionId : sessions.sessionIds()) {
             list.add(new WebApiModels.SessionInfo(
-                    sessionId, titles.title(sessionId), sessions.events(sessionId).size()));
+                    sessionId, titleFor(sessionId), sessions.events(sessionId).size()));
         }
         return new WebApiModels.SessionsIndex(list);
     }
 
+    private static final String TITLE_PREFIX = "session.title.";
+
     private WebApiModels.SessionDetail sessionDetail(String sessionId) {
         SessionService sessions = boot.service(SessionService.NAME);
-        SessionTitleService titles = boot.service(SessionTitleService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
         return new WebApiModels.SessionDetail(
-                sessionId, titles.title(sessionId), eventsJson(sessions.events(sessionId)));
+                sessionId, titleFor(sessionId), eventsJson(sessions.events(sessionId)));
+    }
+
+    /** User rename wins; otherwise the derived heuristic title. */
+    private String titleFor(String sessionId) {
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        String override = settings == null ? null : settings.get(TITLE_PREFIX + sessionId);
+        if (override != null && !override.isBlank()) {
+            return override;
+        }
+        SessionTitleService titles = boot.service(SessionTitleService.NAME);
+        return titles.title(sessionId);
+    }
+
+    private WebApiModels.Ok renameSession(HttpExchange exchange, String sessionId)
+            throws IOException {
+        SessionService sessions = boot.service(SessionService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        Object titleValue = request.get("title");
+        if (titleValue == null || String.valueOf(titleValue).isBlank()) {
+            throw new IllegalArgumentException("title must not be blank");
+        }
+        String title = String.valueOf(titleValue).trim();
+        if (title.length() > 120) {
+            throw new IllegalArgumentException("title too long (max 120)");
+        }
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings == null) {
+            throw new IllegalArgumentException("settings service unavailable — cannot persist title");
+        }
+        settings.set(TITLE_PREFIX + sessionId, title);
+        return new WebApiModels.Ok(true);
+    }
+
+    private WebApiModels.Ok deleteSession(String sessionId) {
+        SessionService sessions = boot.service(SessionService.NAME);
+        turnLock.lock();
+        try {
+            sessions.remove(sessionId);
+            io.majo.harness.session.SessionProjections projections =
+                    boot.ctx().get(io.majo.harness.session.SessionProjections.NAME);
+            if (projections != null) {
+                projections.drop(sessionId);
+            }
+            SettingsService settings = boot.ctx().get(SettingsService.NAME);
+            if (settings != null) {
+                settings.unset(TITLE_PREFIX + sessionId);
+            }
+            return new WebApiModels.Ok(true);
+        } finally {
+            turnLock.unlock();
+        }
     }
 
     private WebApiModels.SkillsIndex skillsIndex() {
