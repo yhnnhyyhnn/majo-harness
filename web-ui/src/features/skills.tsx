@@ -1,7 +1,52 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { SkillInfo } from "../types";
+import type { SkillDetail, SkillInfo } from "../types";
 import type { Feature } from "../slots";
+
+function SkillRow({ skill }: { skill: SkillInfo }) {
+  const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState<SkillDetail | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const load = async () => {
+    if (detail || failed) return;
+    try {
+      setDetail(await api.skillDetail(skill.name));
+    } catch {
+      setFailed(true);
+    }
+  };
+
+  return (
+    <div className="side-item">
+      <button
+        type="button"
+        className="skill-row"
+        onClick={() => {
+          setOpen(!open);
+          if (!open) void load();
+        }}
+        title={skill.description || ""}
+      >
+        {skill.name} <span className="caret">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="skill-detail">
+          {skill.description && <div className="meta">{skill.description}</div>}
+          {failed && <div className="meta">cannot load instructions</div>}
+          {detail && (
+            <>
+              {detail.instructions && (
+                <pre className="code skill-instructions">{detail.instructions}</pre>
+              )}
+              <div className="meta">agents load this via the load_skill tool</div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SkillsPanel() {
   const [open, setOpen] = useState(false);
@@ -30,10 +75,7 @@ function SkillsPanel() {
           {skills === null && <div className="meta">loading…</div>}
           {skills && skills.length === 0 && <div className="meta">no skills mounted</div>}
           {skills?.map((skill) => (
-            <div className="side-item" key={skill.name} title={skill.description || ""}>
-              <div className="side-item-title">{skill.name}</div>
-              {skill.description && <div className="meta">{skill.description}</div>}
-            </div>
+            <SkillRow skill={skill} key={skill.name} />
           ))}
           <button type="button" className="side-refresh" onClick={() => void load()}>
             refresh

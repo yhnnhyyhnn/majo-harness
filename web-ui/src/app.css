@@ -614,3 +614,26 @@ li.message.user { align-self: flex-end; }
   width: fit-content;
 }
 .bubble.rich .code-block pre { margin-top: 0; border-radius: 0 6px 6px 6px; }
+
+/* skills detail rows */
+.skill-row {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  text-align: left;
+  width: 100%;
+  padding: 2px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.skill-row:hover { background: var(--panel-2); }
+.skill-row .caret { float: right; color: var(--muted); }
+.skill-detail { padding: 2px 6px 8px; }
+.skill-instructions {
+  max-height: 220px;
+  overflow: auto;
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  margin: 4px 0;
+}

@@ -44,6 +44,9 @@ public final class WebApiModels {
     /** One skill listed in the Skills panel. */
     public record SkillInfo(String name, @OptionalWire String description) {}
 
+    /** Full skill payload for the panel (instructions are model text). */
+    public record SkillDetail(String name, @OptionalWire String description, String instructions) {}
+
     public record SkillsIndex(List<SkillInfo> skills) {}
 
     /** One subagent delegation as shown in the Subagents panel. */

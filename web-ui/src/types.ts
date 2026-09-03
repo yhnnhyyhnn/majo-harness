@@ -92,6 +92,12 @@ export interface SessionsIndex {
   sessions: SessionInfo[];
 }
 
+export interface SkillDetail {
+  name: string;
+  description?: string;
+  instructions: string;
+}
+
 export interface SkillInfo {
   name: string;
   description?: string;

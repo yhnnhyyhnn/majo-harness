@@ -19,6 +19,7 @@ import io.majo.harness.session.SessionEvent;
 import io.majo.harness.session.SessionEventType;
 import io.majo.harness.session.SessionService;
 import io.majo.harness.settings.SettingsService;
+import io.majo.harness.skill.Skill;
 import io.majo.harness.skill.SkillRegistry;
 import io.majo.harness.subagent.SubagentService;
 import io.majo.harness.title.SessionTitleService;
@@ -141,6 +142,9 @@ public final class WebMain {
                         : rateMessage(exchange, sessionId, seq));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/skills".equals(path)) {
                 json(exchange, 200, skillsIndex());
+            } else if ("GET".equals(exchange.getRequestMethod()) && path.startsWith("/api/skills/")) {
+                String name = path.substring("/api/skills/".length());
+                json(exchange, 200, skillDetail(name));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/subagents".equals(path)) {
                 json(exchange, 200, subagentsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/info".equals(path)) {
@@ -414,6 +418,18 @@ public final class WebMain {
                 .map(run -> new WebApiModels.SubagentRun(
                         run.task(), run.status(), run.detail(), run.atMillis()))
                 .toList());
+    }
+
+    private WebApiModels.SkillDetail skillDetail(String name) {
+        SkillRegistry skills = boot.ctx().get(SkillRegistry.NAME);
+        if (skills == null) {
+            throw new IllegalArgumentException("skills service unavailable — mount the skills row");
+        }
+        Skill skill = skills.skills().stream()
+                .filter(candidate -> candidate.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("unknown skill \"" + name + "\""));
+        return new WebApiModels.SkillDetail(skill.name(), skill.description(), skill.instructions());
     }
 
     private WebApiModels.Info info() {

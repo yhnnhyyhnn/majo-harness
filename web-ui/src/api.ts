@@ -8,6 +8,7 @@ import type {
   Ok,
   SessionDetail,
   SessionsIndex,
+  SkillDetail,
   SkillsIndex,
   StreamChunk,
   StreamDone,
@@ -116,6 +117,10 @@ export const api = {
 
   skills(): Promise<SkillsIndex> {
     return rpc("/api/skills");
+  },
+
+  skillDetail(name: string): Promise<SkillDetail> {
+    return rpc("/api/skills/" + encodeURIComponent(name));
   },
 
   subagents(): Promise<SubagentsIndex> {
