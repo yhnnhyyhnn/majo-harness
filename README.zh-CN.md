@@ -33,7 +33,7 @@
 | `majo-cli` | 可执行 dsh 风格启动器（shaded jar）：`majo "task" [--profile …]`，打印转写与退出码 | — | — |
 | `majo-web` | web profile 应用（dsh 风格聊天 UI）：JDK HTTP 服务器承载已启动树，静态会话/对话页 + JSON turn API | — | （应用） |
 
-文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md) · [web 对齐](docs/web-parity.zh-CN.md)
+文档：[架构](docs/architecture.zh-CN.md) · [architecture (EN)](docs/architecture.md) · [web 对齐](docs/web-parity.zh-CN.md) · [插件开发](docs/plugin-development.zh-CN.md) · [plugin development (EN)](docs/plugin-development.md)
 
 ## 应用入口（一个 harness、多个入口）
 

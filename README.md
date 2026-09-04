@@ -33,7 +33,7 @@ Every product capability — the session log, the tool registry, the model adapt
 | `majo-cli` | executable dsh-style launcher (shaded jar): `majo "task" [--profile …]`, prints the transcript, exit codes | — | — |
 | `majo-web` | web profile app (dsh-style chat UI): JDK HTTP server over the booted tree, static session/conversation page + JSON turn API | — | (app) |
 
-Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md) · [web 对齐](docs/web-parity.md)
+Docs: [architecture](docs/architecture.md) · [中文架构](docs/architecture.zh-CN.md) · [web 对齐](docs/web-parity.md) · [plugin development](docs/plugin-development.md) · [中文插件开发](docs/plugin-development.zh-CN.md)
 
 ## App entries (one harness, several entries)
 
