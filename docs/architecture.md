@@ -176,6 +176,15 @@ durable log frames incrementally and text tokens as they are produced by
 streaming providers, so the page renders tools live and the answer
 incrementally without waiting for completion.
 
+The JDK `HttpServer` serializes requests per keep-alive connection, which can
+hang Chrome's parallel module/asset fetches (blank page or an infinite loading
+spinner on an otherwise healthy build). `WebMain` therefore sends
+`Connection: close` on static and JSON responses (SSE stays open), forcing a
+fresh connection per resource; keep that header if the serving code changes.
+UI work is fastest in dev mode: `web-ui` proxies `/api` and `/plugins` to a
+running backend (`MAJO_API_TARGET`, default `127.0.0.1:8787`), so `npx vite`
+renders the same app against the real API with hot reload.
+
 ## Typed session events and projections
 
 `SessionEvent.fields` stays the durable, open wire format, but consumers no longer need to read it stringly. {@code TypedSessionEvent.of(event)} parses every kind into a closed sealed record (user text, assistant rounds with their serialized tool calls, tool results, request headers), failing loudly on malformed payloads.

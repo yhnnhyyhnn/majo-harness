@@ -170,6 +170,8 @@ waterfall 监听器必须调用 `next()` 让权（jcordis 约定）。事件即�
 
 `majo-web` 是浏览器入口：它启动同一棵插件树（其 `web.yml` profile），既提供 API 也托管编译好的 React 页面。turn 按实例串行；流式端点（`/api/turn/stream`，SSE）增量转发持久日志帧，并按流式 provider 的产生顺序转发文本 token——页面无需等待完成即可实时渲染工具与逐字答案。
 
+JDK `HttpServer` 按 keep-alive 连接串行处理请求，可能挂住 Chrome 并发的 module/资源抓取（构建健康却黑屏或无限 loading）。因此 `WebMain` 对静态与 JSON 响应发送 `Connection: close`（SSE 保持打开），让每个资源走新连接；改动伺服代码时请保留该头。UI 开发最快走 dev 模式：`web-ui` 把 `/api`、`/plugins` 代理到运行中的后端（`MAJO_API_TARGET`，默认 `127.0.0.1:8787`），`npx vite` 即可热更新地渲染同一应用并直连真实 API。
+
 ## Typed 会话事件与投影
 
 `SessionEvent.fields` 仍是持久的开放 wire 格式，但消费者不再需要字符串化读取它。`TypedSessionEvent.of(event)` 把每一类事件解析成封闭的 sealed 记录（用户文本、带序列化工具调用的 assistant 轮次、工具结果、请求头），载荷畸形时大声失败。

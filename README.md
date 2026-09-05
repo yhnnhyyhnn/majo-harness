@@ -105,6 +105,15 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhos
 java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # offline (mock llm)
 ```
 
+**Frontend dev server (full stack):** `web-ui` proxies `/api` and `/plugins` to a
+running backend, so editing the UI is hot-reload with the real API:
+
+```bash
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --port 8899 --profile web-mock
+# PowerShell: $env:MAJO_API_TARGET="http://127.0.0.1:8899"
+MAJO_API_TARGET=http://127.0.0.1:8899 npx vite --port 5173    # http://localhost:5173
+```
+
 Open http://localhost:8787: a session sidebar (rename ✎ / delete ✕ per row), user/tool/assistant bubbles, a composer, and collapsible sidebar sections (Skills / Settings / Subagents) that fill registration-only slots. The header carries two model pickers — the global model and a per-session override — and assistant messages accept 👍/👎 feedback (persisted) plus ⧉ copy on user/tool/assistant text. Slash commands work in the composer (`/help`, `/clear`, `/new`, `/model`, `/session-model`). The app is a React/Vite TypeScript app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Its wire types are generated from the Java contract: edit `WebApiModels`/`SessionEventType`, run `bash scripts/gen-web-types.sh`, then rebuild. UI builds happen through Maven (`mvn -pl web-ui generate-resources`, needs npm). Tool results ship structured `data` on the wire (exit codes, web hits, child session ids…) so result cards render without re-parsing text — `delegate_task` cards even link straight to their child transcript.
 
 The shipped `web.yml` points at the kilo free tier over the OpenAI-compatible gateway - **no API key required** (free tier can occasionally return upstream 502s; retry). `web.yml` also mounts the real no-key Wikipedia search backend (`web-search-wiki`) and two sample skills from the repo `skills/` directory (`summarize`, `check-style`); `web-mock.yml` keeps the same panels working fully offline with the deterministic mock. Sessions, renames, model choices (global + per-session) and message ratings persist across restarts under `~/.majo-harness/web/` (JSONL session files + `settings.json`); point the JVM at another `user.home` to isolate a demo. 
@@ -127,7 +136,21 @@ curl -X PUT -H 'Content-Type: application/json' -d '{"value":"up"}' http://local
 curl http://localhost:8787/api/sessions/<id>/feedback
 ```
 
-Troubleshooting: if the page stays blank, an older instance is usually still holding port 8787 — the new process exits with a clear "port … is already in use" message while the browser keeps talking to the stale one. Stop old `java` processes or pick another port (`--port 9000`), then hard-refresh (Ctrl+F5). The page shows a visible "offline" banner instead of failing silently when the backend cannot be reached.
+Troubleshooting:
+- **Page shows "If you see this text, the UI bundle failed to start…"** — the module
+  script did not run. First rebuild the UI into the jar (`mvn -pl web-ui generate-resources`
+  then `mvn -pl majo-web package -DskipTests`) and hard-refresh; an older instance on the
+  port serves stale HTML (the new process exits with a clear “port … is already in use” —
+  stop old `java` processes or pass `--port 9000`). If the fallback keeps showing with an
+  empty console, open the page in a fresh incognito window or another browser before
+  reporting a bug.
+- **Blank page / infinite loading in Chrome on the packaged server** — the JDK
+  `HttpServer` serializes requests per keep-alive connection, which can hang Chrome's
+  parallel module fetches. `WebMain` sends `Connection: close` on static/JSON responses
+  (SSE stays open) so each resource gets a fresh connection; keep that header when
+  changing the server. The dev server above is a handy workaround while experimenting.
+- The page shows a visible "offline" banner instead of failing silently when the backend
+  cannot be reached.
 
 ## Bring your own model endpoint
 

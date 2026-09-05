@@ -105,6 +105,14 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhos
 java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # 离线（mock llm）
 ```
 
+**前端 dev 服务器（全栈）**：`web-ui` 会把 `/api`、`/plugins` 代理到正在运行的后端，改 UI 即热更新且直连真实 API：
+
+```bash
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --port 8899 --profile web-mock
+# PowerShell: $env:MAJO_API_TARGET="http://127.0.0.1:8899"
+MAJO_API_TARGET=http://127.0.0.1:8899 npx vite --port 5173    # http://localhost:5173
+```
+
 打开 http://localhost:8787：会话侧栏（每行支持改名 ✎ / 删除 ✕）、用户/工具/assistant 消息气泡、提交器，以及可折叠的侧栏区（Skills / Settings / Subagents）——特性模块只做注册，壳层只渲染槽。头部有两个模型下拉（全局 + 按会话覆盖）；assistant 消息支持 👍/👎 反馈（持久化），用户/工具/assistant 文本均可 ⧉ 复制；composer 支持斜杠命令（`/help`、`/clear`、`/new`、`/model`、`/session-model`）。这是 `web-ui/` 下的 React/Vite **TypeScript** 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。UI 的线类型由 Java 契约生成：改 `WebApiModels`/`SessionEventType` 后跑 `bash scripts/gen-web-types.sh` 再重建；构建走 Maven（`mvn -pl web-ui generate-resources`，需 npm）。工具结果在线路上携带结构化 `data`（退出码、web hits、子会话 id…），结果卡无需再解析文本即可渲染——`delegate_task` 卡甚至可直接跳转子会话转写。
 
 随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）——**无需 API key**（免费层偶发上游 502，重试即可）；同时挂载真实无 key Wikipedia 搜索后端（`web-search-wiki`）与仓库 `skills/` 目录下的两个示例技能（`summarize`、`check-style`）。`web-mock.yml` 让同一组面板完全离线可用（确定性 mock）。会话、改名、模型选择（全局 + 按会话）与消息打分都会跨重启持久化到 `~/.majo-harness/web/`（JSONL 会话文件 + `settings.json`）；换一个 `user.home` 启动即可隔离演示环境。
@@ -127,7 +135,10 @@ curl -X PUT -H 'Content-Type: application/json' -d '{"value":"up"}' http://local
 curl http://localhost:8787/api/sessions/<id>/feedback
 ```
 
-排障：若页面一片空白，最常见原因是 **8787 被旧实例占用**——新进程会以清晰的 “port … is already in use” 退出，而浏览器仍在访问旧进程。停掉旧的 `java` 进程或换端口（`--port 9000`），再强制刷新（Ctrl+F5）。后端不可达时页面显示可见的 “offline” 横幅，而不是静默空白。
+排障：
+- **页面显示 “If you see this text, the UI bundle failed to start…”**：module 脚本没跑起来。先重建 UI 进 jar（`mvn -pl web-ui generate-resources` 再 `mvn -pl majo-web package -DskipTests`）并强刷；也常因旧实例占端口（新进程会打 “port … is already in use” 退出，浏览器还连着旧进程）——停掉旧 `java` 或加 `--port 9000`。若刷新后仍如此且 Console 为空，请用新无痕窗口或换浏览器复现后再报 bug。
+- **打包版在 Chrome 里黑屏/无限 loading**：JDK `HttpServer` 按 keep-alive 连接串行处理请求，会挂住 Chrome 并发的 module 抓取。`WebMain` 对静态/JSON 响应发送 `Connection: close`（SSE 保持打开），让每个资源走新连接；改服务器时请保留该头。调试期可直接用上面的 dev 服务器绕行。
+- 后端不可达时页面显示可见的 “offline” 横幅，而不是静默空白。
 
 ## 自带模型端点
 
