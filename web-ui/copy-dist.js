@@ -33,4 +33,13 @@ if (!fs.existsSync(dist)) {
 rmrf(target);
 fs.mkdirSync(target, { recursive: true });
 copyDir(dist, target);
+
+// Some browser-side tools mis-handle crossorigin module scripts on plain
+// http://localhost origins; drop the attribute vite injects on the built
+// index (same-origin modules need no CORS mode).
+const indexFile = path.join(target, "index.html");
+if (fs.existsSync(indexFile)) {
+  const html = fs.readFileSync(indexFile, "utf8").replace(/ crossorigin/g, "");
+  fs.writeFileSync(indexFile, html);
+}
 console.log(`web UI copied to ${target}`);
