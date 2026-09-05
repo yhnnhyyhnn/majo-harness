@@ -788,6 +788,7 @@ public final class WebMain {
             }
             byte[] payload = stream.readAllBytes();
             exchange.getResponseHeaders().set("Content-Type", contentType(rest));
+            exchange.getResponseHeaders().set("Connection", "close");
             exchange.sendResponseHeaders(200, payload.length);
             exchange.getResponseBody().write(payload);
         }
@@ -805,6 +806,7 @@ public final class WebMain {
             }
             byte[] payload = stream.readAllBytes();
             exchange.getResponseHeaders().set("Content-Type", contentType(path));
+            exchange.getResponseHeaders().set("Connection", "close");
             exchange.sendResponseHeaders(200, payload.length);
             exchange.getResponseBody().write(payload);
         }
@@ -844,6 +846,7 @@ public final class WebMain {
     private static void json(HttpExchange exchange, int status, Object value) throws IOException {
         byte[] payload = JSON.writeValueAsBytes(value);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        exchange.getResponseHeaders().set("Connection", "close");
         exchange.sendResponseHeaders(status, payload.length);
         exchange.getResponseBody().write(payload);
     }
