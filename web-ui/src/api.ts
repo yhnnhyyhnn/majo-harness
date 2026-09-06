@@ -61,6 +61,14 @@ export const api = {
     return postJson("/api/sessions", {});
   },
 
+  importSession(jsonl: string): Promise<CreateSession> {
+    return rpc("/api/sessions/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-ndjson" },
+      body: jsonl,
+    });
+  },
+
   session(id: string): Promise<SessionDetail> {
     return rpc("/api/sessions/" + encodeURIComponent(id));
   },

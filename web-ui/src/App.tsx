@@ -104,6 +104,7 @@ function AppShell() {
   const [cmdSelected, setCmdSelected] = useState(0);
   const [managing, setManaging] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const importRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     void actions.loadInitial();
@@ -342,6 +343,32 @@ function AppShell() {
           )}
         </div>
         <div id="session-tools">
+          <button
+            type="button"
+            className="side-refresh"
+            onClick={() => importRef.current?.click()}
+          >
+            Import JSONL…
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".jsonl,application/x-ndjson"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              void file
+                .text()
+                .then((text) => api.importSession(text))
+                .then((created) => {
+                  flash("imported session " + created.id.slice(0, 8));
+                  return actions.selectSession(created.id);
+                })
+                .catch((error: unknown) => flash("import failed: " + String(error)));
+            }}
+          />
           {!managing && state.sessions.length > 0 && (
             <button type="button" className="side-refresh" onClick={() => setManaging(true)}>
               Manage sessions

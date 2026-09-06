@@ -179,6 +179,8 @@ public final class WebMain {
                 json(exchange, 200, setModel(exchange));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
                 json(exchange, 200, sessionsIndex());
+            } else if ("POST".equals(exchange.getRequestMethod()) && "/api/sessions/import".equals(path)) {
+                json(exchange, 200, importSession(exchange));
             } else if ("POST".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
                 json(exchange, 200, createSession());
             } else if ("PUT".equals(exchange.getRequestMethod())
@@ -473,6 +475,37 @@ public final class WebMain {
         SkillRegistry skills = boot.ctx().get(SkillRegistry.NAME);
         int skillCount = skills == null ? 0 : skills.skills().size();
         return new WebApiModels.Info("0.1.0", models, toolNames, skillCount);
+    }
+
+    /** Imports exported JSONL into a brand-new session (returns its id). */
+    private WebApiModels.CreateSession importSession(HttpExchange exchange) throws IOException {
+        SessionService sessions = boot.service(SessionService.NAME);
+        List<SessionEvent> events = new ArrayList<>();
+        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        String[] lines = body.split("\r?\n");
+        for (int index = 0; index < lines.length; index++) {
+            String line = lines[index].trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            try {
+                events.add(JSON.readValue(line, SessionEvent.class));
+            } catch (IOException | RuntimeException e) {
+                throw new IllegalArgumentException("import: invalid event on line " + (index + 1)
+                        + ": " + e.getMessage());
+            }
+        }
+        if (events.isEmpty()) {
+            throw new IllegalArgumentException("import: no events in body");
+        }
+        String sessionId = sessions.createSession();
+        try {
+            sessions.importEvents(sessionId, events);
+        } catch (RuntimeException e) {
+            sessions.remove(sessionId); // roll back the half-imported session
+            throw e;
+        }
+        return new WebApiModels.CreateSession(sessionId);
     }
 
     private WebApiModels.CreateSession createSession() {

@@ -52,6 +52,25 @@ public final class SessionService extends Service {
         return store.events(sessionId);
     }
 
+    /**
+     * Imports a pre-recorded log into an existing session as-is: events keep
+     * their original seq/timestamp and are broadcast so live projections and
+     * the UI stay consistent. Seq must be a strictly increasing positive run
+     * starting at 1 (the file-store invariant), otherwise loud failure.
+     */
+    public void importEvents(String sessionId, List<SessionEvent> events) {
+        long expected = 1;
+        for (SessionEvent event : events) {
+            if (event.seq() != expected) {
+                throw new IllegalArgumentException("import: expected seq " + expected
+                        + " but found " + event.seq());
+            }
+            store.append(sessionId, event);
+            ctx.events().emit((Object) null, EVENT, sessionId, event);
+            expected++;
+        }
+    }
+
     /** Every session id known to this service's store. */
     public List<String> sessionIds() {
         return store.sessionIds();
