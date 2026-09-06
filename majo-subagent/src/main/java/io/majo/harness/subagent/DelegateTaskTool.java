@@ -38,6 +38,17 @@ public final class DelegateTaskTool implements Tool {
         properties.putObject("systemPrompt")
                 .put("type", "string")
                 .put("description", "system prompt override for the child agent");
+        properties.putObject("maxSteps")
+                .put("type", "integer")
+                .put("minimum", 1)
+                .put("description", "max steps for the child turn (scoped run)");
+        properties.putObject("autoApprove")
+                .put("type", "boolean")
+                .put("description", "auto-approve gated tools inside the child scope");
+        ObjectNode allowed = properties.putObject("allowedTools");
+        allowed.put("type", "array");
+        allowed.putObject("items").put("type", "string")
+                .put("description", "tools the child agent may call (default: all)");
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");
         schema.set("properties", properties);
@@ -57,12 +68,38 @@ public final class DelegateTaskTool implements Tool {
             if (arguments == null || arguments.get("task") == null) {
                 return ToolResult.error("delegate_task: missing \"task\" argument");
             }
+            String taskText = arguments.get("task").asText();
             String model = arguments.hasNonNull("model") ? arguments.get("model").asText() : null;
             String systemPrompt = arguments.hasNonNull("systemPrompt")
                     ? arguments.get("systemPrompt").asText()
                     : null;
-            SubagentService.DelegationOutcome outcome = subagent.delegateConfigured(
-                    arguments.get("task").asText(), model, systemPrompt);
+            Integer maxSteps = arguments.hasNonNull("maxSteps") && arguments.get("maxSteps").canConvertToInt()
+                    ? arguments.get("maxSteps").asInt()
+                    : null;
+            if (maxSteps != null && maxSteps < 1) {
+                return ToolResult.error("delegate_task: maxSteps must be >= 1");
+            }
+            Boolean autoApprove = arguments.hasNonNull("autoApprove")
+                    && arguments.get("autoApprove").isBoolean()
+                            ? arguments.get("autoApprove").asBoolean()
+                            : null;
+            java.util.List<String> allowedTools = null;
+            if (arguments.hasNonNull("allowedTools") && arguments.get("allowedTools").isArray()) {
+                allowedTools = new java.util.ArrayList<>();
+                for (JsonNode item : arguments.get("allowedTools")) {
+                    if (item.isTextual()) {
+                        allowedTools.add(item.asText());
+                    }
+                }
+                if (allowedTools.isEmpty()) {
+                    allowedTools = null;
+                }
+            }
+            boolean scopeOptions = maxSteps != null || autoApprove != null || allowedTools != null;
+            SubagentService.DelegationOutcome outcome = scopeOptions
+                    ? subagent.delegateSpec(taskText,
+                            new SubagentService.AgentSpec(model, systemPrompt, maxSteps, autoApprove, allowedTools))
+                    : subagent.delegateConfigured(taskText, model, systemPrompt);
             java.util.Map<String, Object> data = new java.util.HashMap<>();
             data.put("childSessionId", outcome.childSessionId());
             if (model != null) {

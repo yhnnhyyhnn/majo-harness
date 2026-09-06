@@ -234,6 +234,37 @@ class SubagentSeamTest {
     }
 
     @Test
+    void delegateTaskExposesScopeSpecArguments() throws Exception {
+        Context ctx = stack(3);
+        LLMService llm = ctx.get(LLMService.NAME);
+        llm.registerModel("alt", request -> ChatResponse.text("alt-result"));
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+
+        // any scope option (here allowedTools) routes the tool into a scoped run
+        io.majo.harness.tools.ToolResult result = tools.execute(
+                io.majo.harness.tools.ToolCall.of("delegate_task", MAPPER.writeValueAsString(
+                        java.util.Map.of(
+                                "task", "scoped via tool",
+                                "model", "alt",
+                                "systemPrompt", "You are tool-scoped.",
+                                "allowedTools", List.of("delegate_task")))));
+        assertThat(result.ok()).isTrue();
+        assertThat(result.content()).isEqualTo("alt-result");
+        assertThat(result.data()).containsEntry("model", "alt");
+
+        SessionService sessions = ctx.get(SessionService.NAME);
+        String child = sessions.sessionIds().get(0);
+        var header = sessions.events(child).stream()
+                .filter(event -> event.type() == SessionEventType.REQUEST_HEADER)
+                .findFirst()
+                .orElseThrow();
+        assertThat(header.fields().get(SessionEvent.FIELD_MODEL)).isEqualTo("alt");
+        assertThat(header.fields().get(SessionEvent.FIELD_SYSTEM_PROMPT))
+                .isEqualTo("You are tool-scoped.");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void recentRunsLogSuccessAndBlocked() {
         Context ctx = stack(3);
         SubagentService subagent = ctx.get(SubagentService.NAME);
