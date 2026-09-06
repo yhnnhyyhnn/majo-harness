@@ -348,21 +348,41 @@ function AppShell() {
               {hits === null && <div className="meta">searching…</div>}
               {hits && hits.length === 0 && <div className="meta">no matches</div>}
               {hits?.map((hit, index) => (
-                <button
-                  type="button"
+                <div
                   key={hit.id}
-                  className={index === selected ? "active" : undefined}
+                  className={
+                    "search-hit" + (index === selected ? " active" : "")
+                  }
                   onMouseEnter={() => setSelected(index)}
-                  onClick={() => openSearchHit(hit)}
                 >
-                  <span className="title">
-                    <Marked text={hit.title || "Untitled"} query={query} />
-                    {hit.archived && <span className="arch-tag">archived</span>}
-                  </span>
-                  <span className="meta snippet">
-                    <Marked text={hit.snippet} query={query} />
-                  </span>
-                </button>
+                  <button type="button" className="hit-open" onClick={() => openSearchHit(hit)}>
+                    <span className="title">
+                      <Marked text={hit.title || "Untitled"} query={query} />
+                      {hit.archived && <span className="arch-tag">archived</span>}
+                    </span>
+                    <span className="meta snippet">
+                      <Marked text={hit.snippet} query={query} />
+                    </span>
+                  </button>
+                  {hit.archived && (
+                    <button
+                      type="button"
+                      className="hit-restore"
+                      title="restore then open"
+                      onClick={() => {
+                        void api
+                          .archiveSession(hit.id, false)
+                          .then(() => {
+                            setArchTick((tick) => tick + 1);
+                            openSearchHit(hit);
+                          })
+                          .catch((error: unknown) => flash("restore failed: " + String(error)));
+                      }}
+                    >
+                      ↩
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -403,6 +423,7 @@ function AppShell() {
                 setShowArchived(false);
               }}
             >
+              <span className="mode-ico">{!showArchived ? "●" : "○"}</span>
               Active
             </button>
             <button
@@ -413,6 +434,7 @@ function AppShell() {
                 setShowArchived(true);
               }}
             >
+              <span className="mode-ico">{showArchived ? "●" : "○"}</span>
               Archived
             </button>
           </div>
