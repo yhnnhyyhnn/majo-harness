@@ -17,6 +17,7 @@ export interface ApprovalFrame {
   id: string;
   summary: string;
   details?: string;
+  agent?: string;
 }
 
 export interface CreateSession {
@@ -85,6 +86,7 @@ export interface QuestionAnswer {
 export interface QuestionFrame {
   id: string;
   text: string;
+  agent?: string;
 }
 
 export interface SearchHit {

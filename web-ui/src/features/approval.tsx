@@ -17,6 +17,7 @@ export const approvalFeature: Feature = {
             <div className="approval-card" key={approval.id}>
               <div className="approval-head">
                 <span className="dot pending" /> waiting for approval
+                {approval.agent && <span className="agent-tag">{approval.agent}</span>}
               </div>
               <div className="approval-body">{approval.summary}</div>
               <div className="approval-actions">
@@ -33,6 +34,7 @@ export const approvalFeature: Feature = {
             <div className="approval-card question">
               <div className="approval-head">
                 <span className="dot pending" /> the agent asks
+                {question.agent && <span className="agent-tag">{question.agent}</span>}
               </div>
               <div className="approval-body">{question.text}</div>
               <form

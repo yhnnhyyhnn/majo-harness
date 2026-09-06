@@ -33,8 +33,12 @@ public final class ToolApprovalPlugin implements Plugin {
             if (!gated.isEmpty() && !gated.contains(call.name())) {
                 return next.get(); // not gated: delegate
             }
+            if (InteractionContext.autoApprove()) {
+                return next.get(); // per-agent policy auto-grants gated tools
+            }
             ApprovalRequest request = ApprovalRequest.of(
-                    "run tool \"" + call.name() + "\"", call.arguments());
+                    "run tool \"" + call.name() + "\"", call.arguments(),
+                    InteractionContext.agent());
             if (interactions.approve(request) == ApprovalDecision.APPROVE) {
                 return next.get();
             }

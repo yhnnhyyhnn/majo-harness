@@ -88,10 +88,11 @@ public final class WebApiModels {
     public record StreamFail(String message) {}
 
     /** Approval surfaced to the UI (a {@code pending.approval} frame). */
-    public record ApprovalFrame(String id, String summary, @OptionalWire String details) {}
+    public record ApprovalFrame(String id, String summary, @OptionalWire String details,
+            @OptionalWire String agent) {}
 
     /** Ask-user question surfaced to the UI (a {@code pending.question} frame). */
-    public record QuestionFrame(String id, String text) {}
+    public record QuestionFrame(String id, String text, @OptionalWire String agent) {}
 
     /** Decision/answer POST results. */
     public record ApprovalDecision(@OptionalWire String decision) {}

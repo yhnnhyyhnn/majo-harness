@@ -666,12 +666,13 @@ public final class WebMain {
                         @Override
                         public void approval(ApprovalRequest request) {
                             frame(out, "approval", new WebApiModels.ApprovalFrame(
-                                    request.id(), request.summary(), request.details()));
+                                    request.id(), request.summary(), request.details(), request.agent()));
                         }
 
                         @Override
                         public void question(Question question) {
-                            frame(out, "question", new WebApiModels.QuestionFrame(question.id(), question.text()));
+                            frame(out, "question", new WebApiModels.QuestionFrame(
+                                    question.id(), question.text(), question.agent()));
                         }
                     };
                     String answer = loop.runTurn(sessionId, task, delta ->

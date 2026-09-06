@@ -178,4 +178,25 @@ class InteractionSeamTest {
         assertThat(ungatedTool.executed).isTrue();
         passRoot.fiber().disposeAsync().join();
     }
+
+    @Test
+    void interactionContextTagsAgentAndAutoApprovesForScopes() {
+        CountingTool tool = new CountingTool();
+        Context root = Context.create();
+        // deny-by-default mode: only an agent scope with autoApprove gets through
+        ToolRegistry deny = gatedRegistry(root, Map.of(), List.of("demo"), tool);
+        ToolResult blocked = deny.execute(ToolCall.of("demo", "{}"));
+        assertThat(blocked.ok()).isFalse();
+
+        String observedAgent = InteractionContext.run("subagent-abc", true, () -> {
+            ToolResult allowed = deny.execute(ToolCall.of("demo", "{}"));
+            return InteractionContext.agent();
+        });
+        assertThat(observedAgent).isEqualTo("subagent-abc");
+        assertThat(tool.executed).isTrue();
+        // thread-local state is torn down after the scope ends
+        assertThat(InteractionContext.agent()).isNull();
+        assertThat(InteractionContext.autoApprove()).isFalse();
+        root.fiber().disposeAsync().join();
+    }
 }

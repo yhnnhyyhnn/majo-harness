@@ -42,10 +42,15 @@ public final class SubagentService extends Service {
 
     /**
      * Per-agent configuration for a scoped child run (M-C1): optional model,
-     * system prompt and a max-steps cap. {@code null} fields inherit harness
-     * defaults.
+     * system prompt, a max-steps cap and an auto-approve policy. {@code null}
+     * fields inherit harness defaults.
      */
-    public record AgentSpec(String model, String systemPrompt, Integer maxSteps) {}
+    public record AgentSpec(String model, String systemPrompt, Integer maxSteps, Boolean autoApprove) {
+
+        public AgentSpec(String model, String systemPrompt, Integer maxSteps) {
+            this(model, systemPrompt, maxSteps, null);
+        }
+    }
 
     public SubagentService(Context ctx, Object config) {
         super(ctx, NAME);
@@ -112,9 +117,11 @@ public final class SubagentService extends Service {
             }
             String childSessionId = sessions.createSession();
             try {
-                String answer = scoped
-                        ? runScoped(childSessionId, task, spec)
-                        : loop.runTurn(childSessionId, task, null, spec.model(), spec.systemPrompt());
+                String agent = "subagent-" + childSessionId.substring(0, Math.min(8, childSessionId.length()));
+                boolean auto = spec.autoApprove() != null && spec.autoApprove();
+                String answer = io.majo.harness.interaction.InteractionContext.run(agent, auto,
+                        () -> scoped ? runScoped(childSessionId, task, spec)
+                                : loop.runTurn(childSessionId, task, null, spec.model(), spec.systemPrompt()));
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis()));
                 return new DelegationOutcome(childSessionId, answer);
             } catch (RuntimeException failure) {

@@ -962,3 +962,17 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
 .plugin-actions { display: flex; gap: 4px; padding-left: 6px; }
 .plugin-actions .side-refresh { align-self: auto; padding: 2px 8px; }
 .native-dot.unloaded { color: var(--text-caption); }
+
+/* originating-agent tag on rail cards */
+.agent-tag {
+  margin-left: 6px;
+  font-family: var(--font-code);
+  font-size: 10px;
+  color: var(--accent-strong);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-hair);
+  border-radius: 4px;
+  padding: 0 5px;
+  text-transform: none;
+  letter-spacing: 0;
+}
