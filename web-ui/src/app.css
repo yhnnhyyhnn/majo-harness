@@ -931,3 +931,28 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   #composer { gap: 8px; }
   .model-picker { display: none; }
 }
+
+/* mobile refinement: touch targets, safe areas, landscape */
+@media (max-width: 860px) {
+  #sidebar {
+    padding: calc(14px + env(safe-area-inset-top)) 10px calc(14px + env(safe-area-inset-bottom));
+  }
+  main { padding-bottom: env(safe-area-inset-bottom); }
+  #chat-header { padding-top: calc(8px + env(safe-area-inset-top)); }
+  #composer { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  #status { padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+
+  /* larger touch targets */
+  .session-row .session { padding-block: 11px; }
+  .session-ops button, .side-section-head, .skill-row, .side-refresh { min-height: 34px; }
+  #input { min-height: 48px; font-size: 16px; } /* prevent iOS zoom */
+  #send { min-height: 44px; }
+  #new-chat { padding-block: 12px; }
+  #conversation { padding-block: 14px 6px; }
+}
+
+@media (max-width: 860px) and (orientation: landscape) {
+  #sidebar { width: min(64vw, 300px); }
+  #conversation { max-width: 780px; }
+  .model-picker { display: inline-flex; }
+}
