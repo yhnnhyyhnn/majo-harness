@@ -956,3 +956,9 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   #conversation { max-width: 780px; }
   .model-picker { display: inline-flex; }
 }
+
+/* plugin native module actions */
+.plugin-entry .plugin-open { width: 100%; }
+.plugin-actions { display: flex; gap: 4px; padding-left: 6px; }
+.plugin-actions .side-refresh { align-self: auto; padding: 2px 8px; }
+.native-dot.unloaded { color: var(--text-caption); }

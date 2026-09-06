@@ -13,7 +13,8 @@ import { useRegistrar } from "../slots";
 // calls its exported `register(host)`. host carries the shared React instance,
 // the api client, seats (openPlugin/flash) and a Registrar whose every add
 // returns a rollback disposer — the same slot contract compiled-in features
-// use, now at runtime (S3-lite). Loaded modules persist for the page session.
+// use, now at runtime. Loaded modules can be unloaded (disposer runs and the
+// slot contribution rolls back) or reloaded (cache-busted re-import).
 
 const loadedModules = new Set<string>();
 
@@ -24,21 +25,18 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
   const [open, setOpen] = useState(false);
   const [plugins, setPlugins] = useState<PluginInfo[] | null>(null);
   const [nativeStates, setNativeStates] = useState<Record<string, string>>({});
-  const disposersRef = useRef<(() => void)[]>([]);
+  const disposersRef = useRef(new Map<string, () => void>());
 
-  const load = async () => {
-    const index = await api.plugins();
-    setPlugins(index.plugins || []);
-    return index.plugins || [];
+  const flash = (message: string) => {
+    window.dispatchEvent(new CustomEvent("majo:flash", { detail: message }));
   };
 
-  const mountNative = async (plugin: PluginInfo, hostFlash: (m: string) => void) => {
-    if (!plugin.module || loadedModules.has(plugin.name)) return;
-    loadedModules.add(plugin.name);
+  const loadModule = async (plugin: PluginInfo, url: string) => {
+    if (!url) return;
     setNativeStates((s) => ({ ...s, [plugin.name]: "loading" }));
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mod = (await import(/* @vite-ignore */ plugin.module)) as {
+      const mod = (await import(/* @vite-ignore */ url)) as {
         register?: (host: PluginHost) => unknown;
       };
       if (typeof mod.register !== "function") {
@@ -47,39 +45,70 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
       const host: PluginHost = {
         React: await import("react"),
         api,
-        openPlugin: (name, url) => openPlugin?.(name, url),
-        flash: hostFlash,
+        openPlugin: (name, page) => openPlugin?.(name, page),
+        flash,
         registrar: registrarRef.current,
       };
       const disposer = mod.register(host);
       if (typeof disposer === "function") {
-        disposersRef.current.push(disposer as () => void);
+        disposersRef.current.set(plugin.name, disposer as () => void);
       }
+      loadedModules.add(plugin.name);
       setNativeStates((s) => ({ ...s, [plugin.name]: "mounted" }));
     } catch (error) {
       loadedModules.delete(plugin.name);
       setNativeStates((s) => ({ ...s, [plugin.name]: "error" }));
       console.error("plugin module load failed", plugin.name, error);
+      flash("plugin module failed to load: " + plugin.name);
     }
   };
 
-  const flash = (message: string) => {
-    // notices live in the chat controller; plugins menu has no actions seat,
-    // so route through the registrar-free path: dispatch a window event the
-    // shell listens for (see AppShell plugin bridge).
-    window.dispatchEvent(new CustomEvent("majo:flash", { detail: message }));
+  const mountNative = (plugin: PluginInfo) => {
+    if (!plugin.module) return;
+    void loadModule(plugin, plugin.module);
+  };
+
+  const unloadNative = (plugin: PluginInfo) => {
+    const disposer = disposersRef.current.get(plugin.name);
+    try {
+      disposer?.();
+    } catch (error) {
+      console.error("plugin dispose failed", plugin.name, error);
+    }
+    disposersRef.current.delete(plugin.name);
+    loadedModules.delete(plugin.name);
+    setNativeStates((s) => ({ ...s, [plugin.name]: "unloaded" }));
+    flash("unloaded " + plugin.name);
+  };
+
+  const reloadNative = (plugin: PluginInfo) => {
+    unloadNative(plugin);
+    if (!plugin.module) return;
+    const bust =
+      plugin.module + (plugin.module.includes("?") ? "&" : "?") + "v=" + Date.now();
+    void loadModule(plugin, bust);
+  };
+
+  const load = async () => {
+    const index = await api.plugins();
+    setPlugins(index.plugins || []);
+    return index.plugins || [];
   };
 
   useEffect(() => {
     if (!open) return;
     void load()
       .then((list) => {
-        for (const plugin of list) void mountNative(plugin, flash);
+        for (const plugin of list) {
+          if (plugin.module && !loadedModules.has(plugin.name)) mountNative(plugin);
+        }
       })
       .catch(() => setPlugins([]));
     const timer = window.setInterval(() => {
       void load().then((list) => {
-        for (const plugin of list) void mountNative(plugin, flash);
+        for (const plugin of list) {
+          if (plugin.module && !loadedModules.has(plugin.name)) mountNative(plugin);
+        }
       });
     }, 10000);
     return () => window.clearInterval(timer);
@@ -88,8 +117,15 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
 
   useEffect(() => {
     return () => {
-      for (const dispose of disposersRef.current) dispose();
-      disposersRef.current = [];
+      for (const disposer of disposersRef.current.values()) {
+        try {
+          disposer();
+        } catch {
+          // ignore unload errors during teardown
+        }
+      }
+      disposersRef.current.clear();
+      loadedModules.clear();
     };
   }, []);
 
@@ -107,40 +143,65 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
               none mounted — start with <code>--plugin name=jar</code>
             </div>
           )}
-          {plugins?.map((plugin) => (
-            <div key={plugin.name} className="side-item">
-              <button
-                type="button"
-                className="side-refresh plugin-open"
-                title={plugin.module ? "native module (component in slots)" : "hosted page"}
-                onClick={() => {
-                  if (plugin.module && loadedModules.has(plugin.name)) {
-                    // native already mounted; its own section shows up in the sidebar
-                    flash(plugin.title || plugin.name + " is mounted — see its sidebar section");
-                  } else if (plugin.module && !loadedModules.has(plugin.name)) {
-                    void mountNative(plugin, flash);
-                  } else {
-                    openPlugin?.(plugin.name, plugin.url);
-                  }
-                }}
-              >
-                ▶ {plugin.title || plugin.name}
+          {plugins?.map((plugin) => {
+            const state = nativeStates[plugin.name] ?? "pending";
+            const mounted = loadedModules.has(plugin.name);
+            return (
+              <div key={plugin.name} className="side-item plugin-entry">
+                <button
+                  type="button"
+                  className="side-refresh plugin-open"
+                  title={plugin.module ? "native module (component in slots)" : "hosted page"}
+                  onClick={() => {
+                    if (!plugin.module) {
+                      openPlugin?.(plugin.name, plugin.url);
+                      return;
+                    }
+                    if (!mounted) mountNative(plugin);
+                    else if (state === "mounted")
+                      flash(plugin.title || plugin.name + " is mounted — its sidebar section is live");
+                  }}
+                >
+                  ▶ {plugin.title || plugin.name}
+                  {plugin.module && (
+                    <span className={"meta native-dot " + state}>
+                      {state === "error"
+                        ? " · load failed"
+                        : state === "mounted"
+                          ? " · native ✓"
+                          : state === "unloaded"
+                            ? " · unloaded"
+                            : " · native"}
+                    </span>
+                  )}
+                </button>
                 {plugin.module && (
-                  <span className={"meta native-dot " + (nativeStates[plugin.name] ?? "pending")}>
-                    {" "}
-                    {nativeStates[plugin.name] === "error"
-                      ? "· load failed"
-                      : nativeStates[plugin.name] === "mounted"
-                        ? "· native ✓"
-                        : "· native"}
-                  </span>
+                  <div className="plugin-actions">
+                    <button type="button" className="side-refresh" onClick={() => openPlugin?.(plugin.name, plugin.url)}>
+                      page
+                    </button>
+                    {mounted ? (
+                      <>
+                        <button type="button" className="side-refresh" onClick={() => reloadNative(plugin)}>
+                          reload
+                        </button>
+                        <button type="button" className="side-refresh" onClick={() => unloadNative(plugin)}>
+                          unload
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="side-refresh" onClick={() => mountNative(plugin)}>
+                        mount
+                      </button>
+                    )}
+                  </div>
                 )}
-              </button>
-            </div>
-          ))}
+              </div>
+            );
+          })}
           {plugins && plugins.length > 0 && (
             <button type="button" className="side-refresh" onClick={() => void load()}>
-              refresh
+              refresh list
             </button>
           )}
         </div>
