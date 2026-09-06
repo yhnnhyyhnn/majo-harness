@@ -31,10 +31,14 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | dsh feature | majo | Notes |
 |---|---|---|
 | Rename / delete session | ✅ | `PUT/DELETE /api/sessions/:id` (+ `/title`); memory & file stores; active-session fallback |
+| Session search | ✅ | `/api/search?q=` full text over durable events; debounced sidebar box, hit highlighting, ↑↓/Enter/Esc, jumps & flashes the located message |
+| Session manage / archive | ✅ | multi-select batch delete (`deleteSessions`) + batch archive; Active/Archived views (`?view=active\|archived\|all`), restore inline in search hits |
+| Export / import sessions | ✅ | `GET …/export` downloads replayable NDJSON; `POST /api/sessions/import` replays it into a fresh session (strict seq, rollback on failure) |
 | Model selection control | ✅ | header selects: global (`GET/PUT /api/settings/model`) + per-session override (`PUT/DELETE /api/sessions/:id/model`); `REQUEST_HEADER` logs the actual model |
-| Slash commands (`ui-commands`) | ✅ | commands slot: `/help /clear /new /model /session-model`; features extend via `addCommand` |
+| Slash commands (`ui-commands`) | ✅ | commands slot: `/help /clear /new /model /session-model` with live grouped completions (↑↓/Tab/Enter/Esc); features extend via `addCommand` |
 | Settings (general/models/plugins) | ✅ | sidebar Settings section: version/models/tools/skills facts (`/api/info`) |
-| Theme switching | ⬜ | trivial CSS once colors are variables |
+| Mobile layout | ✅ | ≤860px: slide-in sidebar drawer (☰/backdrop), enlarged touch targets, safe-area padding, 16px composer font, landscape tweaks |
+| Theme switching | ⬜ | trivial CSS once colors are variables (single dark theme today, dsh tokens) |
 | Web/ACP connectivity & reconnect banner | ✅ | offline banner + retry |
 
 ## Capability panels (tied to backend seams)
@@ -54,7 +58,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 ## Wire contract & panels plumbing
 
 - Typed single source of truth: `WebApiModels` DTO records + `SessionEventType` enum → `WebTypesGenerator` → `web-ui/src/types.ts`; the backend serializes the same DTOs (`NON_NULL` for `@OptionalWire`).
-- Endpoints: `GET/POST /api/sessions`, `GET/PUT/DELETE /api/sessions/:id` (`PUT …/title`, `PUT/DELETE …/model`, `GET …/events?since=`, `GET …/feedback`), `GET/PUT /api/settings/model`, `GET /api/skills`, `GET /api/subagents`, `GET /api/info`, approvals/questions decisions, `PUT/DELETE /api/messages/:id/:seq/feedback`, SSE `/api/turn/stream`.
+- Endpoints: `GET/POST /api/sessions` (`GET ?view=active|archived|all`), `GET/PUT/DELETE /api/sessions/:id` (`PUT …/title`, `PUT/DELETE …/model`, `PUT/DELETE …/archive`, `GET …/events?since=`, `GET …/feedback`, `GET …/export`), `POST /api/sessions/import`, `GET /api/search?q=`, `GET/PUT /api/settings/model`, `GET /api/skills`, `GET /api/subagents`, `GET /api/plugins`, `GET /api/info`, approvals/questions decisions, `PUT/DELETE /api/messages/:id/:seq/feedback`, SSE `/api/turn/stream`.
 - Tool results carry optional structured `data` on the wire (exit codes, hits, child session ids…) so cards render without re-parsing text; text stays the model-visible truth.
 - UI assembly stays registration-only: `features/*` modules fill message-renderer/rail/sidebar/command slots through `FEATURES` (compile-time list); shell code only renders slots and injects runtime seats (`openSession`, `rate`, command `run`).
 
