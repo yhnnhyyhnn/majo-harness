@@ -113,7 +113,9 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --port 8899 --profile web-
 MAJO_API_TARGET=http://127.0.0.1:8899 npx vite --port 5173    # http://localhost:5173
 ```
 
-打开 http://localhost:8787：会话侧栏（每行支持改名 ✎ / 删除 ✕）、用户/工具/assistant 消息气泡、提交器，以及可折叠的侧栏区（Skills / Settings / Subagents）——特性模块只做注册，壳层只渲染槽。头部有两个模型下拉（全局 + 按会话覆盖）；assistant 消息支持 👍/👎 反馈（持久化），用户/工具/assistant 文本均可 ⧉ 复制；composer 支持斜杠命令（`/help`、`/clear`、`/new`、`/model`、`/session-model`）。这是 `web-ui/` 下的 React/Vite **TypeScript** 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。UI 的线类型由 Java 契约生成：改 `WebApiModels`/`SessionEventType` 后跑 `bash scripts/gen-web-types.sh` 再重建；构建走 Maven（`mvn -pl web-ui generate-resources`，需 npm）。工具结果在线路上携带结构化 `data`（退出码、web hits、子会话 id…），结果卡无需再解析文本即可渲染——`delegate_task` 卡甚至可直接跳转子会话转写。
+打开 http://localhost:8787：会话侧栏（每行支持改名 ✎ / 删除 ✕）、用户/工具/assistant 消息气泡、提交器，以及可折叠的侧栏区（Skills / Settings / Subagents）——特性模块只做注册，壳层只渲染槽。头部有两个模型下拉（全局 + 按会话覆盖）；assistant 消息支持 👍/👎 反馈（持久化），用户/工具/assistant 文本均可 ⧉ 复制；composer 支持斜杠命令（`/help`、`/clear`、`/new`、`/model`、`/session-model`）并带**实时补全**（↑↓/Tab/Enter、按类分组）；消息带时间戳。
+
+会话管理不止“列表/打开”：支持**全文搜索**（标题与消息内容，防抖、命中高亮、↑↓/Enter/Esc，点选会跳转并闪烁定位到命中消息）、**Active/Archived 归档视图**（逐会话归档/恢复）、**管理模式**批量删除/归档、以及 **JSONL 导出/导入**（会话下载为可回放 NDJSON，也能导入回新会话）。这是 `web-ui/` 下的 React/Vite **TypeScript** 应用，编译产物已提交到 `majo-web/src/main/resources/static`，由 Java 后端直接服务。UI 的线类型由 Java 契约生成：改 `WebApiModels`/`SessionEventType` 后跑 `bash scripts/gen-web-types.sh` 再重建；构建走 Maven（`mvn -pl web-ui generate-resources`，需 npm）。工具结果在线路上携带结构化 `data`（退出码、web hits、子会话 id…），结果卡无需再解析文本即可渲染——`delegate_task` 卡甚至可直接跳转子会话转写。
 
 随附的 `web.yml` 已指向 kilo 免费层（OpenAI 兼容网关）——**无需 API key**（免费层偶发上游 502，重试即可）；同时挂载真实无 key Wikipedia 搜索后端（`web-search-wiki`）与仓库 `skills/` 目录下的两个示例技能（`summarize`、`check-style`）。`web-mock.yml` 让同一组面板完全离线可用（确定性 mock）。会话、改名、模型选择（全局 + 按会话）与消息打分都会跨重启持久化到 `~/.majo-harness/web/`（JSONL 会话文件 + `settings.json`）；换一个 `user.home` 启动即可隔离演示环境。
 
@@ -132,7 +134,13 @@ curl "http://localhost:8787/api/sessions/<id>/events?since=0"
 curl -X PUT -H 'Content-Type: application/json' -d '{"model":"mock"}' http://localhost:8787/api/sessions/<id>/model
 curl -X DELETE http://localhost:8787/api/sessions/<id>/model
 curl -X PUT -H 'Content-Type: application/json' -d '{"value":"up"}' http://localhost:8787/api/messages/<id>/<seq>/feedback
-curl http://localhost:8787/api/sessions/<id>/feedback
+curl "http://localhost:8787/api/sessions?view=archived"
+curl -X PUT -H 'Content-Type: application/json' -d '{}' http://localhost:8787/api/sessions/<id>/archive
+curl -X DELETE http://localhost:8787/api/sessions/<id>/archive
+curl "http://localhost:8787/api/search?q=calculated"
+curl -o session.jsonl http://localhost:8787/api/sessions/<id>/export
+curl -X POST -H 'Content-Type: application/x-ndjson' --data-binary @session.jsonl \
+  http://localhost:8787/api/sessions/import
 ```
 
 排障：

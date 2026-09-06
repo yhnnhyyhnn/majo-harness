@@ -114,7 +114,9 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --port 8899 --profile web-
 MAJO_API_TARGET=http://127.0.0.1:8899 npx vite --port 5173    # http://localhost:5173
 ```
 
-Open http://localhost:8787: a session sidebar (rename ✎ / delete ✕ per row), user/tool/assistant bubbles, a composer, and collapsible sidebar sections (Skills / Settings / Subagents) that fill registration-only slots. The header carries two model pickers — the global model and a per-session override — and assistant messages accept 👍/👎 feedback (persisted) plus ⧉ copy on user/tool/assistant text. Slash commands work in the composer (`/help`, `/clear`, `/new`, `/model`, `/session-model`). The app is a React/Vite TypeScript app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Its wire types are generated from the Java contract: edit `WebApiModels`/`SessionEventType`, run `bash scripts/gen-web-types.sh`, then rebuild. UI builds happen through Maven (`mvn -pl web-ui generate-resources`, needs npm). Tool results ship structured `data` on the wire (exit codes, web hits, child session ids…) so result cards render without re-parsing text — `delegate_task` cards even link straight to their child transcript.
+Open http://localhost:8787: a session sidebar (rename ✎ / delete ✕ per row), user/tool/assistant bubbles, a composer, and collapsible sidebar sections (Skills / Settings / Subagents) that fill registration-only slots. The header carries two model pickers — the global model and a per-session override — and assistant messages accept 👍/👎 feedback (persisted) plus ⧉ copy on user/tool/assistant text. Slash commands work in the composer (`/help`, `/clear`, `/new`, `/model`, `/session-model`) with **live completions** (↑↓/Tab/Enter, grouped by category); messages show timestamps.
+
+Session management goes beyond list/open: **full-text search** over titles and message content (debounced, hit highlighting, ↑↓/Enter/Esc, jumps to the matched message and flashes it), an **Active/Archived view** with per-session archive/restore, **manage mode** for multi-select batch delete/archive, and **JSONL export/import** — a session downloads as replayable NDJSON and can be imported back into a fresh session. The app is a React/Vite TypeScript app under `web-ui/`, whose compiled assets are committed into `majo-web/src/main/resources/static` and served by the Java backend. Its wire types are generated from the Java contract: edit `WebApiModels`/`SessionEventType`, run `bash scripts/gen-web-types.sh`, then rebuild. UI builds happen through Maven (`mvn -pl web-ui generate-resources`, needs npm). Tool results ship structured `data` on the wire (exit codes, web hits, child session ids…) so result cards render without re-parsing text — `delegate_task` cards even link straight to their child transcript.
 
 The shipped `web.yml` points at the kilo free tier over the OpenAI-compatible gateway - **no API key required** (free tier can occasionally return upstream 502s; retry). `web.yml` also mounts the real no-key Wikipedia search backend (`web-search-wiki`) and two sample skills from the repo `skills/` directory (`summarize`, `check-style`); `web-mock.yml` keeps the same panels working fully offline with the deterministic mock. Sessions, renames, model choices (global + per-session) and message ratings persist across restarts under `~/.majo-harness/web/` (JSONL session files + `settings.json`); point the JVM at another `user.home` to isolate a demo. 
 
@@ -133,7 +135,13 @@ curl "http://localhost:8787/api/sessions/<id>/events?since=0"
 curl -X PUT -H 'Content-Type: application/json' -d '{"model":"mock"}' http://localhost:8787/api/sessions/<id>/model
 curl -X DELETE http://localhost:8787/api/sessions/<id>/model
 curl -X PUT -H 'Content-Type: application/json' -d '{"value":"up"}' http://localhost:8787/api/messages/<id>/<seq>/feedback
-curl http://localhost:8787/api/sessions/<id>/feedback
+curl "http://localhost:8787/api/sessions?view=archived"
+curl -X PUT -H 'Content-Type: application/json' -d '{}' http://localhost:8787/api/sessions/<id>/archive
+curl -X DELETE http://localhost:8787/api/sessions/<id>/archive
+curl "http://localhost:8787/api/search?q=calculated"
+curl -o session.jsonl http://localhost:8787/api/sessions/<id>/export
+curl -X POST -H 'Content-Type: application/x-ndjson' --data-binary @session.jsonl \
+  http://localhost:8787/api/sessions/import
 ```
 
 Troubleshooting:
