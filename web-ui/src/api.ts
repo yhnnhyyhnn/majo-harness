@@ -7,6 +7,7 @@ import type {
   ModelState,
   Ok,
   PluginsIndex,
+  SearchIndex,
   SessionDetail,
   SessionsIndex,
   SkillDetail,
@@ -134,6 +135,10 @@ export const api = {
 
   info(): Promise<Info> {
     return rpc("/api/info");
+  },
+
+  search(query: string): Promise<SearchIndex> {
+    return rpc("/api/search?q=" + encodeURIComponent(query));
   },
 };
 

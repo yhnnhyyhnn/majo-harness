@@ -166,6 +166,9 @@ public final class WebMain {
                 json(exchange, 200, skillDetail(name));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/subagents".equals(path)) {
                 json(exchange, 200, subagentsIndex());
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/search".equals(path)) {
+                String queryText = query(exchange).getOrDefault("q", "").trim();
+                json(exchange, 200, searchIndex(queryText));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/plugins".equals(path)) {
                 json(exchange, 200, pluginsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/info".equals(path)) {
@@ -735,6 +738,44 @@ public final class WebMain {
     }
 
     // ----- static & plumbing -----
+
+    /** Full-text search across durable session events (title + message text). */
+    private WebApiModels.SearchIndex searchIndex(String queryText) {
+        if (queryText.isEmpty()) {
+            return new WebApiModels.SearchIndex(List.of());
+        }
+        SessionService sessions = boot.service(SessionService.NAME);
+        String needle = queryText.toLowerCase();
+        List<WebApiModels.SearchHit> hits = new ArrayList<>();
+        for (String sessionId : sessions.sessionIds()) {
+            if (hits.size() >= 25) {
+                break;
+            }
+            String title = titleFor(sessionId);
+            if (title.toLowerCase().contains(needle)) {
+                hits.add(new WebApiModels.SearchHit(sessionId, title, "title match"));
+                continue;
+            }
+            String snippet = null;
+            for (SessionEvent event : sessions.events(sessionId)) {
+                String content = event.content();
+                if (content != null && content.toLowerCase().contains(needle)) {
+                    snippet = content.replaceAll("\\s+", " ").trim();
+                    int at = snippet.toLowerCase().indexOf(needle);
+                    if (snippet.length() > 160) {
+                        int start = Math.max(0, at - 60);
+                        snippet = (start > 0 ? "…" : "") + snippet.substring(start)
+                                .substring(0, Math.min(160, snippet.length() - start)) + "…";
+                    }
+                    break;
+                }
+            }
+            if (snippet != null) {
+                hits.add(new WebApiModels.SearchHit(sessionId, title, snippet));
+            }
+        }
+        return new WebApiModels.SearchIndex(hits);
+    }
 
     /** Plugins that ship a static frontend ({@code static-web/<name>/}). */
     private WebApiModels.PluginsIndex pluginsIndex() {

@@ -86,6 +86,16 @@ export interface QuestionFrame {
   text: string;
 }
 
+export interface SearchHit {
+  id: string;
+  title: string;
+  snippet: string;
+}
+
+export interface SearchIndex {
+  hits: SearchHit[];
+}
+
 export interface SessionDetail {
   id: string;
   title?: string;

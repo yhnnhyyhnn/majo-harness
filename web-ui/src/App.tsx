@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { api } from "./api";
 import { SlotRoot, useSlots, type CommandSeat, type RailProps } from "./slots";
 import { FEATURES } from "./features";
-import type { EventFrame, EventKind } from "./types";
+import type { EventFrame, EventKind, SearchHit } from "./types";
 import { useChat } from "./useChat";
 
 // li wrapper styles are a shell concern; inner content comes from slots.
@@ -72,6 +73,8 @@ function AppShell() {
   const { state, actions } = useChat();
   const { rails, sidebarSections, commands } = useSlots();
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<SearchHit[] | null>(null);
 
   useEffect(() => {
     void actions.loadInitial();
@@ -80,6 +83,22 @@ function AppShell() {
 
   // idle catch-up: while a session is open and not busy, poll events newer
   // than our cursor (covers other tabs / child runs finishing off-stream)
+  // session search: debounced full-text query against durable events
+  useEffect(() => {
+    const needle = query.trim();
+    if (needle.length < 2) {
+      setHits(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void api
+        .search(needle)
+        .then((index) => setHits(index.hits || []))
+        .catch(() => setHits([]));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
   useEffect(() => {
     if (!state.sessionId || state.busy) return;
     const timer = window.setInterval(() => void actions.syncEvents(), 12000);
@@ -213,6 +232,34 @@ function AppShell() {
         <button id="new-chat" type="button" onClick={actions.newChat}>
           + New chat
         </button>
+        <div id="session-search">
+          <input
+            type="search"
+            placeholder="Search sessions…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query.trim().length >= 2 && (
+            <div id="search-hits">
+              {hits === null && <div className="meta">searching…</div>}
+              {hits && hits.length === 0 && <div className="meta">no matches</div>}
+              {hits?.map((hit) => (
+                <button
+                  type="button"
+                  key={hit.id}
+                  onClick={() => {
+                    void actions.selectSession(hit.id);
+                    setQuery("");
+                    setHits(null);
+                  }}
+                >
+                  <span className="title">{hit.title || "Untitled"}</span>
+                  <span className="meta snippet">{hit.snippet}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <nav id="session-list">
           {state.sessions.length === 0 && <div className="meta">no sessions yet</div>}
           {state.sessions.map((s) => (

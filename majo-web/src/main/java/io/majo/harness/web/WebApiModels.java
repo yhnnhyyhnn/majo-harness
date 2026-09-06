@@ -45,6 +45,11 @@ public final class WebApiModels {
 
     public record PluginsIndex(List<PluginInfo> plugins) {}
 
+    /** One full-text hit across sessions. */
+    public record SearchHit(String id, String title, String snippet) {}
+
+    public record SearchIndex(List<SearchHit> hits) {}
+
     public record CreateSession(String id) {}
 
     /** One skill listed in the Skills panel. */
