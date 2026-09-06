@@ -42,13 +42,19 @@ public final class SubagentService extends Service {
 
     /**
      * Per-agent configuration for a scoped child run (M-C1): optional model,
-     * system prompt, a max-steps cap and an auto-approve policy. {@code null}
+     * system prompt, a max-steps cap, an auto-approve policy and an
+     * allowed-tool whitelist ({@code null} = inherit all tools). {@code null}
      * fields inherit harness defaults.
      */
-    public record AgentSpec(String model, String systemPrompt, Integer maxSteps, Boolean autoApprove) {
+    public record AgentSpec(String model, String systemPrompt, Integer maxSteps,
+            Boolean autoApprove, java.util.List<String> allowedTools) {
+
+        public AgentSpec(String model, String systemPrompt, Integer maxSteps, Boolean autoApprove) {
+            this(model, systemPrompt, maxSteps, autoApprove, null);
+        }
 
         public AgentSpec(String model, String systemPrompt, Integer maxSteps) {
-            this(model, systemPrompt, maxSteps, null);
+            this(model, systemPrompt, maxSteps, null, null);
         }
     }
 
@@ -65,6 +71,24 @@ public final class SubagentService extends Service {
             throw new IllegalArgumentException("subagent: maxDepth must be >= 0, got " + max);
         }
         this.maxDepth = max;
+        // allowlist backstop: scoped agents may only run the tools their spec
+        // grants; root turns (no label) or unconstrained scopes pass through
+        ctx.on(io.majo.harness.tools.ToolEvents.PRE_EXECUTE, (thisArg, args) -> {
+            String agent = io.majo.harness.interaction.InteractionContext.agent();
+            java.util.List<String> allowed = io.majo.harness.interaction.InteractionContext.allowedTools();
+            @SuppressWarnings("unchecked")
+            java.util.function.Supplier<Object> next =
+                    (java.util.function.Supplier<Object>) args[args.length - 1];
+            if (agent == null || allowed == null) {
+                return next.get();
+            }
+            io.majo.harness.tools.ToolCall call = (io.majo.harness.tools.ToolCall) args[0];
+            if (!allowed.contains(call.name())) {
+                return io.majo.harness.tools.ToolResult.error("tool \"" + call.name()
+                        + "\" is not allowed for agent " + agent);
+            }
+            return next.get();
+        });
     }
 
     private static <T> T require(Context ctx, String name) {
@@ -120,6 +144,7 @@ public final class SubagentService extends Service {
                 String agent = "subagent-" + childSessionId.substring(0, Math.min(8, childSessionId.length()));
                 boolean auto = spec.autoApprove() != null && spec.autoApprove();
                 String answer = io.majo.harness.interaction.InteractionContext.run(agent, auto,
+                        spec.allowedTools(),
                         () -> scoped ? runScoped(childSessionId, task, spec)
                                 : loop.runTurn(childSessionId, task, null, spec.model(), spec.systemPrompt()));
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis()));

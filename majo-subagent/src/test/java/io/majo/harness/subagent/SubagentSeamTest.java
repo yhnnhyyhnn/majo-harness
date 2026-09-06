@@ -204,6 +204,36 @@ class SubagentSeamTest {
     }
 
     @Test
+    void agentSpecAllowedToolsBlockDisallowedToolRounds() throws Exception {
+        Context ctx = stack(3);
+        LLMService llm = ctx.get(LLMService.NAME);
+        String delegateArgs = MAPPER.writeValueAsString(Map.of("task", "ping"));
+        llm.registerModel("once", request -> {
+            boolean hasToolResult = request.messages().stream()
+                    .anyMatch(message -> message.role() == io.majo.harness.llm.ChatRole.TOOL);
+            return hasToolResult
+                    ? ChatResponse.text("after")
+                    : ChatResponse.toolCalls(List.of(
+                            io.majo.harness.tools.ToolCall.of("delegate_task", delegateArgs)));
+        });
+        SubagentService subagent = ctx.get(SubagentService.NAME);
+
+        // whitelist excludes delegate_task: the child's only tool round is blocked
+        SubagentService.DelegationOutcome outcome = subagent.delegateSpec(
+                "try", new SubagentService.AgentSpec("once", null, null, null, List.of("some-other-tool")));
+        assertThat(outcome.answer()).isEqualTo("after");
+        SessionService sessions = ctx.get(SessionService.NAME);
+        String blocked = sessions.events(outcome.childSessionId()).stream()
+                .filter(event -> event.type() == SessionEventType.TOOL_RESULT)
+                .map(event -> event.content())
+                .filter(content -> content != null && content.contains("not allowed"))
+                .findFirst()
+                .orElse(null);
+        assertThat(blocked).contains("is not allowed for agent subagent-");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void recentRunsLogSuccessAndBlocked() {
         Context ctx = stack(3);
         SubagentService subagent = ctx.get(SubagentService.NAME);
