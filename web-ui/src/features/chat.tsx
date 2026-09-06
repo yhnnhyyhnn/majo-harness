@@ -135,7 +135,7 @@ export async function copyText(text: string): Promise<void> {
   }
 }
 
-function UserRenderer({ event }: { event: { content?: string | null } }) {
+function UserRenderer({ event }: { event: { content?: string | null; ts?: number } }) {
   const content = event.content ?? "";
   return (
     <div className="bubble">
@@ -147,9 +147,13 @@ function UserRenderer({ event }: { event: { content?: string | null } }) {
           </button>
         </span>
       )}
+      {typeof event.ts === "number" && <time>{clock(event.ts)}</time>}
     </div>
   );
 }
+
+const clock = (ts: number): string =>
+  new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 function FeedbackButtons({
   seq,
@@ -188,7 +192,7 @@ function AssistantRenderer({
   rate,
   onRate,
 }: {
-  event: { content?: string | null; toolCalls?: ToolCallFrame[]; seq?: number };
+  event: { content?: string | null; toolCalls?: ToolCallFrame[]; seq?: number; ts?: number };
   rate?: "up" | "down" | null;
   onRate?: (seq: number, value: "up" | "down" | null) => void;
 }) {
@@ -207,6 +211,7 @@ function AssistantRenderer({
             </button>
           )}
           <FeedbackButtons seq={event.seq ?? 0} rate={rate} onRate={onRate} />
+          {typeof event.ts === "number" && <time>{clock(event.ts)}</time>}
         </span>
       )}
     </div>

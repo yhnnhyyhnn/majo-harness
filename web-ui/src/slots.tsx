@@ -43,6 +43,8 @@ export interface Command {
   names: string[];
   usage: string;
   description: string;
+  /** Optional heading for the completion panel (e.g. "session", "composer"). */
+  group?: string;
   run(seat: CommandSeat, args: string[]): string | void | Promise<string | void>;
 }
 

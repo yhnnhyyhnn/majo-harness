@@ -267,7 +267,11 @@ function AppShell() {
         candidate.names.map((name) => ({ command: candidate, name }))
       )
       .filter(({ name }) => !seen.has(name) && seen.add(name))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => {
+        const ga = a.command.group || "";
+        const gb = b.command.group || "";
+        return ga === gb ? a.name.localeCompare(b.name) : ga.localeCompare(gb);
+      });
     return typed ? all.filter(({ name }) => name.startsWith(typed)) : all;
   })();
 
@@ -461,19 +465,28 @@ function AppShell() {
             />
             {commandHints.length > 0 && (
               <div id="command-hints">
-                {commandHints.map(({ command, name }, index) => (
-                  <button
-                    type="button"
-                    key={name}
-                    className={index === cmdSelected ? "active" : undefined}
-                    onMouseEnter={() => setCmdSelected(index)}
-                    onClick={() => completeCommand(name)}
-                  >
-                    <code>/{name}</code>
-                    {command.usage && <span className="hint-usage">{command.usage}</span>}
-                    <span className="meta hint-desc">{command.description}</span>
-                  </button>
-                ))}
+                {commandHints.map(({ command, name }, index) => {
+                  const previous = commandHints[index - 1];
+                  const showGroup =
+                    !previous || (previous.command.group || "") !== (command.group || "");
+                  return (
+                    <span key={name}>
+                      {showGroup && (
+                        <div className="hint-group">{command.group || "commands"}</div>
+                      )}
+                      <button
+                        type="button"
+                        className={index === cmdSelected ? "active" : undefined}
+                        onMouseEnter={() => setCmdSelected(index)}
+                        onClick={() => completeCommand(name)}
+                      >
+                        <code>/{name}</code>
+                        {command.usage && <span className="hint-usage">{command.usage}</span>}
+                        <span className="meta hint-desc">{command.description}</span>
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             )}
             <form id="composer" onSubmit={send}>

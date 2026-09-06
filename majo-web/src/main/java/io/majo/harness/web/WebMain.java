@@ -701,7 +701,8 @@ public final class WebMain {
                 toolNames,
                 event.type() == SessionEventType.TOOL_RESULT
                         && fields.get(SessionEvent.FIELD_DATA) instanceof Map<?, ?> data
-                                ? (Map<String, Object>) (Map<?, ?>) data : null);
+                                ? (Map<String, Object>) (Map<?, ?>) data : null,
+                event.timestamp());
     }
 
     /** Events after a durable cursor (lightweight catch-up for big sessions). */

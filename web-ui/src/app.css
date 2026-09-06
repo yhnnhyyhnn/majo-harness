@@ -805,3 +805,29 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   0%, 55% { background: rgba(86, 134, 254, 0.16); box-shadow: 0 0 0 1px rgba(86, 134, 254, 0.35); }
   100% { background: transparent; }
 }
+
+/* message timestamps */
+.bubble time, .icon-actions time {
+  font-size: 10.5px;
+  color: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+.bubble time { display: block; margin-top: 2px; }
+.icon-actions time { margin-inline-start: 4px; }
+
+/* command hint group headings */
+.hint-group {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-caption);
+  padding: 4px 8px 2px;
+  border-top: 1px solid var(--border-hair);
+  margin-top: 2px;
+}
+.hint-group:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
+#command-hints button.active,
+#command-hints button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

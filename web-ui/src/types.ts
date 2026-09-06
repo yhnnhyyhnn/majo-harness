@@ -33,6 +33,7 @@ export interface EventFrame {
   model?: string;
   toolNames?: string[];
   data?: Record<string, unknown>;
+  ts?: number;
 }
 
 export interface EventsDelta {

@@ -13,6 +13,7 @@ const commands: Command[] = [
     names: ["help", "?"],
     usage: "",
     description: "list available commands",
+    group: "general",
     run(seat: CommandSeat) {
       const sorted = [...seat.commands].sort((a, b) => a.names[0].localeCompare(b.names[0]));
       return "commands:\n" + sorted.map(usageLine).join("\n");
@@ -22,6 +23,7 @@ const commands: Command[] = [
     names: ["clear"],
     usage: "",
     description: "clear the composer",
+    group: "composer",
     run(seat: CommandSeat) {
       seat.run((actions) => actions.setInput(""));
       return "composer cleared";
@@ -31,6 +33,7 @@ const commands: Command[] = [
     names: ["new"],
     usage: "",
     description: "start a new conversation",
+    group: "session",
     run(seat: CommandSeat) {
       void seat.run((actions) => actions.newChat());
       return "new conversation";
@@ -40,6 +43,7 @@ const commands: Command[] = [
     names: ["model"],
     usage: "<name>",
     description: "switch the global model",
+    group: "model",
     async run(seat: CommandSeat, args: string[]) {
       if (!args[0]) {
         const available = seat.state.models.join(", ") || "—";
@@ -53,6 +57,7 @@ const commands: Command[] = [
     names: ["session-model"],
     usage: "<name> | default",
     description: "override the model for this session",
+    group: "model",
     async run(seat: CommandSeat, args: string[]) {
       const override = args[0] && args[0].toLowerCase() !== "default" ? args[0] : null;
       await seat.run((actions) => actions.changeSessionModel(override));

@@ -22,7 +22,8 @@ public final class WebApiModels {
             @OptionalWire List<ToolCallFrame> toolCalls, @OptionalWire String toolName,
             @OptionalWire Boolean ok, @OptionalWire String model,
             @OptionalWire List<String> toolNames,
-            @OptionalWire Map<String, Object> data) {}
+            @OptionalWire Map<String, Object> data,
+            @OptionalWire Long ts) {}
 
     public record SessionInfo(String id, @OptionalWire String title, int eventCount) {}
 
