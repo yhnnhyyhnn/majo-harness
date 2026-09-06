@@ -38,6 +38,7 @@ source of truth).
   (`GET /api/subagents`); per-session model override, `sinceSeq` incremental
   events (`GET …/events?since=`), durable web state under
   `~/.majo-harness/web/`.
+- Scoped child agents (M-C1 seed): `AgentSpec` + `SubagentService.delegateSpec` runs a child turn on an isolated context subtree (fresh loop instance via a lightweight plugin, registration rolled back by the plugin fiber) with per-spec model/system prompt/max-steps; parallel `delegate_task` fan-out (`parallelDelegates`, on in web/web-mock profiles). 设计文档见 `docs/agent-context(.zh-CN).md`。
 
 ### Web UI (dsh-style dark theme)
 - Design tokens ported from deepseek-harness `ui-theme`; full session

@@ -26,6 +26,7 @@ public final class SubagentService extends Service {
 
     private final AgentLoopService loop;
     private final SessionService sessions;
+    private final Context root;
     private final int maxDepth;
     private final AtomicInteger depth = new AtomicInteger();
 
@@ -39,8 +40,16 @@ public final class SubagentService extends Service {
     /** A finished delegation: the child session (for transcripts/UI links) + text. */
     public record DelegationOutcome(String childSessionId, String answer) {}
 
+    /**
+     * Per-agent configuration for a scoped child run (M-C1): optional model,
+     * system prompt and a max-steps cap. {@code null} fields inherit harness
+     * defaults.
+     */
+    public record AgentSpec(String model, String systemPrompt, Integer maxSteps) {}
+
     public SubagentService(Context ctx, Object config) {
         super(ctx, NAME);
+        this.root = ctx;
         this.loop = require(ctx, AgentLoopService.NAME);
         this.sessions = require(ctx, SessionService.NAME);
         int max = DEFAULT_MAX_DEPTH;
@@ -76,12 +85,23 @@ public final class SubagentService extends Service {
     }
 
     /**
-     * Delegates with an isolated per-agent context: an explicit model name
-     * and/or system prompt for the child turns ({@code null} falls back to the
-     * harness defaults). Child {@code REQUEST_HEADER} events record what was
-     * actually used.
+     * Delegates with explicit per-turn model/system prompt on the root loop
+     * (fast path). Child {@code REQUEST_HEADER} events record what was used.
      */
     public DelegationOutcome delegateConfigured(String task, String model, String systemPrompt) {
+        return guarded(task, new AgentSpec(model, systemPrompt, null), false);
+    }
+
+    /**
+     * Runs the child turn inside a scoped jcordis context subtree (M-C1): a
+     * fresh {@code agentLoop} instance is mounted on an isolated child context
+     * with the spec's config, then disposed when the turn ends.
+     */
+    public DelegationOutcome delegateSpec(String task, AgentSpec spec) {
+        return guarded(task, spec == null ? new AgentSpec(null, null, null) : spec, true);
+    }
+
+    private DelegationOutcome guarded(String task, AgentSpec spec, boolean scoped) {
         int entered = depth.incrementAndGet();
         try {
             if (entered > maxDepth) {
@@ -92,7 +112,9 @@ public final class SubagentService extends Service {
             }
             String childSessionId = sessions.createSession();
             try {
-                String answer = loop.runTurn(childSessionId, task, null, model, systemPrompt);
+                String answer = scoped
+                        ? runScoped(childSessionId, task, spec)
+                        : loop.runTurn(childSessionId, task, null, spec.model(), spec.systemPrompt());
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis()));
                 return new DelegationOutcome(childSessionId, answer);
             } catch (RuntimeException failure) {
@@ -102,6 +124,53 @@ public final class SubagentService extends Service {
             }
         } finally {
             depth.decrementAndGet();
+        }
+    }
+
+    /** Mounts a scoped agent loop on an isolated child context and runs the turn. */
+    private String runScoped(String childSessionId, String task, AgentSpec spec) {
+        java.util.Map<String, Object> config = new java.util.HashMap<>();
+        config.put("parallelDelegates", false);
+        if (spec.systemPrompt() != null) {
+            config.put("systemPrompt", spec.systemPrompt());
+        }
+        if (spec.maxSteps() != null) {
+            config.put("maxSteps", spec.maxSteps());
+        }
+        // a fresh agentLoop instance mounts on an isolated child context via a
+        // lightweight plugin (no projection re-registration); the plugin's own
+        // fiber rolls the registration back when the delegation ends
+        Context scope = root.extend().isolate(AgentLoopService.NAME);
+        io.jcordis.core.util.Disposable rollback = null;
+        try {
+            io.jcordis.core.fiber.Fiber fiber = scope.plugin(new ScopedAgentLoopPlugin(), config);
+            fiber.await().join();
+            rollback = () -> fiber.disposeAsync().join();
+            AgentLoopService scoped = require(scope, AgentLoopService.NAME);
+            return scoped.runTurn(childSessionId, task, null, spec.model(), null);
+        } finally {
+            if (rollback != null) {
+                rollback.dispose();
+            }
+        }
+    }
+
+    /** Mounts {@link AgentLoopService} only — no projection contribution. */
+    private static final class ScopedAgentLoopPlugin implements io.jcordis.core.registry.Plugin {
+        @Override
+        public Object apply(Context ctx, Object config) {
+            new AgentLoopService(ctx, config);
+            return null;
+        }
+
+        @Override
+        public java.util.Map<String, Object> inject() {
+            return java.util.Map.of();
+        }
+
+        @Override
+        public String name() {
+            return "agent-loop";
         }
     }
 

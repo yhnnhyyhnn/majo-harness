@@ -163,6 +163,47 @@ class SubagentSeamTest {
     }
 
     @Test
+    void delegateSpecRunsChildInScopedContext() throws Exception {
+        Context ctx = stack(3);
+        LLMService llm = ctx.get(LLMService.NAME);
+        llm.registerModel("alt", request -> ChatResponse.text("alt-result"));
+        SubagentService subagent = ctx.get(SubagentService.NAME);
+
+        SubagentService.DelegationOutcome outcome = subagent.delegateSpec(
+                "scoped task", new SubagentService.AgentSpec("alt", "You are the scoped child.", null));
+        assertThat(outcome.answer()).isEqualTo("alt-result");
+
+        SessionService sessions = ctx.get(SessionService.NAME);
+        var header = sessions.events(outcome.childSessionId()).stream()
+                .filter(event -> event.type() == SessionEventType.REQUEST_HEADER)
+                .findFirst()
+                .orElseThrow();
+        assertThat(header.fields().get(SessionEvent.FIELD_MODEL)).isEqualTo("alt");
+        assertThat(header.fields().get(SessionEvent.FIELD_SYSTEM_PROMPT))
+                .isEqualTo("You are the scoped child.");
+        // the shared context survives scope disposal
+        assertThat(sessions.createSession()).isNotBlank();
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void delegateSpecHonoursMaxStepsCap() throws Exception {
+        Context ctx = stack(3);
+        LLMService llm = ctx.get(LLMService.NAME);
+        String runawayArgs = MAPPER.writeValueAsString(Map.of("task", "keep going"));
+        llm.registerModel("never", request -> ChatResponse.toolCalls(List.of(
+                io.majo.harness.tools.ToolCall.of("delegate_task", runawayArgs))));
+        SubagentService subagent = ctx.get(SubagentService.NAME);
+
+        assertThatThrownBy(() -> subagent.delegateSpec(
+                "runaway", new SubagentService.AgentSpec("never", null, 1)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("maxSteps=1");
+        assertThat(subagent.recentRuns().get(0).status()).isEqualTo("failed");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void recentRunsLogSuccessAndBlocked() {
         Context ctx = stack(3);
         SubagentService subagent = ctx.get(SubagentService.NAME);
