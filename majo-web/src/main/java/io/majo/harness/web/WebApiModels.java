@@ -65,7 +65,9 @@ public final class WebApiModels {
 
     /** One subagent delegation as shown in the Subagents panel. */
     public record SubagentRun(String task, String status, @OptionalWire String detail, long atMillis,
-            @OptionalWire String model) {}
+            @OptionalWire String model, @OptionalWire Integer maxSteps,
+            @OptionalWire Boolean autoApprove,
+            @OptionalWire java.util.List<String> allowedTools) {}
 
     public record SubagentsIndex(List<SubagentRun> runs) {}
 

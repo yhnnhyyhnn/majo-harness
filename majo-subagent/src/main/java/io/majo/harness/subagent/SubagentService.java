@@ -36,7 +36,8 @@ public final class SubagentService extends Service {
 
     /** One delegation attempt as shown in the Subagents panel. */
     public record Delegation(String task, String status, String detail, long atMillis,
-            String model) {}
+            String model, Integer maxSteps, Boolean autoApprove,
+            java.util.List<String> allowedTools) {}
 
     /** A finished delegation: the child session (for transcripts/UI links) + text. */
     public record DelegationOutcome(String childSessionId, String answer) {}
@@ -138,7 +139,8 @@ public final class SubagentService extends Service {
                 SubagentException blocked = new SubagentException("subagent: delegation depth " + entered
                         + " exceeds maxDepth " + maxDepth);
                 record(new Delegation(task, "blocked", blocked.getMessage(),
-                        System.currentTimeMillis(), spec.model()));
+                        System.currentTimeMillis(), spec.model(), spec.maxSteps(),
+                        spec.autoApprove(), spec.allowedTools()));
                 throw blocked;
             }
             String childSessionId = sessions.createSession();
@@ -150,11 +152,12 @@ public final class SubagentService extends Service {
                         () -> scoped ? runScoped(childSessionId, task, spec)
                                 : loop.runTurn(childSessionId, task, null, spec.model(), spec.systemPrompt()));
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis(),
-                        spec.model()));
+                        spec.model(), spec.maxSteps(), spec.autoApprove(), spec.allowedTools()));
                 return new DelegationOutcome(childSessionId, answer);
             } catch (RuntimeException failure) {
                 record(new Delegation(task, "failed", String.valueOf(failure.getMessage()),
-                        System.currentTimeMillis(), spec.model()));
+                        System.currentTimeMillis(), spec.model(), spec.maxSteps(),
+                        spec.autoApprove(), spec.allowedTools()));
                 throw failure;
             }
         } finally {

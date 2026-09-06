@@ -157,6 +157,9 @@ export interface SubagentRun {
   detail?: string;
   atMillis: number;
   model?: string;
+  maxSteps?: number;
+  autoApprove?: boolean;
+  allowedTools?: string[];
 }
 
 export interface SubagentsIndex {

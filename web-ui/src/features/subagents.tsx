@@ -37,7 +37,14 @@ function SubagentsPanel() {
                 <span title={run.task}>{run.task}</span>
               </div>
               {run.detail && <div className="meta">{run.detail}</div>}
-              {run.model && <div className="meta">model: {run.model}</div>}
+              {(run.model || run.maxSteps !== undefined || run.autoApprove !== undefined || run.allowedTools) && (
+                <div className="meta spec">
+                  {run.model && <span>model {run.model}</span>}
+                  {run.maxSteps !== undefined && <span>maxSteps {run.maxSteps}</span>}
+                  {run.autoApprove && <span>auto-approve</span>}
+                  {run.allowedTools && <span>tools [{run.allowedTools.join(", ")}]</span>}
+                </div>
+              )}
               <div className="meta">{new Date(run.atMillis).toLocaleTimeString()}</div>
             </div>
           ))}

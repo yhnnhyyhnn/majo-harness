@@ -544,7 +544,8 @@ public final class WebMain {
         }
         return new WebApiModels.SubagentsIndex(subagent.recentRuns().stream()
                 .map(run -> new WebApiModels.SubagentRun(
-                        run.task(), run.status(), run.detail(), run.atMillis(), run.model()))
+                        run.task(), run.status(), run.detail(), run.atMillis(),
+                        run.model(), run.maxSteps(), run.autoApprove(), run.allowedTools()))
                 .toList());
     }
 
