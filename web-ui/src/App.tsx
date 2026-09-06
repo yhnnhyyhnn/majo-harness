@@ -169,6 +169,20 @@ function AppShell() {
     }
   };
 
+  // slash-command completions: typing a leading "/" floats matching commands
+  const commandHints = (() => {
+    if (state.busy || !state.input.trim().startsWith("/")) return [];
+    const typed = state.input.trim().slice(1).toLowerCase();
+    const seen = new Set<string>();
+    const all = commands
+      .flatMap((candidate) =>
+        candidate.names.map((name) => ({ command: candidate, name }))
+      )
+      .filter(({ name }) => !seen.has(name) && seen.add(name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return typed ? all.filter(({ name }) => name.startsWith(typed)) : all;
+  })();
+
   const railProps: RailProps = {
     approvals: state.approvals,
     question: state.question,
@@ -323,6 +337,24 @@ function AppShell() {
               feedback={state.feedback}
               onRate={(seq, value) => void actions.rate(seq, value)}
             />
+            {commandHints.length > 0 && (
+              <div id="command-hints">
+                {commandHints.map(({ command, name }) => (
+                  <button
+                    type="button"
+                    key={name}
+                    onClick={() => {
+                      actions.setInput("/" + name + " ");
+                      document.getElementById("input")?.focus();
+                    }}
+                  >
+                    <code>/{name}</code>
+                    {command.usage && <span className="hint-usage">{command.usage}</span>}
+                    <span className="meta hint-desc">{command.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <form id="composer" onSubmit={send}>
           <textarea
             id="input"
