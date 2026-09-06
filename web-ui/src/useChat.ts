@@ -35,6 +35,7 @@ export interface ChatActions {
   newChat(): void;
   renameSession(id: string, title: string): Promise<void>;
   deleteSession(id: string): Promise<void>;
+  deleteSessions(ids: string[]): Promise<void>;
   runTask(task: string): Promise<void>;
   changeSessionModel(model: string | null): Promise<void>;
   rate(seq: number, value: "up" | "down" | null): Promise<void>;
@@ -266,28 +267,38 @@ export function createChat(store: Store<ChatState>): ChatActions {
       void loadSessions().catch(() => {});
     },
     async deleteSession(id) {
-      if (store.get().busy) return;
-      const wasActive = store.get().sessionId === id;
-      try {
-        await api.deleteSession(id);
-      } catch (error) {
-        console.error("delete failed", error);
-        return;
+      await this.deleteSessions([id]);
+    },
+    async deleteSessions(ids) {
+      const active = store.get().sessionId;
+      const removingActive = !!active && ids.includes(active);
+      for (const id of ids) {
+        try {
+          await api.deleteSession(id);
+        } catch (error) {
+          console.error("delete failed for " + id, error);
+        }
       }
       closeStream();
       const list = await loadSessions();
       const fallback = list.length > 0 ? list[list.length - 1] : null;
-      if (wasActive && fallback) {
+      if (removingActive && fallback) {
         const detail = await api.session(fallback.id);
         store.set({
           sessionId: fallback.id,
           title: detail.title || "New chat",
+          sessionModel: detail.sessionModel ?? null,
           events: detail.events,
-          live: null,
+          cursor: detail.events.reduce(
+            (max, event) =>
+              typeof event.seq === "number" && event.seq > 0 ? Math.max(max, event.seq) : max,
+            0
+          ),
+          feedback: await feedbackOf(fallback.id),
           approvals: [],
           question: null,
         });
-      } else if (wasActive) {
+      } else if (removingActive) {
         store.set({ sessionId: null, events: [], title: "New chat", cursor: 0 });
       }
     },

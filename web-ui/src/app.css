@@ -831,3 +831,19 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+/* session manage mode */
+#session-tools { display: flex; flex-direction: column; gap: 4px; }
+#session-tools .side-refresh { align-self: stretch; text-align: left; }
+#session-tools .danger { color: var(--danger); border-color: rgba(242,90,90,.35); }
+#session-tools .danger:disabled { opacity: .4; cursor: default; }
+#session-manage { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#session-manage .side-refresh { flex: 1; text-align: center; }
+.session-row .pick {
+  width: 15px;
+  height: 15px;
+  margin-left: 8px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: none;
+}

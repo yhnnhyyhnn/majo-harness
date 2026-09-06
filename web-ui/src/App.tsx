@@ -102,6 +102,8 @@ function AppShell() {
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [selected, setSelected] = useState(0);
   const [cmdSelected, setCmdSelected] = useState(0);
+  const [managing, setManaging] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void actions.loadInitial();
@@ -339,6 +341,59 @@ function AppShell() {
             </div>
           )}
         </div>
+        <div id="session-tools">
+          {!managing && state.sessions.length > 0 && (
+            <button type="button" className="side-refresh" onClick={() => setManaging(true)}>
+              Manage sessions
+            </button>
+          )}
+          {managing && (
+            <div id="session-manage">
+              <button
+                type="button"
+                className="side-refresh"
+                onClick={() =>
+                  setPicked(
+                    picked.size === state.sessions.length
+                      ? new Set()
+                      : new Set(state.sessions.map((session) => session.id))
+                  )
+                }
+              >
+                {picked.size === state.sessions.length ? "Clear" : "Select all"}
+              </button>
+              <button
+                type="button"
+                className="side-refresh danger"
+                disabled={picked.size === 0}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Delete " + picked.size + " session" + (picked.size === 1 ? "" : "s") + "?"
+                    )
+                  ) {
+                    void actions.deleteSessions([...picked]).then(() => {
+                      setPicked(new Set());
+                      setManaging(false);
+                    });
+                  }
+                }}
+              >
+                Delete ({picked.size})
+              </button>
+              <button
+                type="button"
+                className="side-refresh"
+                onClick={() => {
+                  setPicked(new Set());
+                  setManaging(false);
+                }}
+              >
+                Done
+              </button>
+            </div>
+          )}
+        </div>
         <nav id="session-list">
           {state.sessions.length === 0 && <div className="meta">no sessions yet</div>}
           {state.sessions.map((s) => (
@@ -346,6 +401,21 @@ function AppShell() {
               key={s.id}
               className={"session-row" + (s.id === state.sessionId ? " active" : "")}
             >
+              {managing && (
+                <input
+                  type="checkbox"
+                  className="pick"
+                  checked={picked.has(s.id)}
+                  onChange={() =>
+                    setPicked((previous) => {
+                      const next = new Set(previous);
+                      if (next.has(s.id)) next.delete(s.id);
+                      else next.add(s.id);
+                      return next;
+                    })
+                  }
+                />
+              )}
               <button
                 type="button"
                 className="session"
@@ -354,33 +424,35 @@ function AppShell() {
                 <span className="title">{s.title || "Untitled " + s.id.slice(0, 8)}</span>
                 <span className="meta">{s.eventCount} events</span>
               </button>
-              <span className="session-ops">
-                <button
-                  type="button"
-                  title="rename"
-                  disabled={state.busy}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    const name = window.prompt("Session title", s.title || "");
-                    if (name !== null) void actions.renameSession(s.id, name);
-                  }}
-                >
-                  ✎
-                </button>
-                <button
-                  type="button"
-                  title="delete"
-                  disabled={state.busy}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (window.confirm("Delete this session and its log?")) {
-                      void actions.deleteSession(s.id);
-                    }
-                  }}
-                >
-                  ✕
-                </button>
-              </span>
+              {!managing && (
+                <span className="session-ops">
+                  <button
+                    type="button"
+                    title="rename"
+                    disabled={state.busy}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const name = window.prompt("Session title", s.title || "");
+                      if (name !== null) void actions.renameSession(s.id, name);
+                    }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    title="delete"
+                    disabled={state.busy}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (window.confirm("Delete this session and its log?")) {
+                        void actions.deleteSession(s.id);
+                      }
+                    }}
+                  >
+                    ✕
+                  </button>
+                </span>
+              )}
             </div>
           ))}
         </nav>
