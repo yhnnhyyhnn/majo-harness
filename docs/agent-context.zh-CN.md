@@ -1,8 +1,12 @@
 # 每代理上下文树（里程碑设计）
 
-状态：**设计**。已交付的前置件：每轮 model/systemPrompt 覆盖、`delegate_task`
-并行执行（`parallelDelegates`）。本文设计下一里程碑：让每个子代理拥有基于
-jcordis 上下文树的**隔离、可释放的代理作用域（agent scope）**。
+状态：**M-C1…C3 已实现**（经隔离上下文子树的 scoped 子代理、按代理的交互路由 + 自动审批、
+工具白名单、`delegate_task` 暴露完整 agent spec），并已对**真实模型（kilo 免费层）端到端验证**：
+一条 fan-out 提示让模型在同一工具轮发起两个 `delegate_task`，子代理并行运行，SSE 上每个子代
+审批带 `subagent-<child8>` 标签，最终正确回汇结果。
+
+更早的前置件是每轮 model/systemPrompt 覆盖与 `delegate_task` 并行执行（`parallelDelegates`）。
+本文记录 M-C1…C3 实现的形态并界定剩余范围。
 
 ## 现状
 

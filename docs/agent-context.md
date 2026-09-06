@@ -1,9 +1,15 @@
 # Per-agent context tree (milestone design)
 
-Status: **design** — the seed pieces already shipped are per-turn model /
-system-prompt overrides and parallel `delegate_task` execution
-(`parallelDelegates`). This doc designs the next milestone: giving each child
-agent an isolated, disposable **agent scope** built on jcordis context trees.
+Status: **M-C1…C3 shipped** (scoped child runs via isolated context subtrees,
+per-agent interaction routing + auto-approve, allowed-tools whitelist, full
+agent spec exposed on `delegate_task`), verified end-to-end against a real
+model (kilo free tier): a fan-out prompt produced two `delegate_task` calls in
+one tool round, ran children in parallel, surfaced per-child approvals tagged
+`subagent-<child8>` over SSE, and assembled correct results.
+
+The seed pieces that shipped earlier are per-turn model / system-prompt
+overrides and parallel `delegate_task` execution (`parallelDelegates`). This
+doc records the design that M-C1…C3 implement and scopes what remains.
 
 ## Background / where we are
 
@@ -106,16 +112,16 @@ the approval feature — wire types regenerate.
 
 ## Milestone slices
 
-- **M-C1 — scoped loop via context subtree.** `AgentSpec` +
+- **M-C1 ✅ — scoped loop via context subtree.** `AgentSpec` +
   `SubagentService.delegateSpec(task, spec)` builds an `extend()`-based scope
   with intercepted `agentLoop`/`llm` config and runs the child turn there.
   Existing tool/registry behavior unchanged; keep the 5-arg `runTurn` path as
   the root-context fast path. Verify: seam test that two delegations with
   different specs run with distinct model/system prompt headers (already
   covered per-turn) plus spec-driven `maxSteps`/`allowedTools` honored.
-- **M-C2 — interaction routing by agent.** `agentId` through
+- **M-C2 ✅ — interaction routing by agent.** `agentId` through
   approvals/questions; SSE + rail updates; spec `approvals` policy.
-- **M-C3 — allowlist & policy views.** A scoped tool registry wrapping the
+- **M-C3 ✅ — allowlist & policy views.** A scoped tool registry wrapping the
   root one (spec `allowedTools`), enforced at `tools.execute`; option to
   reject unknown tools in child rounds with structured errors.
 - **M-C4 (optional later) — true plugin islands per child** if a child ever
