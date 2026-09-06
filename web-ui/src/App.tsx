@@ -428,6 +428,22 @@ function AppShell() {
                 <span className="session-ops">
                   <button
                     type="button"
+                    title="export JSONL"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const anchor = document.createElement("a");
+                      anchor.href =
+                        "/api/sessions/" + encodeURIComponent(s.id) + "/export";
+                      anchor.download = "";
+                      document.body.appendChild(anchor);
+                      anchor.click();
+                      anchor.remove();
+                    }}
+                  >
+                    ⬇
+                  </button>
+                  <button
+                    type="button"
                     title="rename"
                     disabled={state.busy}
                     onClick={(event) => {

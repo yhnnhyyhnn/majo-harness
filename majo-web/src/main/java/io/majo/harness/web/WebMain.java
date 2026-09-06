@@ -207,6 +207,12 @@ public final class WebMain {
                 streamTurn(exchange);
             } else if ("GET".equals(exchange.getRequestMethod())
                     && path.startsWith("/api/sessions/")
+                    && path.endsWith("/export")) {
+                String sessionId = path.substring("/api/sessions/".length(),
+                        path.length() - "/export".length());
+                exportSession(exchange, sessionId);
+            } else if ("GET".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")
                     && path.endsWith("/feedback")) {
                 String sessionId = path.substring("/api/sessions/".length(),
                         path.length() - "/feedback".length());
@@ -703,6 +709,30 @@ public final class WebMain {
                         && fields.get(SessionEvent.FIELD_DATA) instanceof Map<?, ?> data
                                 ? (Map<String, Object>) (Map<?, ?>) data : null,
                 event.timestamp());
+    }
+
+    /** Downloads a session as replayable JSONL (raw durable events). */
+    private void exportSession(HttpExchange exchange, String sessionId) throws IOException {
+        SessionService sessions = boot.service(SessionService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            json(exchange, 404, Map.of("error", "unknown session \"" + sessionId + "\""));
+            return;
+        }
+        StringBuilder out = new StringBuilder();
+        for (SessionEvent event : sessions.events(sessionId)) {
+            try {
+                out.append(JSON.writeValueAsString(event)).append(System.lineSeparator());
+            } catch (IOException e) {
+                throw new IllegalStateException("cannot serialize session event", e);
+            }
+        }
+        byte[] payload = out.toString().getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/x-ndjson; charset=utf-8");
+        exchange.getResponseHeaders().set("Content-Disposition",
+                "attachment; filename=\"session-" + sessionId + ".jsonl\"");
+        exchange.getResponseHeaders().set("Connection", "close");
+        exchange.sendResponseHeaders(200, payload.length);
+        exchange.getResponseBody().write(payload);
     }
 
     /** Events after a durable cursor (lightweight catch-up for big sessions). */
