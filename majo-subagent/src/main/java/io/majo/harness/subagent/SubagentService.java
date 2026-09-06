@@ -35,7 +35,8 @@ public final class SubagentService extends Service {
     private final ArrayDeque<Delegation> recent = new ArrayDeque<>();
 
     /** One delegation attempt as shown in the Subagents panel. */
-    public record Delegation(String task, String status, String detail, long atMillis) {}
+    public record Delegation(String task, String status, String detail, long atMillis,
+            String model) {}
 
     /** A finished delegation: the child session (for transcripts/UI links) + text. */
     public record DelegationOutcome(String childSessionId, String answer) {}
@@ -136,7 +137,8 @@ public final class SubagentService extends Service {
             if (entered > maxDepth) {
                 SubagentException blocked = new SubagentException("subagent: delegation depth " + entered
                         + " exceeds maxDepth " + maxDepth);
-                record(new Delegation(task, "blocked", blocked.getMessage(), System.currentTimeMillis()));
+                record(new Delegation(task, "blocked", blocked.getMessage(),
+                        System.currentTimeMillis(), spec.model()));
                 throw blocked;
             }
             String childSessionId = sessions.createSession();
@@ -147,11 +149,12 @@ public final class SubagentService extends Service {
                         spec.allowedTools(),
                         () -> scoped ? runScoped(childSessionId, task, spec)
                                 : loop.runTurn(childSessionId, task, null, spec.model(), spec.systemPrompt()));
-                record(new Delegation(task, "done", preview(answer), System.currentTimeMillis()));
+                record(new Delegation(task, "done", preview(answer), System.currentTimeMillis(),
+                        spec.model()));
                 return new DelegationOutcome(childSessionId, answer);
             } catch (RuntimeException failure) {
                 record(new Delegation(task, "failed", String.valueOf(failure.getMessage()),
-                        System.currentTimeMillis()));
+                        System.currentTimeMillis(), spec.model()));
                 throw failure;
             }
         } finally {

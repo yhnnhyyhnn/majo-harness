@@ -37,6 +37,7 @@ function SubagentsPanel() {
                 <span title={run.task}>{run.task}</span>
               </div>
               {run.detail && <div className="meta">{run.detail}</div>}
+              {run.model && <div className="meta">model: {run.model}</div>}
               <div className="meta">{new Date(run.atMillis).toLocaleTimeString()}</div>
             </div>
           ))}

@@ -151,6 +151,7 @@ export interface SubagentRun {
   status: string;
   detail?: string;
   atMillis: number;
+  model?: string;
 }
 
 export interface SubagentsIndex {
