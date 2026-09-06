@@ -366,7 +366,7 @@ function AppShell() {
                       {hit.archived && <span className="arch-tag">archived</span>}
                     </span>
                     <span className="meta snippet">
-                      <Marked text={hit.snippet} query={query} />
+                      <Marked text={hit.snippet ?? ""} query={query} />
                     </span>
                   </button>
                   {hit.archived && (

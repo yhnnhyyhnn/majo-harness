@@ -99,6 +99,20 @@ public final class AgentLoopService extends Service {
      */
     public String runTurn(String sessionId, String userText,
             java.util.function.Consumer<String> textSink, String modelOverride) {
+        return runTurn(sessionId, userText, textSink, modelOverride, null);
+    }
+
+    /**
+     * Full per-agent configuration for one turn: explicit model name and a
+     * system prompt override ({@code null} values fall back to the service
+     * defaults). Child delegations ride through these arguments.
+     */
+    public String runTurn(String sessionId, String userText,
+            java.util.function.Consumer<String> textSink, String modelOverride,
+            String systemPromptOverride) {
+        String prompt = systemPromptOverride == null || systemPromptOverride.isBlank()
+                ? systemPrompt
+                : systemPromptOverride;
         sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
         sessions.append(sessionId, SessionEventType.USER_MESSAGE,
                 Map.of(SessionEvent.FIELD_CONTENT, userText));
@@ -107,14 +121,14 @@ public final class AgentLoopService extends Service {
                 throw new IllegalStateException("agent-loop: turn on session \"" + sessionId
                         + "\" exceeded maxSteps=" + maxSteps + " without a final answer");
             }
-            ChatRequest request = new ChatRequest(buildMessages(sessionId),
+            ChatRequest request = new ChatRequest(buildMessages(sessionId, prompt),
                     tools.specs(), modelOverride);
             // log the request composition before it reaches the model so the
             // header (model, system prompt, offered tool names) is durable
             // even when the completion itself fails
             sessions.append(sessionId, SessionEventType.REQUEST_HEADER, Map.of(
                     SessionEvent.FIELD_MODEL, llm.modelNameOf(request),
-                    SessionEvent.FIELD_SYSTEM_PROMPT, systemPrompt,
+                    SessionEvent.FIELD_SYSTEM_PROMPT, prompt,
                     SessionEvent.FIELD_TOOL_NAMES,
                     request.tools().stream().map(ToolSpec::name).toList()));
             ChatResponse response = textSink == null
@@ -141,10 +155,10 @@ public final class AgentLoopService extends Service {
         return lastFinalText(sessions.events(sessionId));
     }
 
-    private List<ChatMessage> buildMessages(String sessionId) {
+    private List<ChatMessage> buildMessages(String sessionId, String prompt) {
         List<ChatMessage> history = MessageDeriver.derive(sessions.events(sessionId));
         List<ChatMessage> messages = new ArrayList<>(history.size() + 1);
-        messages.add(ChatMessage.system(systemPrompt));
+        messages.add(ChatMessage.system(prompt));
         messages.addAll(history);
         return List.copyOf(messages);
     }

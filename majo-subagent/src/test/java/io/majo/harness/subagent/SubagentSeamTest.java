@@ -18,11 +18,14 @@ import io.majo.harness.session.SessionProjectionsPlugin;
 import io.majo.harness.session.SessionService;
 import io.majo.harness.tools.ToolRegistry;
 import io.majo.harness.tools.ToolsPlugin;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class SubagentSeamTest {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final ChatModel FINAL_MODEL = request ->
             ChatResponse.text("child-result");
@@ -65,6 +68,35 @@ class SubagentSeamTest {
                 SessionEventType.TURN_END);
         // the structured payload names the child so the UI can link to it
         assertThat(result.data()).containsEntry("childSessionId", child);
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void delegationHonoursPerAgentModelAndSystemPrompt() throws Exception {
+        Context ctx = stack(3);
+        LLMService llm = ctx.get(LLMService.NAME);
+        llm.registerModel("alt", request -> ChatResponse.text("alt-result"));
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+
+        io.majo.harness.tools.ToolResult result = tools.execute(
+                io.majo.harness.tools.ToolCall.of("delegate_task", MAPPER.writeValueAsString(
+                        java.util.Map.of(
+                                "task", "draft as alt",
+                                "model", "alt",
+                                "systemPrompt", "You are the alt child agent."))));
+        assertThat(result.ok()).isTrue();
+        assertThat(result.content()).isEqualTo("alt-result");
+        assertThat(result.data()).containsEntry("model", "alt");
+
+        SessionService sessions = ctx.get(SessionService.NAME);
+        String child = sessions.sessionIds().get(0);
+        var header = sessions.events(child).stream()
+                .filter(event -> event.type() == SessionEventType.REQUEST_HEADER)
+                .findFirst()
+                .orElseThrow();
+        assertThat(header.fields().get(SessionEvent.FIELD_MODEL)).isEqualTo("alt");
+        assertThat(header.fields().get(SessionEvent.FIELD_SYSTEM_PROMPT))
+                .isEqualTo("You are the alt child agent.");
         ctx.fiber().disposeAsync().join();
     }
 

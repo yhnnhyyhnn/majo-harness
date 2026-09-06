@@ -32,6 +32,12 @@ public final class DelegateTaskTool implements Tool {
     private static JsonNode schema() {
         ObjectNode properties = MAPPER.createObjectNode();
         properties.putObject("task").put("type", "string");
+        properties.putObject("model")
+                .put("type", "string")
+                .put("description", "registered model for the child agent (defaults to the harness model)");
+        properties.putObject("systemPrompt")
+                .put("type", "string")
+                .put("description", "system prompt override for the child agent");
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");
         schema.set("properties", properties);
@@ -51,9 +57,18 @@ public final class DelegateTaskTool implements Tool {
             if (arguments == null || arguments.get("task") == null) {
                 return ToolResult.error("delegate_task: missing \"task\" argument");
             }
-            SubagentService.DelegationOutcome outcome = subagent.delegateWithChild(
-                    arguments.get("task").asText());
-            return ToolResult.ok(outcome.answer(), java.util.Map.of("childSessionId", outcome.childSessionId()));
+            String model = arguments.hasNonNull("model") ? arguments.get("model").asText() : null;
+            String systemPrompt = arguments.hasNonNull("systemPrompt")
+                    ? arguments.get("systemPrompt").asText()
+                    : null;
+            SubagentService.DelegationOutcome outcome = subagent.delegateConfigured(
+                    arguments.get("task").asText(), model, systemPrompt);
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("childSessionId", outcome.childSessionId());
+            if (model != null) {
+                data.put("model", model);
+            }
+            return ToolResult.ok(outcome.answer(), data);
         } catch (SubagentException e) {
             return ToolResult.error("delegate_task: " + e.getMessage());
         } catch (Exception e) {

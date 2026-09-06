@@ -72,6 +72,16 @@ public final class SubagentService extends Service {
 
     /** Like {@link #delegate}, also returning the child session id. */
     public DelegationOutcome delegateWithChild(String task) {
+        return delegateConfigured(task, null, null);
+    }
+
+    /**
+     * Delegates with an isolated per-agent context: an explicit model name
+     * and/or system prompt for the child turns ({@code null} falls back to the
+     * harness defaults). Child {@code REQUEST_HEADER} events record what was
+     * actually used.
+     */
+    public DelegationOutcome delegateConfigured(String task, String model, String systemPrompt) {
         int entered = depth.incrementAndGet();
         try {
             if (entered > maxDepth) {
@@ -82,7 +92,7 @@ public final class SubagentService extends Service {
             }
             String childSessionId = sessions.createSession();
             try {
-                String answer = loop.runTurn(childSessionId, task);
+                String answer = loop.runTurn(childSessionId, task, null, model, systemPrompt);
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis()));
                 return new DelegationOutcome(childSessionId, answer);
             } catch (RuntimeException failure) {
