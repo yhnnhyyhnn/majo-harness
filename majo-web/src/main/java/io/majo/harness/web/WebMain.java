@@ -164,6 +164,8 @@ public final class WebMain {
             } else if ("GET".equals(exchange.getRequestMethod()) && path.startsWith("/api/skills/")) {
                 String name = path.substring("/api/skills/".length());
                 json(exchange, 200, skillDetail(name));
+            } else if ("POST".equals(exchange.getRequestMethod()) && "/api/subagents/delegate".equals(path)) {
+                json(exchange, 200, delegateViaApi(exchange));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/subagents".equals(path)) {
                 json(exchange, 200, subagentsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/search".equals(path)) {
@@ -485,6 +487,54 @@ public final class WebMain {
         return new WebApiModels.SkillsIndex(skills.skills().stream()
                 .map(skill -> new WebApiModels.SkillInfo(skill.name(), skill.description()))
                 .toList());
+    }
+
+    /** Direct scoped delegation through the REST surface ({@code /delegate}). */
+    private WebApiModels.DelegateResult delegateViaApi(HttpExchange exchange) throws IOException {
+        SubagentService subagent = boot.ctx().get(SubagentService.NAME);
+        if (subagent == null) {
+            throw new IllegalArgumentException("subagent service unavailable — mount the subagent row");
+        }
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        Object taskValue = request.get("task");
+        if (taskValue == null || String.valueOf(taskValue).isBlank()) {
+            throw new IllegalArgumentException("task must not be blank");
+        }
+        String task = String.valueOf(taskValue);
+        String model = stringValue(request.get("model"));
+        String systemPrompt = stringValue(request.get("systemPrompt"));
+        Integer maxSteps = null;
+        if (request.get("maxSteps") instanceof Number number) {
+            maxSteps = number.intValue();
+            if (maxSteps < 1) {
+                throw new IllegalArgumentException("maxSteps must be >= 1");
+            }
+        }
+        Boolean autoApprove = null;
+        // a programmatic call has no human seat: default to auto-approve
+        // unless the caller explicitly opts out
+        if (request.get("autoApprove") instanceof Boolean bool) {
+            autoApprove = bool;
+        } else {
+            autoApprove = true;
+        }
+        java.util.List<String> allowedTools = null;
+        if (request.get("allowedTools") instanceof List<?> raw) {
+            allowedTools = new ArrayList<>();
+            for (Object item : raw) {
+                allowedTools.add(String.valueOf(item));
+            }
+        }
+        boolean scopeOptions = maxSteps != null || autoApprove != null || allowedTools != null;
+        SubagentService.DelegationOutcome outcome = scopeOptions
+                ? subagent.delegateSpec(task, new SubagentService.AgentSpec(
+                        model, systemPrompt, maxSteps, autoApprove, allowedTools))
+                : subagent.delegateConfigured(task, model, systemPrompt);
+        return new WebApiModels.DelegateResult(outcome.childSessionId(), outcome.answer());
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     private WebApiModels.SubagentsIndex subagentsIndex() {

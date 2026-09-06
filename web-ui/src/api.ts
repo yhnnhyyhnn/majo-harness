@@ -1,5 +1,6 @@
 import type {
   CreateSession,
+  DelegateResult,
   EventFrame,
   EventsDelta,
   FeedbackIndex,
@@ -146,6 +147,10 @@ export const api = {
 
   subagents(): Promise<SubagentsIndex> {
     return rpc("/api/subagents");
+  },
+
+  delegate(payload: { task: string; model?: string; systemPrompt?: string; maxSteps?: number; autoApprove?: boolean; allowedTools?: string[] }): Promise<DelegateResult> {
+    return postJson("/api/subagents/delegate", payload);
   },
 
   info(): Promise<Info> {

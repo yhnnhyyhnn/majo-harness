@@ -69,6 +69,9 @@ public final class WebApiModels {
 
     public record SubagentsIndex(List<SubagentRun> runs) {}
 
+    /** Result of a direct scoped delegation (REST /delegate). */
+    public record DelegateResult(String childSessionId, String answer) {}
+
     /** Harness facts for the Settings panel. */
     public record Info(String version, List<String> models, List<String> tools, int skills) {}
 

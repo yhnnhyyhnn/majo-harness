@@ -24,6 +24,11 @@ export interface CreateSession {
   id: string;
 }
 
+export interface DelegateResult {
+  childSessionId: string;
+  answer: string;
+}
+
 export interface EventFrame {
   seq: number;
   kind: EventKind;

@@ -1,4 +1,5 @@
 import type { Command, CommandSeat, Feature } from "../slots";
+import { api } from "../api";
 
 // Slash commands (dsh ui-commands equivalent): pure definitions registered
 // against the commands slot. The shell injects live state/actions at run
@@ -62,6 +63,19 @@ const commands: Command[] = [
       const override = args[0] && args[0].toLowerCase() !== "default" ? args[0] : null;
       await seat.run((actions) => actions.changeSessionModel(override));
       return override ? "session model → " + override : "session model → default";
+    },
+  },
+  {
+    names: ["delegate"],
+    usage: "<task>",
+    description: "run a scoped child delegation directly",
+    group: "agents",
+    async run(_seat: CommandSeat, args: string[]) {
+      const task = args.join(" ").trim();
+      if (!task) return "usage: /delegate <task>";
+      const result = await api.delegate({ task });
+      const preview = (result.answer || "").replace(/\s+/g, " ").trim().slice(0, 160);
+      return "child " + result.childSessionId.slice(0, 8) + " → " + (preview || "(no answer)");
     },
   },
 ];
