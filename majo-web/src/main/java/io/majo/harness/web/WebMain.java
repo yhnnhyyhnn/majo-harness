@@ -753,13 +753,15 @@ public final class WebMain {
             }
             String title = titleFor(sessionId);
             if (title.toLowerCase().contains(needle)) {
-                hits.add(new WebApiModels.SearchHit(sessionId, title, "title match"));
+                hits.add(new WebApiModels.SearchHit(sessionId, title, "title match", null));
                 continue;
             }
             String snippet = null;
+            Long seq = null;
             for (SessionEvent event : sessions.events(sessionId)) {
                 String content = event.content();
                 if (content != null && content.toLowerCase().contains(needle)) {
+                    seq = event.seq();
                     snippet = content.replaceAll("\\s+", " ").trim();
                     int at = snippet.toLowerCase().indexOf(needle);
                     if (snippet.length() > 160) {
@@ -771,7 +773,7 @@ public final class WebMain {
                 }
             }
             if (snippet != null) {
-                hits.add(new WebApiModels.SearchHit(sessionId, title, snippet));
+                hits.add(new WebApiModels.SearchHit(sessionId, title, snippet, seq));
             }
         }
         return new WebApiModels.SearchIndex(hits);

@@ -46,7 +46,8 @@ public final class WebApiModels {
     public record PluginsIndex(List<PluginInfo> plugins) {}
 
     /** One full-text hit across sessions. */
-    public record SearchHit(String id, String title, String snippet) {}
+    public record SearchHit(String id, String title,
+            @OptionalWire String snippet, @OptionalWire Long seq) {}
 
     public record SearchIndex(List<SearchHit> hits) {}
 

@@ -89,7 +89,8 @@ export interface QuestionFrame {
 export interface SearchHit {
   id: string;
   title: string;
-  snippet: string;
+  snippet?: string;
+  seq?: number;
 }
 
 export interface SearchIndex {

@@ -31,7 +31,7 @@ export interface ChatState {
 
 export interface ChatActions {
   changeModel(model: string): Promise<void>;
-  selectSession(id: string): Promise<void>;
+  selectSession(id: string, focusSeq?: number): Promise<void>;
   newChat(): void;
   renameSession(id: string, title: string): Promise<void>;
   deleteSession(id: string): Promise<void>;
@@ -201,7 +201,7 @@ export function createChat(store: Store<ChatState>): ChatActions {
         console.error("session model change failed", error);
       }
     },
-    async selectSession(id) {
+    async selectSession(id, focusSeq) {
       closeStream();
       const detail = await api.session(id);
       const cursor = detail.events.reduce(
@@ -219,6 +219,13 @@ export function createChat(store: Store<ChatState>): ChatActions {
         question: null,
       });
       void loadSessions();
+      if (typeof focusSeq === "number") {
+        // scroll the transcript to the matched durable event once painted
+        window.setTimeout(() => {
+          const row = document.querySelector(`[data-seq="${focusSeq}"]`);
+          row?.scrollIntoView({ block: "center", behavior: "smooth" });
+        }, 80);
+      }
     },
     newChat() {
       closeStream();

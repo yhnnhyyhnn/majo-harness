@@ -59,7 +59,11 @@ function Conversation({
     if (!render) continue;
     const style = kindStyle[event.kind];
     rows.push(
-      <li className={style ?? "group"} key={event.kind + event.seq}>
+      <li
+        className={style ?? "group"}
+        key={event.kind + event.seq}
+        data-seq={typeof event.seq === "number" ? event.seq : undefined}
+      >
         {render({
           event,
           openSession: onOpenSession,
@@ -97,6 +101,7 @@ function AppShell() {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [selected, setSelected] = useState(0);
+  const [cmdSelected, setCmdSelected] = useState(0);
 
   useEffect(() => {
     void actions.loadInitial();
@@ -125,9 +130,22 @@ function AppShell() {
   }, [query]);
 
   const openSearchHit = (hit: SearchHit) => {
-    void actions.selectSession(hit.id);
+    void actions.selectSession(hit.id, typeof hit.seq === "number" ? hit.seq : undefined);
     setQuery("");
     setHits(null);
+  };
+
+  const completeCommand = (name: string) => {
+    actions.setInput("/" + name + " ");
+    const input = document.getElementById("input");
+    input?.focus();
+  };
+
+  const exactCommand = (raw: string): boolean => {
+    const typed = raw.trim().slice(1).toLowerCase();
+    return commands.some((candidate) =>
+      candidate.names.some((name) => name.toLowerCase() === typed)
+    );
   };
 
   const onSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -443,14 +461,13 @@ function AppShell() {
             />
             {commandHints.length > 0 && (
               <div id="command-hints">
-                {commandHints.map(({ command, name }) => (
+                {commandHints.map(({ command, name }, index) => (
                   <button
                     type="button"
                     key={name}
-                    onClick={() => {
-                      actions.setInput("/" + name + " ");
-                      document.getElementById("input")?.focus();
-                    }}
+                    className={index === cmdSelected ? "active" : undefined}
+                    onMouseEnter={() => setCmdSelected(index)}
+                    onClick={() => completeCommand(name)}
                   >
                     <code>/{name}</code>
                     {command.usage && <span className="hint-usage">{command.usage}</span>}
@@ -464,9 +481,39 @@ function AppShell() {
             id="input"
             rows={1}
             value={state.input}
-            placeholder="Type a task… (Enter to send, Shift+Enter for a new line)"
-            onChange={(e) => actions.setInput(e.target.value)}
+            placeholder="Type a task or /command… (Enter sends, Tab completes)"
+            onChange={(e) => {
+              actions.setInput(e.target.value);
+              setCmdSelected(0);
+            }}
             onKeyDown={(e) => {
+              const raw = state.input.trim();
+              if (raw.startsWith("/")) {
+                const hints = commandHints;
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  if (hints.length) setCmdSelected((cmdSelected + 1) % hints.length);
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  if (hints.length)
+                    setCmdSelected((cmdSelected - 1 + hints.length) % hints.length);
+                  return;
+                }
+                if (e.key === "Tab") {
+                  e.preventDefault();
+                  const pick = hints[Math.min(cmdSelected, hints.length - 1)];
+                  if (pick) completeCommand(pick.name);
+                  return;
+                }
+                if (e.key === "Enter" && !e.shiftKey && hints.length && !exactCommand(raw)) {
+                  e.preventDefault();
+                  const pick = hints[cmdSelected % hints.length];
+                  if (pick) completeCommand(pick.name);
+                  return;
+                }
+              }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 if (state.input.trim().startsWith("/")) {
