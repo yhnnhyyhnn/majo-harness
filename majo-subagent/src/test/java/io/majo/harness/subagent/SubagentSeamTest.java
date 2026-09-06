@@ -45,6 +45,30 @@ class SubagentSeamTest {
         return ctx;
     }
 
+    /** Stack with parallelDelegates enabled and a custom parent model. */
+    private static Context stackConfigured(int maxDepth, boolean parallel, ChatModel parent) {
+        Context ctx = Context.create();
+        ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        ctx.plugin(new SessionProjectionsPlugin(), null).await().join();
+        ctx.plugin(new ToolsPlugin(), null).await().join();
+        ctx.plugin(new LLMServicePlugin(), Map.of("defaultModel", "parent")).await().join();
+        LLMService llm = ctx.get(LLMService.NAME);
+        llm.registerModel("parent", parent);
+        llm.registerModel("slow", request -> {
+            try {
+                Thread.sleep(450);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return ChatResponse.text("slow-result");
+        });
+        ctx.plugin(new AgentLoopPlugin(), java.util.Map.of(
+                "maxDepth", maxDepth, "parallelDelegates", parallel)).await().join();
+        ctx.plugin(new SubagentPlugin(), Map.of("maxDepth", maxDepth)).await().join();
+        ctx.plugin(new SubagentToolPlugin(), null).await().join();
+        return ctx;
+    }
+
     @Test
     void delegationRunsAChildSessionAndReturnsItsFinalText() {
         Context ctx = stack(3);
@@ -97,6 +121,44 @@ class SubagentSeamTest {
         assertThat(header.fields().get(SessionEvent.FIELD_MODEL)).isEqualTo("alt");
         assertThat(header.fields().get(SessionEvent.FIELD_SYSTEM_PROMPT))
                 .isEqualTo("You are the alt child agent.");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void parallelDelegatesRunChildrenConcurrently() throws Exception {
+        // parent fans out two slow children on a "fanout" prompt
+        String callA = MAPPER.writeValueAsString(Map.of("task", "child A", "model", "slow"));
+        String callB = MAPPER.writeValueAsString(Map.of("task", "child B", "model", "slow"));
+        ChatModel parent = request -> {
+            boolean hasToolResult = request.messages().stream()
+                    .anyMatch(message -> message.role() == io.majo.harness.llm.ChatRole.TOOL);
+            String lastUser = null;
+            for (io.majo.harness.llm.ChatMessage message : request.messages()) {
+                if (message.role() == io.majo.harness.llm.ChatRole.USER) {
+                    lastUser = message.content();
+                }
+            }
+            if (lastUser != null && lastUser.startsWith("fanout") && !hasToolResult) {
+                return ChatResponse.toolCalls(List.of(
+                        io.majo.harness.tools.ToolCall.of("delegate_task", callA),
+                        io.majo.harness.tools.ToolCall.of("delegate_task", callB)));
+            }
+            return ChatResponse.text("parent-done");
+        };
+        Context ctx = stackConfigured(3, true, parent);
+        io.majo.harness.agent.loop.AgentLoopService loop =
+                ctx.get(io.majo.harness.agent.loop.AgentLoopService.NAME);
+        SessionService sessions = ctx.get(SessionService.NAME);
+        String parentSession = sessions.createSession();
+
+        long started = System.nanoTime();
+        String answer = loop.runTurn(parentSession, "fanout");
+        long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+
+        // two 450ms children finished in parallel, not ~900ms serial
+        assertThat(elapsedMs).isLessThan(700);
+        assertThat(answer).isEqualTo("parent-done");
+        assertThat(sessions.sessionIds()).hasSize(3);
         ctx.fiber().disposeAsync().join();
     }
 

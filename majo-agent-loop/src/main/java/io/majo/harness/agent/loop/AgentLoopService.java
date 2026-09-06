@@ -44,6 +44,8 @@ public final class AgentLoopService extends Service {
     private final LLMService llm;
     private final String systemPrompt;
     private final int maxSteps;
+    private final boolean parallelDelegates;
+    private final java.util.concurrent.ExecutorService delegates = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
 
     public AgentLoopService(Context ctx, Object config) {
         super(ctx, NAME);
@@ -55,9 +57,14 @@ public final class AgentLoopService extends Service {
             this.systemPrompt = prompt == null ? DEFAULT_SYSTEM_PROMPT : String.valueOf(prompt);
             Object steps = map.get("maxSteps");
             this.maxSteps = steps == null ? DEFAULT_MAX_STEPS : Integer.parseInt(String.valueOf(steps));
+            Object parallel = map.get("parallelDelegates");
+            this.parallelDelegates = parallel == null ? false
+                    : parallel instanceof Boolean bool ? bool
+                            : Boolean.parseBoolean(String.valueOf(parallel));
         } else {
             this.systemPrompt = DEFAULT_SYSTEM_PROMPT;
             this.maxSteps = DEFAULT_MAX_STEPS;
+            this.parallelDelegates = false;
         }
         if (maxSteps < 1) {
             throw new IllegalArgumentException("agent-loop: maxSteps must be >= 1, got " + maxSteps);
@@ -138,21 +145,60 @@ public final class AgentLoopService extends Service {
             if (!response.isToolRound()) {
                 break;
             }
-            for (ToolCall call : response.toolCalls()) {
-                ToolResult result = tools.execute(call);
-                java.util.Map<String, Object> fields = new java.util.HashMap<>();
-                fields.put(SessionEvent.FIELD_TOOL_CALL_ID, call.id());
-                fields.put(SessionEvent.FIELD_TOOL_NAME, call.name());
-                fields.put(SessionEvent.FIELD_OK, result.ok());
-                fields.put(SessionEvent.FIELD_CONTENT, result.visibleText());
-                if (result.data() != null) {
-                    fields.put(SessionEvent.FIELD_DATA, result.data());
-                }
-                sessions.append(sessionId, SessionEventType.TOOL_RESULT, fields);
-            }
+            executeTools(sessionId, response.toolCalls());
         }
         sessions.append(sessionId, SessionEventType.TURN_END, Map.of());
         return lastFinalText(sessions.events(sessionId));
+    }
+
+    /** Executes one tool round: delegate_task calls run concurrently when
+     * {@code parallelDelegates} is enabled; results append in call order. */
+    private void executeTools(String sessionId, java.util.List<ToolCall> calls) {
+        java.util.List<ToolResult> results;
+        if (parallelDelegates
+                && calls.stream().anyMatch(call -> call.name().equals("delegate_task"))) {
+            java.util.List<java.util.concurrent.CompletableFuture<ToolResult>> futures =
+                    calls.stream()
+                            .map(call -> call.name().equals("delegate_task")
+                                    ? java.util.concurrent.CompletableFuture.supplyAsync(
+                                            () -> tools.execute(call), delegates)
+                                    : java.util.concurrent.CompletableFuture.completedFuture(
+                                            tools.execute(call)))
+                            .toList();
+            results = futures.stream()
+                    .map(future -> {
+                        try {
+                            return future.join();
+                        } catch (java.util.concurrent.CompletionException e) {
+                            Throwable cause = e.getCause();
+                            if (cause instanceof RuntimeException runtime) {
+                                throw runtime;
+                            }
+                            throw e;
+                        }
+                    })
+                    .toList();
+        } else {
+            results = new java.util.ArrayList<>();
+            for (ToolCall call : calls) {
+                results.add(tools.execute(call));
+            }
+        }
+        for (int index = 0; index < calls.size(); index++) {
+            appendToolResult(sessionId, calls.get(index), results.get(index));
+        }
+    }
+
+    private void appendToolResult(String sessionId, ToolCall call, ToolResult result) {
+        java.util.Map<String, Object> fields = new java.util.HashMap<>();
+        fields.put(SessionEvent.FIELD_TOOL_CALL_ID, call.id());
+        fields.put(SessionEvent.FIELD_TOOL_NAME, call.name());
+        fields.put(SessionEvent.FIELD_OK, result.ok());
+        fields.put(SessionEvent.FIELD_CONTENT, result.visibleText());
+        if (result.data() != null) {
+            fields.put(SessionEvent.FIELD_DATA, result.data());
+        }
+        sessions.append(sessionId, SessionEventType.TOOL_RESULT, fields);
     }
 
     private List<ChatMessage> buildMessages(String sessionId, String prompt) {
