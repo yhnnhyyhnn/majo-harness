@@ -220,10 +220,16 @@ export function createChat(store: Store<ChatState>): ChatActions {
       });
       void loadSessions();
       if (typeof focusSeq === "number") {
-        // scroll the transcript to the matched durable event once painted
+        // scroll the transcript to the matched durable event once painted,
+        // then flash the row so the user sees where the hit landed
         window.setTimeout(() => {
           const row = document.querySelector(`[data-seq="${focusSeq}"]`);
-          row?.scrollIntoView({ block: "center", behavior: "smooth" });
+          if (!row) return;
+          row.scrollIntoView({ block: "center", behavior: "smooth" });
+          window.setTimeout(() => {
+            row.classList.add("flash-row");
+            window.setTimeout(() => row.classList.remove("flash-row"), 1900);
+          }, 320);
         }, 80);
       }
     },

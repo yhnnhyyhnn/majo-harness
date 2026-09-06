@@ -795,3 +795,13 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   border-radius: 3px;
   padding: 0 1px;
 }
+
+/* located-message flash after a search jump */
+#conversation li.flash-row {
+  border-radius: var(--radius-m);
+  animation: majo-flash-row 1.9s ease;
+}
+@keyframes majo-flash-row {
+  0%, 55% { background: rgba(86, 134, 254, 0.16); box-shadow: 0 0 0 1px rgba(86, 134, 254, 0.35); }
+  100% { background: transparent; }
+}

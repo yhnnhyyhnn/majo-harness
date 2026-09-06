@@ -490,6 +490,11 @@ function AppShell() {
               const raw = state.input.trim();
               if (raw.startsWith("/")) {
                 const hints = commandHints;
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  actions.setInput("");
+                  return;
+                }
                 if (e.key === "ArrowDown") {
                   e.preventDefault();
                   if (hints.length) setCmdSelected((cmdSelected + 1) % hints.length);
