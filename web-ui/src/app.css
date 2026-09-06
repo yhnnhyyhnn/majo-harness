@@ -847,3 +847,8 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   cursor: pointer;
   flex: none;
 }
+
+/* active/archived view toggle */
+#view-toggle { display: flex; gap: 6px; }
+#view-toggle .side-refresh { flex: 1; text-align: center; }
+#view-toggle .side-refresh.on { color: var(--text-primary); border-color: var(--accent-dim); background: rgba(86,134,254,.12); }

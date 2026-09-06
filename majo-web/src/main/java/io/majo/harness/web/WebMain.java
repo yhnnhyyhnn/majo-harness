@@ -178,7 +178,7 @@ public final class WebMain {
             } else if ("PUT".equals(exchange.getRequestMethod()) && "/api/settings/model".equals(path)) {
                 json(exchange, 200, setModel(exchange));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
-                json(exchange, 200, sessionsIndex());
+                json(exchange, 200, sessionsIndex(query(exchange)));
             } else if ("POST".equals(exchange.getRequestMethod()) && "/api/sessions/import".equals(path)) {
                 json(exchange, 200, importSession(exchange));
             } else if ("POST".equals(exchange.getRequestMethod()) && "/api/sessions".equals(path)) {
@@ -189,6 +189,18 @@ public final class WebMain {
                 String sessionId = path.substring("/api/sessions/".length(),
                         path.length() - "/title".length());
                 json(exchange, 200, renameSession(exchange, sessionId));
+            } else if ("PUT".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")
+                    && path.endsWith("/archive")) {
+                String sessionId = path.substring("/api/sessions/".length(),
+                        path.length() - "/archive".length());
+                json(exchange, 200, archiveSession(sessionId, true));
+            } else if ("DELETE".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/sessions/")
+                    && path.endsWith("/archive")) {
+                String sessionId = path.substring("/api/sessions/".length(),
+                        path.length() - "/archive".length());
+                json(exchange, 200, archiveSession(sessionId, false));
             } else if ("PUT".equals(exchange.getRequestMethod())
                     && path.startsWith("/api/sessions/")
                     && path.endsWith("/model")) {
@@ -248,18 +260,49 @@ public final class WebMain {
 
     // ----- API -----
 
-    private WebApiModels.SessionsIndex sessionsIndex() {
+    private WebApiModels.SessionsIndex sessionsIndex(Map<String, String> query) {
         SessionService sessions = boot.service(SessionService.NAME);
+        String view = query.getOrDefault("view", "active"); // active | archived | all
         List<WebApiModels.SessionInfo> list = new ArrayList<>();
         for (String sessionId : sessions.sessionIds()) {
+            boolean archived = isArchived(sessionId);
+            if ("active".equals(view) && archived) {
+                continue;
+            }
+            if ("archived".equals(view) && !archived) {
+                continue;
+            }
             list.add(new WebApiModels.SessionInfo(
                     sessionId, titleFor(sessionId), sessions.events(sessionId).size()));
         }
         return new WebApiModels.SessionsIndex(list);
     }
 
+    private boolean isArchived(String sessionId) {
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        return settings != null && "1".equals(settings.get(ARCHIVED_PREFIX + sessionId));
+    }
+
+    private WebApiModels.Ok archiveSession(String sessionId, boolean archived) {
+        SessionService sessions = boot.service(SessionService.NAME);
+        if (!sessions.sessionIds().contains(sessionId)) {
+            throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+        }
+        SettingsService settings = boot.ctx().get(SettingsService.NAME);
+        if (settings == null) {
+            throw new IllegalArgumentException("settings service unavailable — cannot archive");
+        }
+        if (archived) {
+            settings.set(ARCHIVED_PREFIX + sessionId, "1");
+        } else {
+            settings.unset(ARCHIVED_PREFIX + sessionId);
+        }
+        return new WebApiModels.Ok(true);
+    }
+
     private static final String TITLE_PREFIX = "session.title.";
     private static final String SESSION_MODEL_PREFIX = "session.model.";
+    private static final String ARCHIVED_PREFIX = "session.archived.";
     private static final String FEEDBACK_PREFIX = "feedback.";
 
     private WebApiModels.SessionDetail sessionDetail(String sessionId) {
@@ -426,6 +469,7 @@ public final class WebMain {
             if (settings != null) {
                 settings.unset(TITLE_PREFIX + sessionId);
                 settings.unset(SESSION_MODEL_PREFIX + sessionId);
+                settings.unset(ARCHIVED_PREFIX + sessionId);
             }
             return new WebApiModels.Ok(true);
         } finally {

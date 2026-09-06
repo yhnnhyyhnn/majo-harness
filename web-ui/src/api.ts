@@ -53,8 +53,15 @@ function putJson<T>(path: string, payload: unknown): Promise<T> {
 }
 
 export const api = {
-  sessions(): Promise<SessionsIndex> {
-    return rpc("/api/sessions");
+  sessions(view: "active" | "archived" | "all" = "active"): Promise<SessionsIndex> {
+    return rpc("/api/sessions?view=" + view);
+  },
+
+  archiveSession(id: string, archived: boolean): Promise<Ok> {
+    const path = "/api/sessions/" + encodeURIComponent(id) + "/archive";
+    return archived
+      ? putJson(path, { archived: true })
+      : rpc(path, { method: "DELETE" });
   },
 
   createSession(): Promise<CreateSession> {

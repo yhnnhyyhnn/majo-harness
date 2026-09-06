@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "./api";
 import { SlotRoot, useSlots, type CommandSeat, type RailProps } from "./slots";
 import { FEATURES } from "./features";
-import type { EventFrame, EventKind, SearchHit } from "./types";
+import type { EventFrame, EventKind, SearchHit, SessionInfo } from "./types";
 import { useChat } from "./useChat";
 
 // li wrapper styles are a shell concern; inner content comes from slots.
@@ -104,12 +104,24 @@ function AppShell() {
   const [cmdSelected, setCmdSelected] = useState(0);
   const [managing, setManaging] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedList, setArchivedList] = useState<SessionInfo[]>([]);
+  const [archTick, setArchTick] = useState(0);
   const importRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     void actions.loadInitial();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // archived view: fetch the archived list whenever toggled or after actions
+  useEffect(() => {
+    if (!showArchived) return;
+    void api
+      .sessions("archived")
+      .then((index) => setArchivedList([...index.sessions].reverse()))
+      .catch(() => setArchivedList([]));
+  }, [showArchived, archTick]);
 
   // idle catch-up: while a session is open and not busy, poll events newer
   // than our cursor (covers other tabs / child runs finishing off-stream)
@@ -290,6 +302,18 @@ function AppShell() {
     .map((rail) => ({ id: rail.id, node: rail.render(railProps) }))
     .filter((item) => item.node !== null && item.node !== undefined);
 
+  const setArchived = async (id: string, archived: boolean) => {
+    try {
+      await api.archiveSession(id, archived);
+      actions.retry();
+      setArchTick((tick) => tick + 1);
+      flash(archived ? "archived" : "restored");
+    } catch (error) {
+      flash("archive failed: " + String(error));
+    }
+  };
+
+  const sessionsShown = showArchived ? archivedList : state.sessions;
   return (
     <>
       {state.offline && (
@@ -369,7 +393,29 @@ function AppShell() {
                 .catch((error: unknown) => flash("import failed: " + String(error)));
             }}
           />
-          {!managing && state.sessions.length > 0 && (
+          <div id="view-toggle">
+            <button
+              type="button"
+              className={"side-refresh" + (!showArchived ? " on" : "")}
+              onClick={() => {
+                setManaging(false);
+                setShowArchived(false);
+              }}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              className={"side-refresh" + (showArchived ? " on" : "")}
+              onClick={() => {
+                setManaging(false);
+                setShowArchived(true);
+              }}
+            >
+              Archived
+            </button>
+          </div>
+          {!managing && sessionsShown.length > 0 && (
             <button type="button" className="side-refresh" onClick={() => setManaging(true)}>
               Manage sessions
             </button>
@@ -381,9 +427,9 @@ function AppShell() {
                 className="side-refresh"
                 onClick={() =>
                   setPicked(
-                    picked.size === state.sessions.length
+                    picked.size === sessionsShown.length
                       ? new Set()
-                      : new Set(state.sessions.map((session) => session.id))
+                      : new Set(sessionsShown.map((session) => session.id))
                   )
                 }
               >
@@ -422,8 +468,10 @@ function AppShell() {
           )}
         </div>
         <nav id="session-list">
-          {state.sessions.length === 0 && <div className="meta">no sessions yet</div>}
-          {state.sessions.map((s) => (
+          {sessionsShown.length === 0 && (
+            <div className="meta">{showArchived ? "nothing archived" : "no sessions yet"}</div>
+          )}
+          {sessionsShown.map((s) => (
             <div
               key={s.id}
               className={"session-row" + (s.id === state.sessionId ? " active" : "")}
@@ -480,6 +528,17 @@ function AppShell() {
                     }}
                   >
                     ✎
+                  </button>
+                  <button
+                    type="button"
+                    title={showArchived ? "restore" : "archive"}
+                    disabled={state.busy}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void setArchived(s.id, !showArchived);
+                    }}
+                  >
+                    {showArchived ? "↩" : "📁"}
                   </button>
                   <button
                     type="button"
