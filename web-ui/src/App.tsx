@@ -460,6 +460,24 @@ function AppShell() {
               </button>
               <button
                 type="button"
+                className="side-refresh"
+                disabled={picked.size === 0}
+                onClick={async () => {
+                  const ids = [...picked];
+                  for (const id of ids) {
+                    await api.archiveSession(id, true).catch(() => {});
+                  }
+                  flash("archived " + ids.length + " session" + (ids.length === 1 ? "" : "s"));
+                  actions.retry();
+                  setArchTick((tick) => tick + 1);
+                  setPicked(new Set());
+                  setManaging(false);
+                }}
+              >
+                Archive ({picked.size})
+              </button>
+              <button
+                type="button"
                 className="side-refresh danger"
                 disabled={picked.size === 0}
                 onClick={() => {
