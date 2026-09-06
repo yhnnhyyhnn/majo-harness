@@ -16,7 +16,9 @@ source of truth).
   runtime registrar). Example: `examples/web-plugin-demo` +
   `scripts/build-plugin-demo.sh`; guide:
   `docs/plugin-development(.zh-CN).md`. 插件页面可经 postMessage 驱动宿主
-  （flash/newChat/close/sendTask/openSession）。
+  （flash/newChat/close/sendTask/openSession）。原生模块可在 Plugins 面板
+  **mount / reload（cache-bust 热重载 plugin.mjs）/ unload（disposer 回滚槽贡献）**；
+  `.mjs` 按 `text/javascript` 伺服。
 - **Web serving reliability**: JDK `HttpServer` serializes requests per
   keep-alive connection, which could hang Chrome's parallel module fetches —
   `WebMain` sends `Connection: close` on static/JSON responses (SSE stays
