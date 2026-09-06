@@ -13,6 +13,27 @@ const kindStyle: Partial<Record<EventKind, string>> = {
   TOOL_RESULT: "group tool",
 };
 
+const escapeRegex = (text: string): string =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Renders text with case-insensitive matches of {@code query} wrapped in <mark>. */
+function Marked({ text, query }: { text: string; query: string }) {
+  const needle = query.trim();
+  if (!needle) return <>{text}</>;
+  const parts = text.split(new RegExp("(" + escapeRegex(needle) + ")", "ig"));
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLowerCase() === needle.toLowerCase() ? (
+          <mark key={index}>{part}</mark>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 function Conversation({
   events,
   live,
@@ -75,6 +96,7 @@ function AppShell() {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[] | null>(null);
+  const [selected, setSelected] = useState(0);
 
   useEffect(() => {
     void actions.loadInitial();
@@ -93,11 +115,40 @@ function AppShell() {
     const timer = window.setTimeout(() => {
       void api
         .search(needle)
-        .then((index) => setHits(index.hits || []))
+        .then((index) => {
+          setHits(index.hits || []);
+          setSelected(0);
+        })
         .catch(() => setHits([]));
     }, 250);
     return () => window.clearTimeout(timer);
   }, [query]);
+
+  const openSearchHit = (hit: SearchHit) => {
+    void actions.selectSession(hit.id);
+    setQuery("");
+    setHits(null);
+  };
+
+  const onSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    const list = hits ?? [];
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (list.length) setSelected((selected + 1) % list.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (list.length) setSelected((selected - 1 + list.length) % list.length);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const target = list[selected] ?? list[0];
+      if (target) openSearchHit(target);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setQuery("");
+      setHits(null);
+      (event.target as HTMLInputElement).blur();
+    }
+  };
 
   useEffect(() => {
     if (!state.sessionId || state.busy) return;
@@ -237,24 +288,30 @@ function AppShell() {
             type="search"
             placeholder="Search sessions…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelected(0);
+            }}
+            onKeyDown={onSearchKeyDown}
           />
           {query.trim().length >= 2 && (
             <div id="search-hits">
               {hits === null && <div className="meta">searching…</div>}
               {hits && hits.length === 0 && <div className="meta">no matches</div>}
-              {hits?.map((hit) => (
+              {hits?.map((hit, index) => (
                 <button
                   type="button"
                   key={hit.id}
-                  onClick={() => {
-                    void actions.selectSession(hit.id);
-                    setQuery("");
-                    setHits(null);
-                  }}
+                  className={index === selected ? "active" : undefined}
+                  onMouseEnter={() => setSelected(index)}
+                  onClick={() => openSearchHit(hit)}
                 >
-                  <span className="title">{hit.title || "Untitled"}</span>
-                  <span className="meta snippet">{hit.snippet}</span>
+                  <span className="title">
+                    <Marked text={hit.title || "Untitled"} query={query} />
+                  </span>
+                  <span className="meta snippet">
+                    <Marked text={hit.snippet} query={query} />
+                  </span>
                 </button>
               ))}
             </div>
