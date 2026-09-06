@@ -107,6 +107,7 @@ function AppShell() {
   const [showArchived, setShowArchived] = useState(false);
   const [archivedList, setArchivedList] = useState<SessionInfo[]>([]);
   const [archTick, setArchTick] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const importRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -324,7 +325,11 @@ function AppShell() {
           </button>
         </div>
       )}
-      <aside id="sidebar">
+      <aside
+        id="sidebar"
+        className={sidebarOpen ? "open" : undefined}
+        onClickCapture={() => setSidebarOpen(false)}
+      >
         <header className="brand">
           <strong>majo</strong>
           <span>harness</span>
@@ -609,8 +614,17 @@ function AppShell() {
           ))}
         </div>
       </aside>
+      {sidebarOpen && <div id="drawer-backdrop" onClick={() => setSidebarOpen(false)} />}
       <main>
         <header id="chat-header">
+          <button
+            id="sidebar-toggle"
+            type="button"
+            title="sessions"
+            onClick={() => setSidebarOpen(true)}
+          >
+            ☰
+          </button>
           <span id="current-title">{state.title}</span>
           <label className="model-picker">
             model
