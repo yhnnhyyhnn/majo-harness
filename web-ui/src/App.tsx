@@ -357,6 +357,7 @@ function AppShell() {
                 >
                   <span className="title">
                     <Marked text={hit.title || "Untitled"} query={query} />
+                    {hit.archived && <span className="arch-tag">archived</span>}
                   </span>
                   <span className="meta snippet">
                     <Marked text={hit.snippet} query={query} />

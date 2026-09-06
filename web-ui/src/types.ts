@@ -92,6 +92,7 @@ export interface SearchHit {
   title: string;
   snippet?: string;
   seq?: number;
+  archived?: boolean;
 }
 
 export interface SearchIndex {

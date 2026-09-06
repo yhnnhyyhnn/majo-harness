@@ -48,7 +48,8 @@ public final class WebApiModels {
 
     /** One full-text hit across sessions. */
     public record SearchHit(String id, String title,
-            @OptionalWire String snippet, @OptionalWire Long seq) {}
+            @OptionalWire String snippet, @OptionalWire Long seq,
+            @OptionalWire Boolean archived) {}
 
     public record SearchIndex(List<SearchHit> hits) {}
 

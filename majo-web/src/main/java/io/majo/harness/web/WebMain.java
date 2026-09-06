@@ -860,8 +860,9 @@ public final class WebMain {
                 break;
             }
             String title = titleFor(sessionId);
+            Boolean archived = isArchived(sessionId);
             if (title.toLowerCase().contains(needle)) {
-                hits.add(new WebApiModels.SearchHit(sessionId, title, "title match", null));
+                hits.add(new WebApiModels.SearchHit(sessionId, title, "title match", null, archived));
                 continue;
             }
             String snippet = null;
@@ -881,7 +882,7 @@ public final class WebMain {
                 }
             }
             if (snippet != null) {
-                hits.add(new WebApiModels.SearchHit(sessionId, title, snippet, seq));
+                hits.add(new WebApiModels.SearchHit(sessionId, title, snippet, seq, archived));
             }
         }
         return new WebApiModels.SearchIndex(hits);
