@@ -69,6 +69,8 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 
 ## Recommended order
 
+> Completed for 0.1.0 (2026-09): the roadmap items below are historical; the status tables above reflect the shipped state. / 0.1.0 已完成（2026-09），下表为历史路线；上方状态表为准。
+
 1. **Real-model conversation polish** — streaming + incremental append
    (SSE `/api/turn`), markdown-lite renderer, copy message. Backend work:
    a chunked/SSE path in `WebMain`; everything else is front-end only.

@@ -68,6 +68,8 @@
 
 ## 建议顺序
 
+> Completed for 0.1.0 (2026-09): the roadmap items below are historical; the status tables above reflect the shipped state. / 0.1.0 已完成（2026-09），下表为历史路线；上方状态表为准。
+
 1. **真实模型对话打磨** —— 流式 + 增量追加（SSE `/api/turn`）、
    markdown-lite 渲染、消息复制。后端只需在 `WebMain` 加一条分块/SSE 路径，
    其余纯前端。
