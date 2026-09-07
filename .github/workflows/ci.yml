@@ -9,21 +9,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
           cache: maven
 
       - name: Set up Node 24 (web-ui build)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: web-ui/package-lock.json
+
+      # jcordis-all is not published to Maven Central; install the vendored
+      # fat jar (lib/jcordis-all-1.0.0.jar) into the local repo first.
+      - name: Install vendored jcordis-all
+        run: mvn -q -ntp org.apache.maven.plugins:maven-install-plugin:3.1.2:install-file \
+          -Dfile=lib/jcordis-all-1.0.0.jar \
+          -DgroupId=io.jcordis -DartifactId=jcordis-all -Dversion=1.0.0 -Dpackaging=jar
 
       - name: Build and test (mvn clean verify incl. web-ui)
         run: mvn -B -ntp clean verify
