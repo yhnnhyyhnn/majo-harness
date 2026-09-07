@@ -60,6 +60,12 @@ public final class WebMain {
     private final HarnessBoot boot;
     private final HttpServer server;
     private final ReentrantLock turnLock = new ReentrantLock();
+    /** Per-session turn locks: independent sessions may run turns in parallel. */
+    private final java.util.Map<String, Object> sessionLocks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private Object lockFor(String sessionId) {
+        return sessionLocks.computeIfAbsent(sessionId, ignored -> new Object());
+    }
     private final PendingInteractions pending = new PendingInteractions();
     /** Optional shared secret: when set, /api/* requires Bearer or ?token=. */
     volatile String authToken;
@@ -113,6 +119,7 @@ public final class WebMain {
         if (interactions != null) {
             interactions.registerFront("web-ui", pending);
         }
+        registerBuiltinCommands();
 
         try {
             server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -184,6 +191,8 @@ public final class WebMain {
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/search".equals(path)) {
                 String queryText = query(exchange).getOrDefault("q", "").trim();
                 json(exchange, 200, searchIndex(queryText));
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/openapi.json".equals(path)) {
+                openApiSpec(exchange);
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/health".equals(path)) {
                 json(exchange, 200, healthInfo());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/commands".equals(path)) {
@@ -491,23 +500,25 @@ public final class WebMain {
 
     private WebApiModels.Ok deleteSession(String sessionId) {
         SessionService sessions = boot.service(SessionService.NAME);
-        turnLock.lock();
-        try {
-            sessions.remove(sessionId);
-            io.majo.harness.session.SessionProjections projections =
-                    boot.ctx().get(io.majo.harness.session.SessionProjections.NAME);
-            if (projections != null) {
-                projections.drop(sessionId);
+        Object lock = lockFor(sessionId);
+        synchronized (lock) {
+            try {
+                sessions.remove(sessionId);
+                io.majo.harness.session.SessionProjections projections =
+                        boot.ctx().get(io.majo.harness.session.SessionProjections.NAME);
+                if (projections != null) {
+                    projections.drop(sessionId);
+                }
+                SettingsService settings = boot.ctx().get(SettingsService.NAME);
+                if (settings != null) {
+                    settings.unset(TITLE_PREFIX + sessionId);
+                    settings.unset(SESSION_MODEL_PREFIX + sessionId);
+                    settings.unset(ARCHIVED_PREFIX + sessionId);
+                }
+                return new WebApiModels.Ok(true);
+            } finally {
+                sessionLocks.remove(sessionId);
             }
-            SettingsService settings = boot.ctx().get(SettingsService.NAME);
-            if (settings != null) {
-                settings.unset(TITLE_PREFIX + sessionId);
-                settings.unset(SESSION_MODEL_PREFIX + sessionId);
-                settings.unset(ARCHIVED_PREFIX + sessionId);
-            }
-            return new WebApiModels.Ok(true);
-        } finally {
-            turnLock.unlock();
         }
     }
 
@@ -719,9 +730,12 @@ public final class WebMain {
         String task = query.get("task");
         exchange.getResponseHeaders().set("Content-Type", "text/event-stream; charset=utf-8");
         exchange.getResponseHeaders().set("Cache-Control", "no-cache");
+        String turnId = java.util.UUID.randomUUID().toString();
+        exchange.getResponseHeaders().set("X-Turn-Id", turnId);
         exchange.sendResponseHeaders(200, 0);
         var out = exchange.getResponseBody();
         try {
+            frame(out, "turn", java.util.Map.of("turnId", turnId));
             if (task == null || task.isBlank() || sessionId == null || sessionId.isBlank()) {
                 frame(out, "fail", new WebApiModels.StreamFail("sessionId and task query parameters are required"));
                 return;
@@ -743,9 +757,9 @@ public final class WebMain {
                 return null;
             });
             try {
-                turnLock.lock();
-                try {
-                    pending.notifier = new PendingInteractions.Notifier() {
+                Object lock = lockFor(sessionId);
+                synchronized (lock) {
+                    PendingInteractions.Notifier streamNotifier = new PendingInteractions.Notifier() {
                         @Override
                         public void approval(ApprovalRequest request) {
                             frame(out, "approval", new WebApiModels.ApprovalFrame(
@@ -758,13 +772,15 @@ public final class WebMain {
                                     question.id(), question.text(), question.agent()));
                         }
                     };
-                    String answer = loop.runTurn(sessionId, task, delta ->
-                            frame(out, "chunk", new WebApiModels.StreamChunk(delta)),
-                            sessionModelFor(sessionId));
-                    frame(out, "done", new WebApiModels.StreamDone(sessionId, answer));
-                } finally {
-                    pending.notifier = null;
-                    turnLock.unlock();
+                    pending.notifier.set(streamNotifier);
+                    try {
+                        String answer = loop.runTurn(sessionId, task, delta ->
+                                        frame(out, "chunk", new WebApiModels.StreamChunk(delta)),
+                                sessionModelFor(sessionId));
+                        frame(out, "done", new WebApiModels.StreamDone(sessionId, answer));
+                    } finally {
+                        pending.notifier.remove();
+                    }
                 }
             } finally {
                 listener.dispose();
@@ -813,15 +829,13 @@ public final class WebMain {
         String task = String.valueOf(taskValue);
         SessionService sessions = boot.service(SessionService.NAME);
         AgentLoopService loop = boot.service(AgentLoopService.NAME);
-        turnLock.lock();
-        try {
-            String sessionId = request.get("sessionId") == null
-                    ? sessions.createSession()
-                    : String.valueOf(request.get("sessionId"));
+        String sessionId = request.get("sessionId") == null
+                ? sessions.createSession()
+                : String.valueOf(request.get("sessionId"));
+        Object lock = lockFor(sessionId);
+        synchronized (lock) {
             String answer = loop.runTurn(sessionId, task, null, sessionModelFor(sessionId));
             return new WebApiModels.TurnResult(sessionId, answer, eventsJson(sessions.events(sessionId)));
-        } finally {
-            turnLock.unlock();
         }
     }
 
@@ -927,6 +941,22 @@ public final class WebMain {
     private static String stringField(Map<?, ?> map, String key) {
         Object value = map.get(key);
         return value == null ? null : String.valueOf(value);
+    }
+
+    /** Serves the curated OpenAPI descriptor ({@code openapi.json} resource). */
+    private void openApiSpec(HttpExchange exchange) throws IOException {
+        try (InputStream stream = WebMain.class.getClassLoader()
+                .getResourceAsStream("openapi.json")) {
+            if (stream == null) {
+                json(exchange, 404, Map.of("error", "openapi.json missing"));
+                return;
+            }
+            byte[] payload = stream.readAllBytes();
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+            exchange.getResponseHeaders().set("Connection", "close");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+        }
     }
 
     /** Liveness + counters for operators. */
@@ -1047,6 +1077,42 @@ public final class WebMain {
     }
 
     // ----- static & plumbing -----
+
+    /** Registers the host's builtin backend commands (roadmap B1/#3). */
+    private void registerBuiltinCommands() {
+        io.majo.harness.boot.commands.CommandRegistry commands =
+                boot.ctx().get(io.majo.harness.boot.commands.CommandRegistry.NAME);
+        if (commands == null) {
+            return;
+        }
+        commands.register("status", "harness counters (sessions/plugins/tools/models)",
+                (ctx, args) -> statusText());
+        commands.register("delegate", "run a scoped child delegation (task, model?)", (ctx, args) -> {
+            Object taskValue = args.get("task");
+            if (taskValue == null || String.valueOf(taskValue).isBlank()) {
+                throw new IllegalArgumentException("task must not be blank");
+            }
+            SubagentService subagent = boot.ctx().get(SubagentService.NAME);
+            if (subagent == null) {
+                throw new IllegalArgumentException("subagent service unavailable");
+            }
+            String model = args.get("model") == null ? null : String.valueOf(args.get("model"));
+            SubagentService.DelegationOutcome outcome =
+                    subagent.delegateConfigured(String.valueOf(taskValue), model, null);
+            return outcome.childSessionId() + " → " + outcome.answer();
+        });
+    }
+
+    private String statusText() {
+        io.majo.harness.session.SessionService sessions = boot.ctx().get(
+                io.majo.harness.session.SessionService.NAME);
+        io.majo.harness.llm.LLMService llm = boot.ctx().get(io.majo.harness.llm.LLMService.NAME);
+        io.majo.harness.tools.ToolRegistry tools = boot.ctx().get(io.majo.harness.tools.ToolRegistry.NAME);
+        return "sessions=" + (sessions == null ? 0 : sessions.sessionIds().size())
+                + " plugins=" + webPlugins.size()
+                + " tools=" + (tools == null ? 0 : tools.specs().size())
+                + " models=" + (llm == null ? 0 : llm.registeredModels().size());
+    }
 
     /** Whether a request carries the expected token (Bearer header or ?token=). */
     private static boolean authorized(HttpExchange exchange, String expected) {
@@ -1246,7 +1312,13 @@ public final class WebMain {
                 new java.util.concurrent.ConcurrentHashMap<>();
         private final java.util.Map<String, java.util.concurrent.CompletableFuture<String>> questions =
                 new java.util.concurrent.ConcurrentHashMap<>();
-        volatile Notifier notifier;
+        /**
+         * Per-stream notifier carried by the handling thread (and inherited by
+         * child virtual threads spawned inside a turn), so concurrent turns on
+         * different sessions route approvals/questions to their own SSE stream.
+         */
+        final java.lang.InheritableThreadLocal<Notifier> notifier =
+                new java.lang.InheritableThreadLocal<>();
 
         @Override
         public String name() {
@@ -1258,7 +1330,7 @@ public final class WebMain {
             java.util.concurrent.CompletableFuture<ApprovalDecision> future =
                     new java.util.concurrent.CompletableFuture<>();
             approvals.put(request.id(), future);
-            Notifier active = notifier;
+            Notifier active = notifier.get();
             if (active != null) {
                 active.approval(request);
             }
@@ -1276,7 +1348,7 @@ public final class WebMain {
         public String answer(Question question) {
             java.util.concurrent.CompletableFuture<String> future = new java.util.concurrent.CompletableFuture<>();
             questions.put(question.id(), future);
-            Notifier active = notifier;
+            Notifier active = notifier.get();
             if (active != null) {
                 active.question(question);
             }
