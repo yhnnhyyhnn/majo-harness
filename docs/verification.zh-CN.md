@@ -17,8 +17,9 @@ scoped 运行、maxSteps 上限）、settings 与类型生成器。
 store 锁）；10 个同会话 turn 突发安全执行，同时另一会话被反复删除并轮询
 `/api/health`；8 个独立 HTTP 客户端重叠无错。另有：8 个并发会话进行中热 reload
 6 次插件 jar，各 turn 仍正确、最终注册表干净并可 unload；审批挂起的 SSE 流中途
-断线后按（可配置 `majo.approvalTimeoutSeconds`）超时 fail-safe，绝不影响后续流
-（后续流仍各自拿到审批并完成）。
+断线后按（可配置 `majo.approvalTimeoutSeconds`，默认 30s）超时 fail-safe，绝不
+影响后续流（后续流仍各自拿到审批并完成）。挂起流保持 10s 心跳存活；`/api/health`
+的 errors 只计真实服务端故障——断开的 SSE 连接与 4xx 用户错误不计入。
 
 ## 2. 插件示例 jar 与 web 伺服
 

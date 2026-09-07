@@ -97,7 +97,7 @@ public final class WebMain {
     }
 
     private static long approvalTimeoutSeconds() {
-        long seconds = Long.getLong("majo.approvalTimeoutSeconds", 120L);
+        long seconds = Long.getLong("majo.approvalTimeoutSeconds", 30L);
         return seconds <= 0 ? 1 : seconds;
     }
 
@@ -317,6 +317,9 @@ public final class WebMain {
             }
         } catch (IllegalArgumentException e) {
             json(exchange, 400, Map.of("error", e.getMessage()));
+        } catch (java.io.IOException gone) {
+            // client closed the connection mid-response — a client abort, not
+            // a server error: never count it against /api/health errors
         } catch (Throwable failure) {
             errorCount.incrementAndGet();
             failure.printStackTrace();
@@ -771,14 +774,38 @@ public final class WebMain {
         exchange.getResponseHeaders().set("X-Turn-Id", turnId);
         exchange.sendResponseHeaders(200, 0);
         var out = exchange.getResponseBody();
+        // All SSE writes share one lock so the heartbeat and event frames never
+        // interleave mid-line; the heartbeat keeps idle proxy/NAT connections
+        // alive while a turn blocks on an approval decision.
+        final Object writeLock = new Object();
+        java.util.concurrent.atomic.AtomicBoolean heartbeatOn = new java.util.concurrent.atomic.AtomicBoolean(true);
+        java.util.concurrent.atomic.AtomicBoolean clientGone = new java.util.concurrent.atomic.AtomicBoolean(false);
         try {
-            frame(out, "turn", java.util.Map.of("turnId", turnId));
+            sse(out, writeLock, clientGone, "event: turn\ndata: " + JSON.writeValueAsString(
+                    java.util.Map.of("turnId", turnId)) + "\n\n");
             if (task == null || task.isBlank() || sessionId == null || sessionId.isBlank()) {
-                frame(out, "fail", new WebApiModels.StreamFail("sessionId and task query parameters are required"));
+                sse(out, writeLock, clientGone, "event: fail\ndata: " + JSON.writeValueAsString(
+                        new WebApiModels.StreamFail("sessionId and task query parameters are required")) + "\n\n");
                 return;
             }
             SessionService sessions = boot.service(SessionService.NAME);
             AgentLoopService loop = boot.service(AgentLoopService.NAME);
+            Thread heartbeat = Thread.ofVirtual().start(() -> {
+                while (heartbeatOn.get() && !clientGone.get()) {
+                    try {
+                        Thread.sleep(10_000);
+                        if (heartbeatOn.get()) {
+                            try {
+                                sse(out, writeLock, clientGone, ": hb\n\n");
+                            } catch (IOException gone) {
+                                clientGone.set(true); // stream dropped: stop
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                }
+            });
             Disposable listener = boot.ctx().on(SessionService.EVENT, (thisArg, args) -> {
                 String seen = (String) args[0];
                 io.majo.harness.session.SessionEvent event = (io.majo.harness.session.SessionEvent) args[1];
@@ -789,7 +816,13 @@ public final class WebMain {
                         && event.content() != null
                         && !event.fields().containsKey(SessionEvent.FIELD_TOOL_CALLS);
                 if (!finalText) {
-                    frame(out, "log", eventsJson(List.of(event)).get(0));
+                    try {
+                        sse(out, writeLock, clientGone, "event: log\ndata: " + JSON.writeValueAsString(
+                                eventsJson(List.of(event)).get(0)) + "\n\n");
+                    } catch (IOException silent) {
+                        // listener runs on publisher threads; drop frames quietly
+                        clientGone.set(true);
+                    }
                 }
                 return null;
             });
@@ -799,33 +832,72 @@ public final class WebMain {
                     PendingInteractions.Notifier streamNotifier = new PendingInteractions.Notifier() {
                         @Override
                         public void approval(ApprovalRequest request) {
-                            frame(out, "approval", new WebApiModels.ApprovalFrame(
-                                    request.id(), request.summary(), request.details(), request.agent()));
+                            try {
+                                sse(out, writeLock, clientGone, "event: approval\ndata: " + JSON.writeValueAsString(
+                                        new WebApiModels.ApprovalFrame(
+                                                request.id(), request.summary(), request.details(), request.agent())) + "\n\n");
+                            } catch (IOException silent) {
+                                clientGone.set(true);
+                            }
                         }
 
                         @Override
                         public void question(Question question) {
-                            frame(out, "question", new WebApiModels.QuestionFrame(
-                                    question.id(), question.text(), question.agent()));
+                            try {
+                                sse(out, writeLock, clientGone, "event: question\ndata: " + JSON.writeValueAsString(
+                                        new WebApiModels.QuestionFrame(
+                                                question.id(), question.text(), question.agent())) + "\n\n");
+                            } catch (IOException silent) {
+                                clientGone.set(true);
+                            }
                         }
                     };
                     pending.notifier.set(streamNotifier);
                     try {
-                        String answer = loop.runTurn(sessionId, task, delta ->
-                                        frame(out, "chunk", new WebApiModels.StreamChunk(delta)),
+                        String answer = loop.runTurn(sessionId, task, delta -> {
+                                    try {
+                                        sse(out, writeLock, clientGone, "event: chunk\ndata: " + JSON.writeValueAsString(
+                                                new WebApiModels.StreamChunk(delta)) + "\n\n");
+                                    } catch (IOException silent) {
+                                        clientGone.set(true);
+                                    }
+                                },
                                 sessionModelFor(sessionId));
-                        frame(out, "done", new WebApiModels.StreamDone(sessionId, answer));
+                        sse(out, writeLock, clientGone, "event: done\ndata: " + JSON.writeValueAsString(
+                                new WebApiModels.StreamDone(sessionId, answer)) + "\n\n");
                     } finally {
                         pending.notifier.remove();
                     }
                 }
             } finally {
+                heartbeatOn.set(false);
                 listener.dispose();
             }
         } catch (Throwable failure) {
-            frame(out, "fail", new WebApiModels.StreamFail(String.valueOf(failure.getMessage())));
+            try {
+                sse(out, writeLock, clientGone, "event: fail\ndata: " + JSON.writeValueAsString(
+                        new WebApiModels.StreamFail(String.valueOf(failure.getMessage()))) + "\n\n");
+            } catch (IOException gone) {
+                clientGone.set(true); // nothing left to write; not a server error
+            }
         } finally {
-            out.close();
+            try {
+                out.close();
+            } catch (IOException ignored) {
+                clientGone.set(true);
+            }
+        }
+    }
+
+    /** Writes one complete SSE frame under the stream's write lock. */
+    private static void sse(java.io.OutputStream out, Object writeLock,
+            java.util.concurrent.atomic.AtomicBoolean clientGone, String frame) throws IOException {
+        synchronized (writeLock) {
+            if (clientGone.get()) {
+                throw new IOException("client aborted");
+            }
+            out.write(frame.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.flush();
         }
     }
 

@@ -73,6 +73,14 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
+- **Health/abort semantics + SSE heartbeat**: `/api/health` errors now count
+  only genuine server failures — client aborts (IOException mid-response) are
+  dropped silently; `streamTurn` writes go through one per-stream lock and a
+  10s heartbeat comment frame keeps idle approval-pending streams alive
+  (dead streams stop their heartbeat and never count as errors). Approval
+  timeout default lowered 120s → 30s (still `majo.approvalTimeoutSeconds`).
+  Soak suite grows to 7 tests (heartbeat visibility, abort-vs-error accounting).
+
 - **Network hardening**: `majo-web` binds `127.0.0.1` by default; override
   with `--host <addr>` (or `majo.host`), and binding a non-loopback address
   without `--token` prints a warning. Verified by test.

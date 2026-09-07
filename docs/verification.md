@@ -22,8 +22,10 @@ repeatedly deleted and `/api/health` is polled; 8 independent HTTP clients
 overlap without errors. More: 6 plugin-jar hot reloads during 8 concurrent
 sessions keep every turn correct and end with a clean registry/unload; an
 approval-pending SSE stream dropped mid-flight times out (configurable via
-`majo.approvalTimeoutSeconds`) and never wedges a later stream (which still
-gets its own approval and completes).
+`majo.approvalTimeoutSeconds`, default 30s) and never wedges a later stream
+(which still gets its own approval and completes). A pending stream keeps a
+10s heartbeat alive, and `/api/health` errors count only genuine server
+failures — dropped SSE connections and 4xx user errors are never counted.
 
 ## 2. Plugin demo jar + web serving
 

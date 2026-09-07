@@ -320,6 +320,15 @@ final class ConcurrencySoakTest {
         return MAPPER.readTree(health.body()).get("tools").asInt();
     }
 
+    private long healthErrors() throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+        HttpResponse<String> health = client.send(
+                HttpRequest.newBuilder(URI.create(baseUrl() + "/api/health")).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(health.statusCode()).isEqualTo(200);
+        return MAPPER.readTree(health.body()).get("errors").asLong();
+    }
+
     @Test
     void pluginHotReloadsDuringActiveTurnsStayConsistent() throws Exception {
         Path jar = echoJar(dir.resolve("echo"), "echo_soak");
@@ -390,6 +399,7 @@ final class ConcurrencySoakTest {
                     .connectTimeout(Duration.ofSeconds(10)).build();
             String abandoned = newSession(client);
             String healthy = newSession(client);
+            long errorsBefore = healthErrors();
 
             // session "abandoned": open an approval-pending stream, then drop it
             URI stream = URI.create(baseUrl() + "/api/turn/stream?sessionId=" + abandoned
@@ -414,6 +424,9 @@ final class ConcurrencySoakTest {
                     HttpResponse.BodyHandlers.ofString());
             assertThat(health.statusCode()).isEqualTo(200);
             assertThat(MAPPER.readTree(health.body()).get("ok").asBoolean()).isTrue();
+            // aborted SSE + the abandoned stream's fail-safe are not server errors
+            assertThat(healthErrors()).as("client aborts never count as server errors")
+                    .isEqualTo(errorsBefore);
 
             // a new gated turn on another session still gets its own approval
             // and completes once decided (per-stream routing intact)
@@ -477,6 +490,61 @@ final class ConcurrencySoakTest {
         } finally {
             System.clearProperty("majo.host");
         }
+    }
+
+    @Test
+    void pendingApprovalStreamKeepsHeartbeatAliveAndErrorsStayClean() throws Exception {
+        startWith(true, java.util.List.of()); // approval timeout defaults to 30s
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10)).build();
+        String session = newSession(client);
+        URI stream = URI.create(baseUrl() + "/api/turn/stream?sessionId=" + session
+                + "&task=" + java.net.URLEncoder.encode("2+2", java.nio.charset.StandardCharsets.UTF_8));
+
+        HttpResponse<java.io.InputStream> opened = client.send(
+                HttpRequest.newBuilder(stream).GET().build(),
+                HttpResponse.BodyHandlers.ofInputStream());
+        java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(opened.body(), java.nio.charset.StandardCharsets.UTF_8));
+        String approvalId = null;
+        boolean heartbeat = false;
+        String line;
+        String event = null;
+        long deadline = System.currentTimeMillis() + 25_000;
+        while (System.currentTimeMillis() < deadline) {
+            line = reader.readLine();
+            if (line == null) {
+                break;
+            }
+            if (line.startsWith("event: ")) {
+                event = line.substring("event: ".length());
+            } else if (line.startsWith("data: ") && "approval".equals(event)) {
+                approvalId = MAPPER.readTree(line.substring("data: ".length())).get("id").asText();
+            } else if (": hb".equals(line.trim()) && approvalId != null) {
+                heartbeat = true;
+                break;
+            }
+        }
+        assertThat(approvalId).as("approval surfaced while blocked").isNotNull();
+        assertThat(heartbeat).as("heartbeat frame arrives while approval pends").isTrue();
+
+        HttpResponse<String> decided = client.send(
+                HttpRequest.newBuilder(URI.create(baseUrl() + "/api/approvals/" + approvalId))
+                        .POST(HttpRequest.BodyPublishers.ofString("{\"decision\":\"allow\"}"))
+                        .header("Content-Type", "application/json")
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(decided.statusCode()).isEqualTo(200);
+        boolean done = false;
+        while ((line = reader.readLine()) != null) {
+            if (line.startsWith("event: ")) {
+                event = line.substring("event: ".length());
+            } else if (line.startsWith("data: ") && "done".equals(event)) {
+                done = true;
+            }
+        }
+        assertThat(done).as("decided stream completes").isTrue();
+        assertThat(healthErrors()).as("no server errors across the whole flow").isZero();
     }
 
     @Test
