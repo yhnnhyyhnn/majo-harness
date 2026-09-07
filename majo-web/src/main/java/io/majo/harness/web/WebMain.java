@@ -66,7 +66,7 @@ public final class WebMain {
     private Object lockFor(String sessionId) {
         return sessionLocks.computeIfAbsent(sessionId, ignored -> new Object());
     }
-    private final PendingInteractions pending = new PendingInteractions();
+    private final PendingInteractions pending = new PendingInteractions(approvalTimeoutSeconds());
     /** Optional shared secret: when set, /api/* requires Bearer or ?token=. */
     volatile String authToken;
     private final long startedNanos = System.nanoTime();
@@ -81,6 +81,16 @@ public final class WebMain {
     }
 
     public WebMain(int port, String profile, java.util.List<String> pluginArgs) throws IOException {
+        this(port, profile, pluginArgs, approvalTimeoutSeconds());
+    }
+
+    private static long approvalTimeoutSeconds() {
+        long seconds = Long.getLong("majo.approvalTimeoutSeconds", 120L);
+        return seconds <= 0 ? 1 : seconds;
+    }
+
+    private WebMain(int port, String profile, java.util.List<String> pluginArgs,
+            long approvalTimeoutSeconds) throws IOException {
         this.port = port;
         Context root = Context.create();
         new ConsoleExporter(root);
@@ -1314,7 +1324,7 @@ public final class WebMain {
      * it always decides before static fallback handlers.
      */
     static final class PendingInteractions implements InteractionHandler {
-        private static final long TIMEOUT_SECONDS = 120;
+        private final long timeoutSeconds;
 
         interface Notifier {
             void approval(ApprovalRequest request);
@@ -1326,6 +1336,10 @@ public final class WebMain {
                 new java.util.concurrent.ConcurrentHashMap<>();
         private final java.util.Map<String, java.util.concurrent.CompletableFuture<String>> questions =
                 new java.util.concurrent.ConcurrentHashMap<>();
+
+        PendingInteractions(long timeoutSeconds) {
+            this.timeoutSeconds = timeoutSeconds;
+        }
         /**
          * Per-stream notifier carried by the handling thread (and inherited by
          * child virtual threads spawned inside a turn), so concurrent turns on
@@ -1349,7 +1363,7 @@ public final class WebMain {
                 active.approval(request);
             }
             try {
-                ApprovalDecision decision = future.get(TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+                ApprovalDecision decision = future.get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
                 return decision == null ? ApprovalDecision.DENY : decision;
             } catch (Exception e) {
                 return ApprovalDecision.DENY; // fail safe
@@ -1367,7 +1381,7 @@ public final class WebMain {
                 active.question(question);
             }
             try {
-                String answer = future.get(TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+                String answer = future.get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
                 return answer == null ? "" : answer;
             } catch (Exception e) {
                 return "";
