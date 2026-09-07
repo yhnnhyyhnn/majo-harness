@@ -1,5 +1,9 @@
 import type { Feature } from "../slots";
 import type { ToolCallFrame } from "../types";
+import {
+  isTableSeparator as isSeparator,
+  splitPipeCells as splitCells,
+} from "../markdown-helpers";
 
 // chat feature: message renderers for every event kind (typed slot fillers).
 
@@ -33,16 +37,6 @@ function MarkdownText({ text }: { text: string }) {
         /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
         '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
       );
-
-  const splitCells = (line: string): string[] =>
-    line
-      .replace(/^\s*\|/, "")
-      .replace(/\|\s*$/, "")
-      .split("|")
-      .map((cell) => cell.trim());
-
-  const isSeparator = (line: string | undefined): boolean =>
-    !!line && /^\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?$/.test(line.trim());
 
   // GFM pipe table: header row + separator row, then body rows while pipes last
   const tableHtml = (lines: string[], start: number): { html: string; next: number } => {

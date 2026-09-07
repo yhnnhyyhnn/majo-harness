@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "./api";
+import { commandHintsFor } from "./commands-helpers";
 import { SlotRoot, useSlots, type CommandSeat, type RailProps } from "./slots";
 import { FEATURES } from "./features";
 import type { EventFrame, EventKind, SearchHit, SessionInfo } from "./types";
@@ -277,18 +278,7 @@ function AppShell() {
   const commandHints = (() => {
     if (state.busy || !state.input.trim().startsWith("/")) return [];
     const typed = state.input.trim().slice(1).toLowerCase();
-    const seen = new Set<string>();
-    const all = commands
-      .flatMap((candidate) =>
-        candidate.names.map((name) => ({ command: candidate, name }))
-      )
-      .filter(({ name }) => !seen.has(name) && seen.add(name))
-      .sort((a, b) => {
-        const ga = a.command.group || "";
-        const gb = b.command.group || "";
-        return ga === gb ? a.name.localeCompare(b.name) : ga.localeCompare(gb);
-      });
-    return typed ? all.filter(({ name }) => name.startsWith(typed)) : all;
+    return commandHintsFor(commands, typed);
   })();
 
   const railProps: RailProps = {
