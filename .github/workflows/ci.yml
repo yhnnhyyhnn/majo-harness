@@ -28,9 +28,9 @@ jobs:
       # jcordis-all is not published to Maven Central; install the vendored
       # fat jar (lib/jcordis-all-1.0.0.jar) into the local repo first.
       - name: Install vendored jcordis-all
-        run: mvn -q -ntp org.apache.maven.plugins:maven-install-plugin:3.1.2:install-file \
-          -Dfile=lib/jcordis-all-1.0.0.jar \
-          -DgroupId=io.jcordis -DartifactId=jcordis-all -Dversion=1.0.0 -Dpackaging=jar
+        run: |
+          ls -la lib
+          mvn -ntp org.apache.maven.plugins:maven-install-plugin:3.1.2:install-file -Dfile="$PWD/lib/jcordis-all-1.0.0.jar" -DgroupId=io.jcordis -DartifactId=jcordis-all -Dversion=1.0.0 -Dpackaging=jar
 
       - name: Build and test (mvn clean verify incl. web-ui)
         run: mvn -B -ntp clean verify
