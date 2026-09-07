@@ -73,6 +73,13 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
+- **Parallel-turn soak + store fix**: new `ConcurrencySoakTest` hammers the
+  real HTTP surface (24 concurrent cross-session turns, same-session bursts
+  with concurrent deletes/health checks, correctness per session). The soak
+  exposed a real bottleneck: `FileSessionStore` serialized every session on
+  one monitor, so cross-session turns queued behind each other's file I/O —
+  now locked per session file (parallel wall ≪ serialized control).
+
 - **Demo depth (roadmap D2)**: offline `web_fetch`/`web_search` tool cards in
   web-mock via a new `local-file` fetch backend (`LocalFileFetchProvider`, root
   `examples/demo-corpus`, traversal-safe) + static search results; mock cue

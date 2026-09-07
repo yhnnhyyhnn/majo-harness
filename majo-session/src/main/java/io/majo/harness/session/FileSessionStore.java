@@ -8,12 +8,17 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 /**
  * Durable {@link SessionStore}: one JSON Lines file per session under a
  * directory. Each line is one {@link SessionEvent}, so the file stays
  * append-only and replayable.
+ *
+ * <p>Locking is per session file (not global), so turns of different sessions
+ * never serialize on the store — parallel turn support depends on it.
  */
 public final class FileSessionStore implements SessionStore {
 
@@ -21,9 +26,16 @@ public final class FileSessionStore implements SessionStore {
     private static final String SUFFIX = ".jsonl";
 
     private final Path directory;
+    private final Object creationLock = new Object();
+    /** One monitor per session file so different sessions never serialize. */
+    private final Map<String, Object> fileLocks = new ConcurrentHashMap<>();
 
     public FileSessionStore(Path directory) {
         this.directory = directory;
+    }
+
+    private Object lockFor(String sessionId) {
+        return fileLocks.computeIfAbsent(sessionId, ignored -> new Object());
     }
 
     private Path fileOf(String sessionId) {
@@ -31,45 +43,65 @@ public final class FileSessionStore implements SessionStore {
     }
 
     @Override
-    public synchronized String createSession(String sessionId) {
-        try {
-            Files.createDirectories(directory);
-            if (Files.exists(fileOf(sessionId))) {
-                throw new IllegalArgumentException("session \"" + sessionId + "\" already exists");
+    public String createSession(String sessionId) {
+        synchronized (creationLock) {
+            try {
+                Files.createDirectories(directory);
+            } catch (IOException e) {
+                throw new IllegalStateException("cannot create session directory", e);
             }
-            Files.createFile(fileOf(sessionId));
-            return sessionId;
-        } catch (IOException e) {
-            throw new IllegalStateException("cannot create session store file for \"" + sessionId + "\"", e);
+        }
+        synchronized (lockFor(sessionId)) {
+            try {
+                if (Files.exists(fileOf(sessionId))) {
+                    throw new IllegalArgumentException("session \"" + sessionId + "\" already exists");
+                }
+                Files.createFile(fileOf(sessionId));
+                return sessionId;
+            } catch (IOException e) {
+                throw new IllegalStateException(
+                        "cannot create session store file for \"" + sessionId + "\"", e);
+            }
         }
     }
 
     @Override
-    public synchronized void append(String sessionId, SessionEvent event) {
-        try {
+    public void append(String sessionId, SessionEvent event) {
+        synchronized (lockFor(sessionId)) {
+            try {
+                Path file = fileOf(sessionId);
+                if (!Files.exists(file)) {
+                    throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+                }
+                Files.writeString(file, MAPPER.writeValueAsString(event) + System.lineSeparator(),
+                        StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
+            } catch (IOException e) {
+                throw new IllegalStateException("cannot append to session \"" + sessionId + "\"", e);
+            }
+        }
+    }
+
+    @Override
+    public List<SessionEvent> events(String sessionId) {
+        synchronized (lockFor(sessionId)) {
             Path file = fileOf(sessionId);
             if (!Files.exists(file)) {
-                throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+                return List.of();
             }
-            Files.writeString(file, MAPPER.writeValueAsString(event) + System.lineSeparator(),
-                    StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            throw new IllegalStateException("cannot append to session \"" + sessionId + "\"", e);
+            List<String> lines;
+            try {
+                lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new IllegalStateException("cannot read session \"" + sessionId + "\"", e);
+            }
+            if (lines.isEmpty()) {
+                return List.of();
+            }
+            return parseLines(lines, sessionId);
         }
     }
 
-    @Override
-    public synchronized List<SessionEvent> events(String sessionId) {
-        Path file = fileOf(sessionId);
-        if (!Files.exists(file)) {
-            return List.of();
-        }
-        List<String> lines;
-        try {
-            lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new IllegalStateException("cannot read session \"" + sessionId + "\"", e);
-        }
+    private static List<SessionEvent> parseLines(List<String> lines, String sessionId) {
         List<SessionEvent> events = new ArrayList<>();
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index).trim();
@@ -94,7 +126,7 @@ public final class FileSessionStore implements SessionStore {
     }
 
     @Override
-    public synchronized List<String> sessionIds() {
+    public List<String> sessionIds() {
         if (!Files.isDirectory(directory)) {
             return List.of();
         }
@@ -112,13 +144,16 @@ public final class FileSessionStore implements SessionStore {
     }
 
     @Override
-    public synchronized void remove(String sessionId) {
-        try {
-            if (!Files.deleteIfExists(fileOf(sessionId))) {
-                throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+    public void remove(String sessionId) {
+        synchronized (lockFor(sessionId)) {
+            try {
+                if (!Files.deleteIfExists(fileOf(sessionId))) {
+                    throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException("cannot remove session \"" + sessionId + "\"", e);
             }
-        } catch (IOException e) {
-            throw new IllegalStateException("cannot remove session \"" + sessionId + "\"", e);
+            fileLocks.remove(sessionId);
         }
     }
 }

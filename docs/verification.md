@@ -14,6 +14,13 @@ subprocess/sandbox/interaction/skill/subagent/title/web-access), agent loop
 (parallel delegation, scoped runs, max-steps caps), settings and the wire
 generator.
 
+Concurrency soak (`majo-web` `ConcurrencySoakTest`, HTTP-level): 24
+concurrent cross-session turns each answer their own expression and complete
+well under the serialized control time (per-session locks + per-session-file
+store locking); 10 same-session turns burst safely while another session is
+repeatedly deleted and `/api/health` is polled; 8 independent HTTP clients
+overlap without errors.
+
 ## 2. Plugin demo jar + web serving
 
 ```bash

@@ -12,6 +12,11 @@ mvn clean verify            # 编译所有模块 + 全部 seam 测试 + 把 UI �
 sandbox/interaction/skill/subagent/title/web-access）、agent loop（并行委派、
 scoped 运行、maxSteps 上限）、settings 与类型生成器。
 
+并发 soak（`majo-web` `ConcurrencySoakTest`，HTTP 级）：24 个跨会话 turn 并发、
+各答各的表达式，且明显快于同规模串行对照组（per-session 锁 + 按会话文件的
+store 锁）；10 个同会话 turn 突发安全执行，同时另一会话被反复删除并轮询
+`/api/health`；8 个独立 HTTP 客户端重叠无错。
+
 ## 2. 插件示例 jar 与 web 伺服
 
 ```bash
