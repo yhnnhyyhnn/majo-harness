@@ -62,6 +62,8 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 - Entries: `majo` CLI one-shot, headless demo, `majo-web` app; external plugin
   jars via SPI (`--plugin`, `loadPluginJar`, hot `replaceJar`).
 
+- **CI (roadmap E1) green on ubuntu** (`mvn clean verify` + vitest + plugin demo best-effort; jcordis-all/parent vendored under `lib/`); **frontend vitest suite (E2)** shipped (9 tests).
+
 ## [Unreleased]
 
 Working notes for the next iteration (see docs/agent-context.md M-C4 for the optional plugin-island milestone).

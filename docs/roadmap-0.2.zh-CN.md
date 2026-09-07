@@ -40,9 +40,9 @@
 
 ## E. 工程卫生
 
-- **E1 · CI**（小）：GitHub Actions 跑 `mvn clean verify` +
+- **E1 · CI ✅**（小）：GitHub Actions 跑 `mvn clean verify` + 插件 demo + vitest——ubuntu 全绿（jcordis-all/parent 已 vendor 到 lib/） `mvn clean verify` +
   `scripts/build-plugin-demo.sh`；CI 有浏览器运行时后再加无头冒烟。
-- **E2 · 前端单测**（中）：vitest 覆盖 markdown 渲染、搜索/键盘辅助、命令补全
+- **E2 · 前端单测 ✅**（中）：vitest 覆盖 chat/搜索块、markdown 表格、命令补全辅助（9 用例）、搜索/键盘辅助、命令补全
   分组——无需浏览器。
 - **E3 · 真机移动端走查**（小）：真机一轮 QA（safe-area、触控目标、抽屉）并修复
   暴露问题。

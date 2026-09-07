@@ -50,10 +50,10 @@ rough effort/impact rating; pick per sprint. Status lives in CHANGELOG
 
 ## E. Engineering hygiene
 
-- **E1 · CI** (effort S): GitHub Actions running `mvn clean verify` +
+- **E1 · CI ✅** (effort S): GitHub Actions running `mvn clean verify` + plugin demo + vitest — green on ubuntu (jcordis-all/parent vendored in lib/) `mvn clean verify` +
   `scripts/build-plugin-demo.sh`; optional headless browser smoke once a
   browser runtime is available in CI.
-- **E2 · frontend unit tests** (effort M): vitest for markdown renderer,
+- **E2 · frontend unit tests ✅** (effort M): vitest covers chat/search-block, markdown-table and command-completion helpers (9 tests),
   search/keyboard helpers, command completion grouping — no browser needed.
 - **E3 · real-device mobile pass** (effort S): one QA round on an actual phone
   (safe areas, touch targets, drawer) and fix what falls out.
