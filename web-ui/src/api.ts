@@ -23,8 +23,27 @@ import type {
 // Typed HTTP + SSE client for the majo-web API ("connection" layer). Payload
 // types are generated from the Java wire contract (see WebTypesGenerator).
 
+// Optional access token for a server started with --token. Sourced from the
+// URL (?token=) or localStorage so every fetch/SSE carries it.
+const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+const AUTH_TOKEN: string =
+  (urlParams?.get("token") ?? "") ||
+  (typeof localStorage !== "undefined" ? localStorage.getItem("majo-token") ?? "" : "");
+if (AUTH_TOKEN) {
+  try {
+    localStorage.setItem("majo-token", AUTH_TOKEN);
+  } catch {
+    // storage unavailable — token still works for this page session
+  }
+}
+
+function authInit(init?: RequestInit): RequestInit {
+  if (!AUTH_TOKEN) return init ?? {};
+  return { ...(init ?? {}), headers: { ...init?.headers, Authorization: "Bearer " + AUTH_TOKEN } };
+}
+
 async function rpc<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(path, options);
+  const response = await fetch(path, authInit(options));
   let body: unknown;
   try {
     body = await response.json();
@@ -177,8 +196,11 @@ function decode<T>(e: Event): T {
  * {@link StreamEvent}s via {@code onEvent}.
  */
 export function openTurnStream(sessionId: string, task: string, handlers: StreamHandlers): () => void {
-  const url =
+  let url =
     "/api/turn/stream?sessionId=" + encodeURIComponent(sessionId) + "&task=" + encodeURIComponent(task);
+  if (AUTH_TOKEN) {
+    url += "&token=" + encodeURIComponent(AUTH_TOKEN); // EventSource cannot set headers
+  }
   const source = new EventSource(url);
   source.addEventListener("log", (e) => handlers.onEvent({ event: "log", data: decode<EventFrame>(e) }));
   source.addEventListener("chunk", (e) => handlers.onEvent({ event: "chunk", data: decode<StreamChunk>(e) }));

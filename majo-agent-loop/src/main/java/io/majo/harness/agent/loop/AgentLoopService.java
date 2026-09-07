@@ -45,6 +45,7 @@ public final class AgentLoopService extends Service {
     private final String systemPrompt;
     private final int maxSteps;
     private final boolean parallelDelegates;
+    private final io.majo.harness.credentials.CredentialsService credentials;
     private final java.util.concurrent.ExecutorService delegates = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
 
     public AgentLoopService(Context ctx, Object config) {
@@ -69,6 +70,12 @@ public final class AgentLoopService extends Service {
         if (maxSteps < 1) {
             throw new IllegalArgumentException("agent-loop: maxSteps must be >= 1, got " + maxSteps);
         }
+        this.credentials = ctx.get(io.majo.harness.credentials.CredentialsService.NAME);
+    }
+
+    /** Redacts resolved credential values from model-visible text before it is stored. */
+    private String safe(String text) {
+        return credentials == null ? text : credentials.redact(text);
     }
 
     private static <T> T require(Context ctx, String name) {
@@ -194,11 +201,29 @@ public final class AgentLoopService extends Service {
         fields.put(SessionEvent.FIELD_TOOL_CALL_ID, call.id());
         fields.put(SessionEvent.FIELD_TOOL_NAME, call.name());
         fields.put(SessionEvent.FIELD_OK, result.ok());
-        fields.put(SessionEvent.FIELD_CONTENT, result.visibleText());
+        fields.put(SessionEvent.FIELD_CONTENT, safe(result.visibleText()));
         if (result.data() != null) {
-            fields.put(SessionEvent.FIELD_DATA, result.data());
+            fields.put(SessionEvent.FIELD_DATA, safeValue(result.data()));
         }
         sessions.append(sessionId, SessionEventType.TOOL_RESULT, fields);
+    }
+
+    /** Recursively redacts credential values inside structured tool data. */
+    private Object safeValue(Object value) {
+        if (value instanceof String text) {
+            return safe(text);
+        }
+        if (value instanceof Map<?, ?> map) {
+            java.util.Map<String, Object> cleaned = new java.util.LinkedHashMap<>();
+            for (java.util.Map.Entry<?, ?> entry : map.entrySet()) {
+                cleaned.put(String.valueOf(entry.getKey()), safeValue(entry.getValue()));
+            }
+            return cleaned;
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().map(this::safeValue).toList();
+        }
+        return value;
     }
 
     private List<ChatMessage> buildMessages(String sessionId, String prompt) {
@@ -213,7 +238,7 @@ public final class AgentLoopService extends Service {
     private void appendAssistantRound(String sessionId, ChatResponse response) {
         Map<String, Object> fields = new HashMap<>();
         if (response.content() != null) {
-            fields.put(SessionEvent.FIELD_CONTENT, response.content());
+            fields.put(SessionEvent.FIELD_CONTENT, safe(response.content()));
         }
         if (response.isToolRound()) {
             List<Map<String, Object>> calls = new ArrayList<>();

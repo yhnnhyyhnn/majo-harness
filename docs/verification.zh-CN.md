@@ -35,6 +35,8 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar \
 `--profile web-mock --port 8899` 起服务，打开 http://localhost:8899：
 
 - 聊天：输入 `1+2` → 审批条 → Allow → `calculated: 3`，实时流式。
+- 可选 API 鉴权：`--token <secret>` 启动；UI 读取 `?token=…`（持久化），curl 用
+  `Authorization: Bearer <secret>`，SSE 用 `?token=`。
 - 离线工具卡：输入 `file examples/offline-demo/hello.txt` → Allow → 渲染带 path
   chip 与行数的文件卡（结构化 `data`）。
 - 模型下拉（全局 + 按会话）、👍/👎 反馈刷新后仍在。

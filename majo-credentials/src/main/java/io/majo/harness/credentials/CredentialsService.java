@@ -19,6 +19,7 @@ public final class CredentialsService extends Service {
     public static final String NAME = "credentials";
 
     private final Map<String, CredentialProvider> providers = new LinkedHashMap<>();
+    private final java.util.Map<String, String> knownValues = new java.util.concurrent.ConcurrentHashMap<>();
 
     public CredentialsService(Context ctx) {
         super(ctx, NAME);
@@ -50,9 +51,28 @@ public final class CredentialsService extends Service {
         for (CredentialProvider provider : providers.values()) {
             Optional<String> value = provider.resolve(name);
             if (value.isPresent()) {
+                knownValues.putIfAbsent(name, value.get());
                 return value.get();
             }
         }
         throw new CredentialException("credential \"" + name + "\" is not configured");
+    }
+
+    /**
+     * Redacts every resolved credential value (length ≥ 4) from {@code text}
+     * with {@code [redacted]} — applied by harness boundaries before durable
+     * logging, SSE or console output so secrets never surface accidentally.
+     */
+    public String redact(String text) {
+        if (text == null) {
+            return null;
+        }
+        String sanitized = text;
+        for (String value : knownValues.values()) {
+            if (value != null && value.length() >= 4 && sanitized.contains(value)) {
+                sanitized = sanitized.replace(value, "[redacted]");
+            }
+        }
+        return sanitized;
     }
 }

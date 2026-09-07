@@ -77,4 +77,35 @@ class CredentialsSeamTest {
         assertThat(service.resolve("special")).isEqualTo("value");
         ctx.fiber().disposeAsync().join();
     }
+
+    @Test
+    void redactReplacesResolvedSecretsAndIgnoresShorts() {
+        Context ctx = Context.create();
+        ctx.plugin(new CredentialsPlugin(), Map.of("sourceEnv", false)).await().join();
+        CredentialsService credentials = ctx.get(CredentialsService.NAME);
+        credentials.register(new CredentialProvider() {
+            @Override
+            public String name() {
+                return "fake";
+            }
+
+            @Override
+            public Optional<String> resolve(String name) {
+                if ("token".equals(name)) {
+                    return Optional.of("sk-live-abc123");
+                }
+                return "short".equals(name) ? Optional.of("abc") : Optional.empty();
+            }
+        });
+        credentials.resolve("token");
+        credentials.resolve("short");
+
+        assertThat(credentials.redact("key=sk-live-abc123 end")).isEqualTo("key=[redacted] end");
+        assertThat(credentials.redact("sk-live-abc123")).isEqualTo("[redacted]");
+        // values shorter than 4 chars are left alone (avoids noisy matches)
+        assertThat(credentials.redact("abc text")).isEqualTo("abc text");
+        // unknown/unresolved values pass through untouched
+        assertThat(credentials.redact("zz-unresolved-secret")).doesNotContain("[redacted]");
+        ctx.fiber().disposeAsync().join();
+    }
 }

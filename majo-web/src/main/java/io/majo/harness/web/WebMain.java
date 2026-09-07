@@ -61,6 +61,8 @@ public final class WebMain {
     private final HttpServer server;
     private final ReentrantLock turnLock = new ReentrantLock();
     private final PendingInteractions pending = new PendingInteractions();
+    /** Optional shared secret: when set, /api/* requires Bearer or ?token=. */
+    volatile String authToken;
     private final long startedNanos = System.nanoTime();
     private final java.util.concurrent.atomic.AtomicLong requestCount = new java.util.concurrent.atomic.AtomicLong();
     private final java.util.concurrent.atomic.AtomicLong errorCount = new java.util.concurrent.atomic.AtomicLong();
@@ -137,6 +139,11 @@ public final class WebMain {
     private void route(HttpExchange exchange) throws IOException {
         requestCount.incrementAndGet();
         String path = exchange.getRequestURI().getPath();
+        String auth = authToken;
+        if (auth != null && path.startsWith("/api/") && !authorized(exchange, auth)) {
+            json(exchange, 401, Map.of("error", "unauthorized — pass the --token value"));
+            return;
+        }
         try {
             if ("POST".equals(exchange.getRequestMethod()) && "/api/approvals".equals(path)) {
                 throw new IllegalArgumentException("missing approval id");
@@ -1039,6 +1046,25 @@ public final class WebMain {
         return new WebApiModels.Ok(true);
     }
 
+    // ----- static & plumbing -----
+
+    /** Whether a request carries the expected token (Bearer header or ?token=). */
+    private static boolean authorized(HttpExchange exchange, String expected) {
+        String header = exchange.getRequestHeaders().getFirst("Authorization");
+        if (header != null && header.equals("Bearer " + expected)) {
+            return true;
+        }
+        String query = exchange.getRequestURI().getQuery();
+        if (query != null) {
+            for (String part : query.split("&")) {
+                if (part.startsWith("token=")) {
+                    return part.substring(6).equals(expected);
+                }
+            }
+        }
+        return false;
+    }
+
     /** Plugins that ship a static frontend ({@code static-web/<name>/}). */
     private WebApiModels.PluginsIndex pluginsIndex() {
         List<WebApiModels.PluginInfo> list = new ArrayList<>();
@@ -1177,12 +1203,14 @@ public final class WebMain {
     public static void main(String[] args) throws IOException {
         int port = 8787;
         String profile = "web";
+        String token = null;
         java.util.List<String> plugins = new java.util.ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port" -> port = Integer.parseInt(args[++i]);
                 case "--profile" -> profile = args[++i];
                 case "--plugin" -> plugins.add(args[++i]);
+                case "--token" -> token = args[++i];
                 default -> {
                     System.err.println("usage: majo-web [--port <n>] [--profile web|<file.yml>] [--plugin name=jar]");
                     System.exit(2);
@@ -1190,6 +1218,10 @@ public final class WebMain {
             }
         }
         WebMain app = new WebMain(port, profile, plugins);
+        app.authToken = token;
+        if (token != null) {
+            System.out.println("majo web: API auth enabled (--token); pass ?token=... or Authorization: Bearer");
+        }
         System.out.println("majo web: http://localhost:" + app.port());
         System.out.println("press Ctrl+C to stop");
         Runtime.getRuntime().addShutdownHook(new Thread(app::close));
