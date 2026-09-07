@@ -340,6 +340,52 @@ class SubagentSeamTest {
     }
 
     @Test
+    void delegateTaskMountsHostIslandsByName() throws Exception {
+        Context ctx = stack(3);
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+        LLMService llm = ctx.get(LLMService.NAME);
+        String emptyArgs = MAPPER.writeValueAsString(Map.of());
+        llm.registerModel("alt", request -> {
+            boolean sawTool = request.messages().stream()
+                    .anyMatch(message -> message.role() == io.majo.harness.llm.ChatRole.TOOL);
+            return sawTool
+                    ? ChatResponse.text("after")
+                    : ChatResponse.toolCalls(List.of(io.majo.harness.tools.ToolCall.of(
+                            "island_helper", emptyArgs)));
+        });
+        SubagentService subagent = ctx.get(SubagentService.NAME);
+        subagent.registerIsland("helper", (scope, config) -> tools.register(
+                new io.majo.harness.tools.Tool() {
+                    @Override
+                    public io.majo.harness.tools.ToolSpec spec() {
+                        return io.majo.harness.tools.ToolSpec.of("island_helper", "island tool");
+                    }
+
+                    @Override
+                    public io.majo.harness.tools.ToolResult execute(io.majo.harness.tools.ToolCall call) {
+                        return io.majo.harness.tools.ToolResult.ok("from-island");
+                    }
+                }), null);
+
+        io.majo.harness.tools.ToolResult ok = tools.execute(
+                io.majo.harness.tools.ToolCall.of("delegate_task",
+                        MAPPER.writeValueAsString(java.util.Map.of(
+                                "task", "use helper", "model", "alt", "islands", List.of("helper")))));
+        assertThat(ok.ok()).isTrue();
+        assertThat(ok.content()).isEqualTo("after");
+        assertThat(tools.specs()).extracting(io.majo.harness.tools.ToolSpec::name)
+                .doesNotContain("island_helper");
+
+        io.majo.harness.tools.ToolResult unknown = tools.execute(
+                io.majo.harness.tools.ToolCall.of("delegate_task",
+                        MAPPER.writeValueAsString(java.util.Map.of(
+                                "task", "x", "model", "alt", "islands", List.of("ghost")))));
+        assertThat(unknown.ok()).isFalse();
+        assertThat(unknown.visibleText()).contains("unknown host island \"ghost\"");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void recentRunsLogSuccessAndBlocked() {
         Context ctx = stack(3);
         SubagentService subagent = ctx.get(SubagentService.NAME);

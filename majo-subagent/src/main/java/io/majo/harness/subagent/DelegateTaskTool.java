@@ -49,6 +49,10 @@ public final class DelegateTaskTool implements Tool {
         allowed.put("type", "array");
         allowed.putObject("items").put("type", "string")
                 .put("description", "tools the child agent may call (default: all)");
+        properties.putObject("islands")
+                .put("type", "array")
+                .put("description", "host-registered island plugin names to mount in the child scope")
+                .putObject("items").put("type", "string");
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");
         schema.set("properties", properties);
@@ -95,10 +99,29 @@ public final class DelegateTaskTool implements Tool {
                     allowedTools = null;
                 }
             }
-            boolean scopeOptions = maxSteps != null || autoApprove != null || allowedTools != null;
+            java.util.List<String> islands = null;
+            if (arguments.hasNonNull("islands") && arguments.get("islands").isArray()) {
+                islands = new java.util.ArrayList<>();
+                for (JsonNode item : arguments.get("islands")) {
+                    if (item.isTextual()) {
+                        islands.add(item.asText());
+                    }
+                }
+                if (islands.isEmpty()) {
+                    islands = null;
+                }
+            }
+            boolean scopeOptions = maxSteps != null || autoApprove != null || allowedTools != null
+                    || islands != null;
             SubagentService.DelegationOutcome outcome = scopeOptions
-                    ? subagent.delegateSpec(taskText,
-                            new SubagentService.AgentSpec(model, systemPrompt, maxSteps, autoApprove, allowedTools))
+                    ? (islands != null
+                            ? subagent.delegateSpecIslands(taskText,
+                                    new SubagentService.AgentSpec(model, systemPrompt, maxSteps,
+                                            autoApprove, allowedTools),
+                                    islands)
+                            : subagent.delegateSpec(taskText,
+                                    new SubagentService.AgentSpec(model, systemPrompt, maxSteps,
+                                            autoApprove, allowedTools)))
                     : subagent.delegateConfigured(taskText, model, systemPrompt);
             java.util.Map<String, Object> data = new java.util.HashMap<>();
             data.put("childSessionId", outcome.childSessionId());

@@ -568,11 +568,25 @@ public final class WebMain {
                 allowedTools.add(String.valueOf(item));
             }
         }
-        boolean scopeOptions = maxSteps != null || autoApprove != null || allowedTools != null;
-        SubagentService.DelegationOutcome outcome = scopeOptions
-                ? subagent.delegateSpec(task, new SubagentService.AgentSpec(
-                        model, systemPrompt, maxSteps, autoApprove, allowedTools))
-                : subagent.delegateConfigured(task, model, systemPrompt);
+        java.util.List<String> islands = null;
+        if (request.get("islands") instanceof List<?> rawIslands) {
+            islands = new ArrayList<>();
+            for (Object item : rawIslands) {
+                islands.add(String.valueOf(item));
+            }
+        }
+        boolean scopeOptions = maxSteps != null || autoApprove != null || allowedTools != null
+                || islands != null;
+        SubagentService.DelegationOutcome outcome;
+        if (scopeOptions) {
+            SubagentService.AgentSpec spec = new SubagentService.AgentSpec(
+                    model, systemPrompt, maxSteps, autoApprove, allowedTools);
+            outcome = islands != null
+                    ? subagent.delegateSpecIslands(task, spec, islands)
+                    : subagent.delegateSpec(task, spec);
+        } else {
+            outcome = subagent.delegateConfigured(task, model, systemPrompt);
+        }
         return new WebApiModels.DelegateResult(outcome.childSessionId(), outcome.answer());
     }
 

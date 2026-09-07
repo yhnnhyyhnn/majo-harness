@@ -28,6 +28,8 @@ public final class SubagentService extends Service {
     private final SessionService sessions;
     private final Context root;
     private final int maxDepth;
+    /** Host-registered island plugins by policy name (not model-chosen classes). */
+    private final java.util.Map<String, AgentScope.Island> hostIslands = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicInteger depth = new AtomicInteger();
 
     /** Bounded recent-delegation log surfaced to UI ({@code /api/subagents}). */
@@ -135,7 +137,7 @@ public final class SubagentService extends Service {
      * with the spec's config, then disposed when the turn ends.
      */
     public DelegationOutcome delegateSpec(String task, AgentSpec spec) {
-        return delegateSpec(task, spec, java.util.List.of());
+        return delegateSpecIslands(task, spec, java.util.List.of());
     }
 
     /**
@@ -147,6 +149,41 @@ public final class SubagentService extends Service {
             java.util.List<AgentScope.Island> islands) {
         return guarded(task,
                 spec == null ? new AgentSpec(null, null, null, null, null, null) : spec,
+                true, islands);
+    }
+
+    /**
+     * Registers a host policy island under a name the model/tool may request.
+     * The disposer unregisters it (and thus hides it from future delegations).
+     */
+    public io.jcordis.core.util.Disposable registerIsland(String name,
+            io.jcordis.core.registry.Plugin plugin, Object config) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("subagent: island name must not be blank");
+        }
+        AgentScope.Island previous = hostIslands.putIfAbsent(name, new AgentScope.Island(plugin, config));
+        if (previous != null) {
+            throw new IllegalStateException("island \"" + name + "\" has been registered");
+        }
+        return () -> hostIslands.remove(name);
+    }
+
+    /**
+     * Runs a scoped delegation that mounts the named host islands; unknown
+     * names fail loudly (islands are host policy, never model-supplied code).
+     */
+    public DelegationOutcome delegateSpecIslands(String task, AgentSpec spec,
+            java.util.List<String> islandNames) {
+        java.util.List<AgentScope.Island> islands = new java.util.ArrayList<>();
+        for (String name : islandNames) {
+            AgentScope.Island island = hostIslands.get(name);
+            if (island == null) {
+                throw new IllegalArgumentException("unknown host island \"" + name
+                        + "\"; registered: " + hostIslands.keySet());
+            }
+            islands.add(island);
+        }
+        return guarded(task, spec == null ? new AgentSpec(null, null, null, null, null, null) : spec,
                 true, islands);
     }
 
