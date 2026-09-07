@@ -146,13 +146,13 @@ public final class SettingsService extends Service {
         if (file == null) {
             return;
         }
+        Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
         try {
             Files.createDirectories(file.toAbsolutePath().getParent());
             ObjectNode root = MAPPER.createObjectNode();
             for (Map.Entry<String, String> entry : new TreeMap<>(values).entrySet()) {
                 root.put(entry.getKey(), entry.getValue());
             }
-            Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
             Files.writeString(tmp, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root),
                     StandardCharsets.UTF_8);
             try {
@@ -160,7 +160,20 @@ public final class SettingsService extends Service {
             } catch (java.nio.file.AtomicMoveNotSupportedException e) {
                 Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
             }
+            // owner-only read/write on POSIX (best effort; unsupported elsewhere)
+            try {
+                Files.setPosixFilePermissions(file, java.util.Set.of(
+                        java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                        java.nio.file.attribute.PosixFilePermission.OWNER_WRITE));
+            } catch (UnsupportedOperationException ignored) {
+                // non-POSIX filesystem — nothing to restrict
+            }
         } catch (IOException e) {
+            try {
+                Files.deleteIfExists(tmp);
+            } catch (IOException cleanup) {
+                // original failure wins
+            }
             throw new IllegalStateException("settings: cannot write " + file + ": " + e.getMessage(), e);
         }
     }

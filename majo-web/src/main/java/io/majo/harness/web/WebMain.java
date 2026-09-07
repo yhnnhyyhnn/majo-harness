@@ -179,6 +179,16 @@ public final class WebMain {
                     && path.startsWith("/api/commands/")) {
                 String name = path.substring("/api/commands/".length());
                 json(exchange, 200, runCommand(exchange, name));
+            } else if ("POST".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/plugins/")
+                    && path.endsWith("/reload")) {
+                String name = path.substring("/api/plugins/".length(),
+                        path.length() - "/reload".length());
+                json(exchange, 200, reloadPlugin(name));
+            } else if ("DELETE".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/plugins/")) {
+                String name = path.substring("/api/plugins/".length());
+                json(exchange, 200, unloadPlugin(name));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/plugins".equals(path)) {
                 json(exchange, 200, pluginsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/info".equals(path)) {
@@ -974,6 +984,36 @@ public final class WebMain {
             }
         }
         return new WebApiModels.SearchIndex(hits);
+    }
+
+    // ----- static & plumbing -----
+
+    /** Hot-replaces a mounted plugin jar (classloader swapped, old one closed). */
+    private WebApiModels.Ok reloadPlugin(String name) {
+        java.nio.file.Path jar = pluginJars.get(name);
+        if (jar == null) {
+            throw new IllegalArgumentException("unknown plugin \"" + name + "\"");
+        }
+        if (!java.nio.file.Files.isRegularFile(jar)) {
+            throw new IllegalArgumentException("plugin jar missing: " + jar);
+        }
+        io.jcordis.core.registry.Plugin fresh = boot.loader().replaceJar(jar, name);
+        webPlugins.put(name, fresh);
+        System.out.println("majo-web: hot-reloaded plugin \"" + name + "\" from " + jar);
+        return new WebApiModels.Ok(true);
+    }
+
+    /** Unloads a mounted plugin: fibers torn down, classloader closed, maps cleared. */
+    private WebApiModels.Ok unloadPlugin(String name) {
+        io.jcordis.core.registry.Plugin current = webPlugins.get(name);
+        if (current == null) {
+            throw new IllegalArgumentException("unknown plugin \"" + name + "\"");
+        }
+        boot.loader().unload(name);
+        webPlugins.remove(name);
+        pluginJars.remove(name);
+        System.out.println("majo-web: unloaded plugin \"" + name + "\"");
+        return new WebApiModels.Ok(true);
     }
 
     /** Plugins that ship a static frontend ({@code static-web/<name>/}). */

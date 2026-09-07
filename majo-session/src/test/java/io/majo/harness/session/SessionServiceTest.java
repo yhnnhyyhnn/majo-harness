@@ -7,6 +7,7 @@ import io.jcordis.core.context.Context;
 import io.jcordis.core.util.Disposable;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -87,6 +88,34 @@ class SessionServiceTest {
             assertThat(sessions.events(sessionId).get(1).content()).isEqualTo("persisted");
             root.fiber().disposeAsync().join();
         }
+    }
+
+    @Test
+    void fileStoreRecoversPartialTrailingLineAndFailsOnMiddleCorruption(@TempDir Path directory)
+            throws IOException {
+        FileSessionStore store = new FileSessionStore(directory);
+
+        // a crash leaves a partial final line without a newline: recover past it
+        String x = store.createSession("x");
+        store.append(x, new SessionEvent(1, SessionEventType.TURN_START,
+                System.currentTimeMillis(), Map.of()));
+        store.append(x, new SessionEvent(2, SessionEventType.USER_MESSAGE,
+                System.currentTimeMillis(), Map.of(SessionEvent.FIELD_CONTENT, "hi")));
+        Files.writeString(directory.resolve("x.jsonl"), "{\"seq\":3,\"typ",
+                StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
+        assertThat(store.events(x)).extracting(SessionEvent::seq).containsExactly(1L, 2L);
+
+        // a full corrupt line in the middle still fails loudly
+        String y = store.createSession("y");
+        store.append(y, new SessionEvent(1, SessionEventType.TURN_START,
+                System.currentTimeMillis(), Map.of()));
+        Files.writeString(directory.resolve("y.jsonl"), "not json at all\n",
+                StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
+        store.append(y, new SessionEvent(2, SessionEventType.USER_MESSAGE,
+                System.currentTimeMillis(), Map.of(SessionEvent.FIELD_CONTENT, "hi")));
+        assertThatThrownBy(() -> store.events(y))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cannot parse");
     }
 
     @Test

@@ -64,16 +64,33 @@ public final class FileSessionStore implements SessionStore {
         if (!Files.exists(file)) {
             return List.of();
         }
-        try (Stream<String> lines = Files.lines(file, StandardCharsets.UTF_8)) {
-            List<SessionEvent> events = new ArrayList<>();
-            for (String line : lines.filter(l -> !l.isBlank()).toList()) {
-                events.add(MAPPER.readValue(line, SessionEvent.class));
-            }
-            events.sort(Comparator.comparingLong(SessionEvent::seq));
-            return List.copyOf(events);
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new IllegalStateException("cannot read session \"" + sessionId + "\"", e);
         }
+        List<SessionEvent> events = new ArrayList<>();
+        for (int index = 0; index < lines.size(); index++) {
+            String line = lines.get(index).trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            try {
+                events.add(MAPPER.readValue(line, SessionEvent.class));
+            } catch (IOException e) {
+                if (index == lines.size() - 1) {
+                    // a crash can leave a partial trailing line (no newline);
+                    // drop it instead of failing the whole session
+                    break;
+                }
+                throw new IllegalStateException(
+                        "cannot parse line " + (index + 1) + " of session \"" + sessionId + "\": "
+                                + e.getMessage(), e);
+            }
+        }
+        events.sort(Comparator.comparingLong(SessionEvent::seq));
+        return List.copyOf(events);
     }
 
     @Override
