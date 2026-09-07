@@ -25,6 +25,9 @@ jobs:
           cache: npm
           cache-dependency-path: web-ui/package-lock.json
 
+      - name: Install bubblewrap (Linux sandbox test)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
+
       # jcordis-all is not published to Maven Central; install the vendored
       # parent pom + fat jar (lib/) into the local repo first.
       - name: Install vendored jcordis artifacts
