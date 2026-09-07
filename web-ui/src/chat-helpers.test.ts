@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { clock, parseSearchHits } from "./features/chat";
-import type { SearchHit } from "./types";
 
 describe("chat helpers", () => {
   it("clock formats an epoch millisecond as HH:MM", () => {
@@ -19,7 +18,7 @@ describe("chat helpers", () => {
       "",
     ].join("\n");
     const hits = parseSearchHits(text);
-    expect(hits).toEqual<SearchHit[]>([
+    expect(hits).toEqual([
       { title: "First hit", url: "https://example.org/a", snippet: "Some snippet text" },
       { title: "Second hit", url: "https://example.org/b", snippet: "" },
     ]);
