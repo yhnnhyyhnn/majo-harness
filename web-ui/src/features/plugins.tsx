@@ -26,6 +26,8 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
   const [plugins, setPlugins] = useState<PluginInfo[] | null>(null);
   const [nativeStates, setNativeStates] = useState<Record<string, string>>({});
   const disposersRef = useRef(new Map<string, () => void>());
+  const mtimesRef = useRef(new Map<string, number>());
+  const lastNotifiedRef = useRef(new Set<string>());
 
   const flash = (message: string) => {
     window.dispatchEvent(new CustomEvent("majo:flash", { detail: message }));
@@ -92,25 +94,40 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
   const load = async () => {
     const index = await api.plugins();
     setPlugins(index.plugins || []);
+    // C3: jar watch via polling — if a native module's jar mtime changed,
+    // reload it automatically (cache-bust re-import) and flash once.
+    for (const plugin of index.plugins || []) {
+      if (!plugin.module || typeof plugin.mtime !== "number") continue;
+      const known = mtimesRef.current.get(plugin.name);
+      mtimesRef.current.set(plugin.name, plugin.mtime);
+      const mounted = loadedModules.has(plugin.name);
+      if (mounted && known !== undefined && known !== plugin.mtime) {
+        reloadNative(plugin);
+        if (!lastNotifiedRef.current.has(plugin.name + plugin.mtime)) {
+          lastNotifiedRef.current.add(plugin.name + plugin.mtime);
+          flash("plugin " + plugin.name + " updated — reloaded");
+        }
+      }
+    }
     return index.plugins || [];
+  };
+
+  const autoMount = (plugin: PluginInfo) => {
+    if (plugin.module && !loadedModules.has(plugin.name)) mountNative(plugin);
   };
 
   useEffect(() => {
     if (!open) return;
     void load()
       .then((list) => {
-        for (const plugin of list) {
-          if (plugin.module && !loadedModules.has(plugin.name)) mountNative(plugin);
-        }
+        for (const plugin of list) autoMount(plugin);
       })
       .catch(() => setPlugins([]));
     const timer = window.setInterval(() => {
       void load().then((list) => {
-        for (const plugin of list) {
-          if (plugin.module && !loadedModules.has(plugin.name)) mountNative(plugin);
-        }
+        for (const plugin of list) autoMount(plugin);
       });
-    }, 10000);
+    }, 5000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -175,6 +192,12 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
                     </span>
                   )}
                 </button>
+                {(plugin.version || plugin.slots?.length) && (
+                  <div className="meta plugin-meta">
+                    {plugin.version && <span>v{plugin.version}</span>}
+                    {plugin.slots?.length ? <span>slots [{plugin.slots.join(", ")}]</span> : null}
+                  </div>
+                )}
                 {plugin.module && (
                   <div className="plugin-actions">
                     <button type="button" className="side-refresh" onClick={() => openPlugin?.(plugin.name, plugin.url)}>

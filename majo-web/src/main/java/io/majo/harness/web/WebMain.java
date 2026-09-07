@@ -63,6 +63,7 @@ public final class WebMain {
     private final PendingInteractions pending = new PendingInteractions();
     /** Booted plugin jars mounted with {@code --plugin name=jar}; serves their static-web/ frontends. */
     private final java.util.Map<String, io.jcordis.core.registry.Plugin> webPlugins = new java.util.TreeMap<>();
+    private final java.util.Map<String, java.nio.file.Path> pluginJars = new java.util.TreeMap<>();
 
     public WebMain(int port, String profile) throws IOException {
         this(port, profile, java.util.List.of());
@@ -98,6 +99,7 @@ public final class WebMain {
             java.nio.file.Path jar = java.nio.file.Path.of(pluginArg.substring(equals + 1));
             io.jcordis.core.registry.Plugin plugin = boot.loadPluginJar(jar, name);
             webPlugins.put(name, plugin);
+            pluginJars.put(name, jar);
             System.out.println("majo-web: mounted plugin \"" + name + "\" from " + jar);
         }
         boot.launch(boot.readProfileText(profileText, hint));
@@ -984,22 +986,42 @@ public final class WebMain {
                 continue;
             }
             String title = name;
-            String module = null;
+            String version = null;
+            java.util.List<String> slots = null;
             try (InputStream manifest = loader.getResourceAsStream("static-web/" + name + "/plugin.json")) {
                 if (manifest != null) {
                     var meta = JSON.readTree(manifest.readAllBytes());
                     if (meta.hasNonNull("title")) {
                         title = meta.get("title").asText();
                     }
+                    if (meta.hasNonNull("version")) {
+                        version = meta.get("version").asText();
+                    }
+                    if (meta.hasNonNull("slots") && meta.get("slots").isArray()) {
+                        slots = new ArrayList<>();
+                        for (var item : meta.get("slots")) {
+                            slots.add(item.asText());
+                        }
+                    }
                 }
             } catch (IOException ignored) {
                 // a broken manifest falls back to the plugin name
             }
+            String module = null;
             if (loader.getResource("static-web/" + name + "/plugin.mjs") != null) {
                 module = "/plugins/" + name + "/plugin.mjs";
             }
+            java.nio.file.Path jar = pluginJars.get(name);
+            Long mtime = null;
+            if (jar != null && java.nio.file.Files.isRegularFile(jar)) {
+                try {
+                    mtime = java.nio.file.Files.getLastModifiedTime(jar).toMillis();
+                } catch (IOException ignored) {
+                    // missing/modified jar just has no mtime
+                }
+            }
             list.add(new WebApiModels.PluginInfo(name,
-                    "/plugins/" + name + "/index.html", title, module));
+                    "/plugins/" + name + "/index.html", title, module, version, slots, mtime));
         }
         return new WebApiModels.PluginsIndex(list);
     }

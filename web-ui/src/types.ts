@@ -20,6 +20,19 @@ export interface ApprovalFrame {
   agent?: string;
 }
 
+export interface CommandInfo {
+  name: string;
+  description: string;
+}
+
+export interface CommandResult {
+  output: string;
+}
+
+export interface CommandsIndex {
+  commands: CommandInfo[];
+}
+
 export interface CreateSession {
   id: string;
 }
@@ -78,6 +91,9 @@ export interface PluginInfo {
   url: string;
   title?: string;
   module?: string;
+  version?: string;
+  slots?: string[];
+  mtime?: number;
 }
 
 export interface PluginsIndex {
