@@ -265,6 +265,28 @@ class SubagentSeamTest {
     }
 
     @Test
+    void repeatedAgentScopesMountAndTearDownCleanly() {
+        Context ctx = stack(3);
+        SubagentService subagent = ctx.get(SubagentService.NAME);
+        SessionService sessions = ctx.get(SessionService.NAME);
+        int before = sessions.sessionIds().size();
+
+        for (int i = 0; i < 3; i++) {
+            SubagentService.DelegationOutcome outcome = subagent.delegateSpec(
+                    "run " + i, new SubagentService.AgentSpec(null, null, null, null, null));
+            assertThat(outcome.answer()).isEqualTo("child-result");
+        }
+        // every scope created its own child session and rolled back its loop
+        assertThat(sessions.sessionIds()).hasSize(before + 3);
+        assertThat(subagent.recentRuns()).extracting(SubagentService.Delegation::status)
+                .containsExactly("done", "done", "done");
+        // root services remain usable after the scopes are gone
+        Object rootLoop = ctx.get(io.majo.harness.agent.loop.AgentLoopService.NAME);
+        assertThat(rootLoop).isNotNull();
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void recentRunsLogSuccessAndBlocked() {
         Context ctx = stack(3);
         SubagentService subagent = ctx.get(SubagentService.NAME);

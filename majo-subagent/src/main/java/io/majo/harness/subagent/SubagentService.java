@@ -165,50 +165,24 @@ public final class SubagentService extends Service {
         }
     }
 
-    /** Mounts a scoped agent loop on an isolated child context and runs the turn. */
-    private String runScoped(String childSessionId, String task, AgentSpec spec) {
-        java.util.Map<String, Object> config = new java.util.HashMap<>();
-        config.put("parallelDelegates", false);
-        if (spec.systemPrompt() != null) {
-            config.put("systemPrompt", spec.systemPrompt());
-        }
-        if (spec.maxSteps() != null) {
-            config.put("maxSteps", spec.maxSteps());
-        }
-        // a fresh agentLoop instance mounts on an isolated child context via a
-        // lightweight plugin (no projection re-registration); the plugin's own
-        // fiber rolls the registration back when the delegation ends
-        Context scope = root.extend().isolate(AgentLoopService.NAME);
-        io.jcordis.core.util.Disposable rollback = null;
+    /** Runs the child turn inside a plugin-mounted {@link AgentScope}. */
+    private String runScoped(String childSessionId, String task, SubagentService.AgentSpec spec) {
+        AgentScope agent = new AgentScope(childSessionId, task, spec);
+        io.jcordis.core.fiber.Fiber fiber = root.plugin(agent);
         try {
-            io.jcordis.core.fiber.Fiber fiber = scope.plugin(new ScopedAgentLoopPlugin(), config);
             fiber.await().join();
-            rollback = () -> fiber.disposeAsync().join();
-            AgentLoopService scoped = require(scope, AgentLoopService.NAME);
-            return scoped.runTurn(childSessionId, task, null, spec.model(), null);
-        } finally {
-            if (rollback != null) {
-                rollback.dispose();
+            if (agent.failure() != null) {
+                throw agent.failure();
             }
-        }
-    }
-
-    /** Mounts {@link AgentLoopService} only — no projection contribution. */
-    private static final class ScopedAgentLoopPlugin implements io.jcordis.core.registry.Plugin {
-        @Override
-        public Object apply(Context ctx, Object config) {
-            new AgentLoopService(ctx, config);
-            return null;
-        }
-
-        @Override
-        public java.util.Map<String, Object> inject() {
-            return java.util.Map.of();
-        }
-
-        @Override
-        public String name() {
-            return "agent-loop";
+            return agent.answer();
+        } catch (java.util.concurrent.CompletionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw e;
+        } finally {
+            fiber.disposeAsync().join();
         }
     }
 
