@@ -1,6 +1,12 @@
 # majo-harness
 
 <p align="left">
+  <img alt="version" src="https://img.shields.io/badge/version-0.1.0-86,134,254">
+  <img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-blue">
+  <img alt="status" src="https://img.shields.io/badge/status-plugin--harness-%230f1115">
+</p>
+
+<p align="left">
   English | <a href="README.zh-CN.md">简体中文</a>
 </p>
 

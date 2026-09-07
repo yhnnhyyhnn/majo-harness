@@ -4,7 +4,9 @@ All notable changes to majo-harness. Entry format: feature summary (English)
 with 中文说明 where useful. Dates are best-effort (repo history is the
 source of truth).
 
-## [Unreleased] — 0.1.0-SNAPSHOT
+## [0.1.0] - 2026-09-06
+
+First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three-tier plugin model, and the agent-scoping milestone M-C1…C3 verified against a real model.
 
 ### Plugins & web serving
 - **Three-tier plugin model** (后端 SPI / 托管页面 + postMessage 桥 / 原生
@@ -59,3 +61,7 @@ source of truth).
   records.
 - Entries: `majo` CLI one-shot, headless demo, `majo-web` app; external plugin
   jars via SPI (`--plugin`, `loadPluginJar`, hot `replaceJar`).
+
+## [Unreleased]
+
+Working notes for the next iteration (see docs/agent-context.md M-C4 for the optional plugin-island milestone).
