@@ -146,8 +146,11 @@ function UserRenderer({ event }: { event: { content?: string | null; ts?: number
   );
 }
 
-export const clock = (ts: number): string =>
-  new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+export const clock = (ts: number): string => {
+  const date = new Date(ts);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return pad(date.getHours()) + ":" + pad(date.getMinutes());
+};
 
 function FeedbackButtons({
   seq,
