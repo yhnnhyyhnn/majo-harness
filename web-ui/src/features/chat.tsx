@@ -152,7 +152,7 @@ function UserRenderer({ event }: { event: { content?: string | null; ts?: number
   );
 }
 
-const clock = (ts: number): string =>
+export const clock = (ts: number): string =>
   new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 function FeedbackButtons({
@@ -285,7 +285,7 @@ interface SearchHit {
 //   - Title
 //     https://…
 //     snippet words…
-const parseSearchHits = (text: string): SearchHit[] | null => {
+export const parseSearchHits = (text: string): SearchHit[] | null => {
   if (!/external web results/i.test(text)) return null;
   const hits: SearchHit[] = [];
   let current: SearchHit | null = null;

@@ -28,6 +28,10 @@ jobs:
       - name: Build and test (mvn clean verify incl. web-ui)
         run: mvn -B -ntp clean verify
 
+      - name: Frontend unit tests (vitest)
+        run: npx vitest run
+        working-directory: web-ui
+
       - name: Build the plugin demo jar (best effort)
         run: |
           if bash scripts/build-plugin-demo.sh; then
