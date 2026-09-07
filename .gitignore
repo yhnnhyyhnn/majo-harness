@@ -42,3 +42,6 @@ web-ui/dist/
 # example plugin build output
 /examples/web-plugin-demo/target/
 /examples/web-plugin-demo/web-demo.jar
+
+# vendored jcordis-all (not on Maven Central)
+!lib/jcordis-all-1.0.0.jar
