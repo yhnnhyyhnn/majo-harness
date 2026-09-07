@@ -66,6 +66,8 @@
   name: subagent-tools
 - id: web
   name: web
+- id: web-search-duckduckgo
+  name: web-search-duckduckgo
 - id: web-search-wiki
   name: web-search-wiki
   config:

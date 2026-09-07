@@ -73,6 +73,13 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
+- **D1 key-less search backend**: DuckDuckGo HTML search
+  (`web-search-duckduckgo`, provider `duckduckgo`) — parsing is pure and
+  offline-tested (titles/snippets/uddg-redirect URL normalization/limit);
+  only the fetch needs the network. `web.yml` mounts it as the default
+  search backend ahead of Wikipedia. Live HTTP check needs an internet
+  connection (not available on this dev box).
+
 - **Health/abort semantics + SSE heartbeat**: `/api/health` errors now count
   only genuine server failures — client aborts (IOException mid-response) are
   dropped silently; `streamTurn` writes go through one per-stream lock and a

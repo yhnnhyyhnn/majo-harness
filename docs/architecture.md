@@ -86,8 +86,8 @@ majo-credentials/ CredentialProvider seam + EnvCredentialProvider (.env parse)
 majo-title/       SessionTitleProvider seam + HeuristicSessionTitleProvider
                   / SessionTitleService / SessionTitlePlugin / HeuristicTitlePlugin
 majo-web-access/  SearchProvider/FetchProvider seams + FetchHttpProvider (anonymous,
-                  HTML→text) / StaticSearchProvider + WikiSearchProvider (no-key,
-                  real HTTP) / WebAccessService (ctx.web)
+                  HTML→text) / DdgSearchProvider (DuckDuckGo, no-key) +
+                  StaticSearchProvider + WikiSearchProvider / WebAccessService (ctx.web)
                   / WebPlugin/FetchHttpPlugin/StaticSearchPlugin
                   / WebSearchTool/WebFetchTool/WebToolsPlugin (web_search/web_fetch)
 majo-util/        Disposables (composite disposer factory)

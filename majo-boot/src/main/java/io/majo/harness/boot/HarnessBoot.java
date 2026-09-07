@@ -18,6 +18,7 @@ import io.majo.harness.settings.SettingsPlugin;
 import io.majo.harness.title.HeuristicTitlePlugin;
 import io.majo.harness.title.SessionTitlePlugin;
 import io.majo.harness.webaccess.FetchHttpPlugin;
+import io.majo.harness.webaccess.DdgSearchPlugin;
 import io.majo.harness.webaccess.LocalFileFetchPlugin;
 import io.majo.harness.webaccess.StaticSearchPlugin;
 import io.majo.harness.webaccess.WikiSearchPlugin;
@@ -81,6 +82,7 @@ public final class HarnessBoot {
     public static final String PLUGIN_WEB_TOOLS = WebToolsPlugin.NAME;
     public static final String PLUGIN_WEB_FETCH_HTTP = FetchHttpPlugin.NAME;
     public static final String PLUGIN_WEB_FETCH_LOCAL = LocalFileFetchPlugin.NAME;
+    public static final String PLUGIN_WEB_SEARCH_DDG = DdgSearchPlugin.NAME;
     public static final String PLUGIN_WEB_SEARCH_STATIC = StaticSearchPlugin.NAME;
     public static final String PLUGIN_WEB_SEARCH_WIKI = WikiSearchPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
@@ -124,6 +126,7 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_WEB_TOOLS, new WebToolsPlugin());
         loader.builtin(PLUGIN_WEB_FETCH_HTTP, new FetchHttpPlugin());
         loader.builtin(PLUGIN_WEB_FETCH_LOCAL, new LocalFileFetchPlugin());
+        loader.builtin(PLUGIN_WEB_SEARCH_DDG, new DdgSearchPlugin());
         loader.builtin(PLUGIN_WEB_SEARCH_STATIC, new StaticSearchPlugin());
         loader.builtin(PLUGIN_WEB_SEARCH_WIKI, new WikiSearchPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
