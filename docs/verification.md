@@ -51,6 +51,11 @@ Serve `--profile web-mock --port 8899`, open http://localhost:8899:
 - Manage mode: multi-select → Archive (n) / Delete (n); Active/Archived views;
   archived hits in search have an inline restore.
 - Export ⬇ → import via **Import JSONL…** round-trips a transcript.
+- Parallel turns (verified in a real browser with two tabs): session A
+  `3+3` and session B `4+4` both sit in the approval rail at once (per-session
+  locks, no global serialization); each tab carries its own `X-Turn-Id`;
+  Allow on A yields only `calculated: 6` on A and B stays pending/unanswered;
+  Allow on B yields only `calculated: 8`. Decisions never cross streams.
 - Plugins + mobile (DevTools narrow viewport): drawer sidebar, touch targets,
   no iOS zoom.
 - Dev full-stack alternative:
