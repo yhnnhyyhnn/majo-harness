@@ -61,6 +61,9 @@ public final class WebMain {
     private final HttpServer server;
     private final ReentrantLock turnLock = new ReentrantLock();
     private final PendingInteractions pending = new PendingInteractions();
+    private final long startedNanos = System.nanoTime();
+    private final java.util.concurrent.atomic.AtomicLong requestCount = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong errorCount = new java.util.concurrent.atomic.AtomicLong();
     /** Booted plugin jars mounted with {@code --plugin name=jar}; serves their static-web/ frontends. */
     private final java.util.Map<String, io.jcordis.core.registry.Plugin> webPlugins = new java.util.TreeMap<>();
     private final java.util.Map<String, java.nio.file.Path> pluginJars = new java.util.TreeMap<>();
@@ -132,6 +135,7 @@ public final class WebMain {
     }
 
     private void route(HttpExchange exchange) throws IOException {
+        requestCount.incrementAndGet();
         String path = exchange.getRequestURI().getPath();
         try {
             if ("POST".equals(exchange.getRequestMethod()) && "/api/approvals".equals(path)) {
@@ -173,6 +177,8 @@ public final class WebMain {
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/search".equals(path)) {
                 String queryText = query(exchange).getOrDefault("q", "").trim();
                 json(exchange, 200, searchIndex(queryText));
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/health".equals(path)) {
+                json(exchange, 200, healthInfo());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/commands".equals(path)) {
                 json(exchange, 200, commandsIndex());
             } else if ("POST".equals(exchange.getRequestMethod())
@@ -273,6 +279,7 @@ public final class WebMain {
         } catch (IllegalArgumentException e) {
             json(exchange, 400, Map.of("error", e.getMessage()));
         } catch (Throwable failure) {
+            errorCount.incrementAndGet();
             failure.printStackTrace();
             json(exchange, 500, Map.of("error", String.valueOf(failure.getMessage())));
         }
@@ -913,6 +920,22 @@ public final class WebMain {
     private static String stringField(Map<?, ?> map, String key) {
         Object value = map.get(key);
         return value == null ? null : String.valueOf(value);
+    }
+
+    /** Liveness + counters for operators. */
+    private WebApiModels.HealthInfo healthInfo() {
+        SessionService sessions = boot.ctx().get(SessionService.NAME);
+        io.majo.harness.llm.LLMService llm = boot.ctx().get(io.majo.harness.llm.LLMService.NAME);
+        io.majo.harness.tools.ToolRegistry tools = boot.ctx().get(io.majo.harness.tools.ToolRegistry.NAME);
+        return new WebApiModels.HealthInfo(true,
+                (System.nanoTime() - startedNanos) / 1_000_000,
+                "0.1.0",
+                sessions == null ? 0 : sessions.sessionIds().size(),
+                webPlugins.size(),
+                tools == null ? 0 : tools.specs().size(),
+                llm == null ? 0 : llm.registeredModels().size(),
+                requestCount.get(),
+                errorCount.get());
     }
 
     /** Registered backend commands (ctx.commands; roadmap B1). */

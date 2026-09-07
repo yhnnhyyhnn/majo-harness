@@ -87,6 +87,11 @@ public final class WebApiModels {
     /** Harness facts for the Settings panel. */
     public record Info(String version, List<String> models, List<String> tools, int skills) {}
 
+    /** Liveness/diagnostics for operators and uptime tooling. */
+    public record HealthInfo(boolean ok, long uptimeMs, String version,
+            int sessions, int plugins, int tools, int models,
+            long requests, long errors) {}
+
     /** One-shot turn result (legacy JSON turn endpoint). */
     public record TurnResult(String sessionId, String answer, List<EventFrame> events) {}
 
