@@ -1,0 +1,2 @@
+hello from the offline demo
+second line — run with the web-mock profile and ask: file examples/offline-demo/hello.txt

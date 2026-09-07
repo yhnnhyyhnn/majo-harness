@@ -38,6 +38,8 @@ Check (curl or browser):
 Serve `--profile web-mock --port 8899`, open http://localhost:8899:
 
 - Chat: type `1+2` → approval rail → Allow → `calculated: 3`; streams live.
+- Tool cards offline: type `file examples/offline-demo/hello.txt` → Allow → a
+  file card with the path chip and line count renders (structured `data`).
 - Model pickers (global + per-session), 👍/👎 feedback persists after reload.
 - Slash commands: type `/` → grouped completions; `/model mock`, `/help`,
   `/delegate 2+2` (returns a child id + answer).

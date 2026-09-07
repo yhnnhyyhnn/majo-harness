@@ -12,6 +12,22 @@ import org.junit.jupiter.api.io.TempDir;
 class SettingsSeamTest {
 
     @Test
+    void scopedOverridesApplyAndTearDown() {
+        Context ctx = Context.create();
+        ctx.plugin(new SettingsPlugin(), null).await().join();
+        SettingsService settings = ctx.get(SettingsService.NAME);
+        settings.set("region", "us");
+
+        String inside = SettingsService.scoped(Map.of("region", "cn", "agent.model", "kilo"),
+                () -> settings.get("region") + "/" + settings.get("agent.model"));
+        assertThat(inside).isEqualTo("cn/kilo");
+        // thread-local torn down: only the durable base remains visible
+        assertThat(settings.get("region")).isEqualTo("us");
+        assertThat(settings.get("agent.model")).isNull();
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void memoryStoreGetsSetsAndValidates() {
         Context ctx = Context.create();
         ctx.plugin(new SettingsPlugin(), null).await().join();

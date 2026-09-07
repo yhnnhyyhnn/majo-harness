@@ -38,6 +38,8 @@
   name: session-title
 - id: session-title-heuristic
   name: session-title-heuristic
+- id: commands
+  name: commands
 - id: interactions
   name: interactions
   config:

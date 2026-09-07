@@ -82,6 +82,7 @@ public final class HarnessBoot {
     public static final String PLUGIN_WEB_SEARCH_STATIC = StaticSearchPlugin.NAME;
     public static final String PLUGIN_WEB_SEARCH_WIKI = WikiSearchPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
+    public static final String PLUGIN_COMMANDS = io.majo.harness.boot.commands.CommandRegistryPlugin.NAME;
 
     private final Context ctx;
     private final Loader loader;
@@ -123,6 +124,7 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_WEB_SEARCH_STATIC, new StaticSearchPlugin());
         loader.builtin(PLUGIN_WEB_SEARCH_WIKI, new WikiSearchPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
+        loader.builtin(PLUGIN_COMMANDS, new io.majo.harness.boot.commands.CommandRegistryPlugin());
     }
 
     /** Registers an application plugin so profiles can reference its name. */

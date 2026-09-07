@@ -44,19 +44,25 @@ public final class SubagentService extends Service {
 
     /**
      * Per-agent configuration for a scoped child run (M-C1): optional model,
-     * system prompt, a max-steps cap, an auto-approve policy and an
-     * allowed-tool whitelist ({@code null} = inherit all tools). {@code null}
-     * fields inherit harness defaults.
+     * system prompt, a max-steps cap, an auto-approve policy, an
+     * allowed-tool whitelist and per-scope settings overrides ({@code null}
+     * fields inherit harness defaults).
      */
     public record AgentSpec(String model, String systemPrompt, Integer maxSteps,
-            Boolean autoApprove, java.util.List<String> allowedTools) {
+            Boolean autoApprove, java.util.List<String> allowedTools,
+            java.util.Map<String, String> settings) {
+
+        public AgentSpec(String model, String systemPrompt, Integer maxSteps, Boolean autoApprove,
+                java.util.List<String> allowedTools) {
+            this(model, systemPrompt, maxSteps, autoApprove, allowedTools, null);
+        }
 
         public AgentSpec(String model, String systemPrompt, Integer maxSteps, Boolean autoApprove) {
-            this(model, systemPrompt, maxSteps, autoApprove, null);
+            this(model, systemPrompt, maxSteps, autoApprove, null, null);
         }
 
         public AgentSpec(String model, String systemPrompt, Integer maxSteps) {
-            this(model, systemPrompt, maxSteps, null, null);
+            this(model, systemPrompt, maxSteps, null, null, null);
         }
     }
 
@@ -149,8 +155,10 @@ public final class SubagentService extends Service {
                 boolean auto = spec.autoApprove() != null && spec.autoApprove();
                 String answer = io.majo.harness.interaction.InteractionContext.run(agent, auto,
                         spec.allowedTools(),
-                        () -> scoped ? runScoped(childSessionId, task, spec)
-                                : loop.runTurn(childSessionId, task, null, spec.model(), spec.systemPrompt()));
+                        () -> io.majo.harness.settings.SettingsService.scoped(spec.settings(),
+                                () -> scoped ? runScoped(childSessionId, task, spec)
+                                        : loop.runTurn(childSessionId, task, null,
+                                                spec.model(), spec.systemPrompt())));
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis(),
                         spec.model(), spec.maxSteps(), spec.autoApprove(), spec.allowedTools()));
                 return new DelegationOutcome(childSessionId, answer);

@@ -46,6 +46,14 @@ public final class WebApiModels {
 
     public record PluginsIndex(List<PluginInfo> plugins) {}
 
+    /** One registered backend command. */
+    public record CommandInfo(String name, String description) {}
+
+    public record CommandsIndex(List<CommandInfo> commands) {}
+
+    /** Result of running a backend command. */
+    public record CommandResult(String output) {}
+
     /** One full-text hit across sessions. */
     public record SearchHit(String id, String title,
             @OptionalWire String snippet, @OptionalWire Long seq,

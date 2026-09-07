@@ -171,6 +171,12 @@ public final class WebMain {
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/search".equals(path)) {
                 String queryText = query(exchange).getOrDefault("q", "").trim();
                 json(exchange, 200, searchIndex(queryText));
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/commands".equals(path)) {
+                json(exchange, 200, commandsIndex());
+            } else if ("POST".equals(exchange.getRequestMethod())
+                    && path.startsWith("/api/commands/")) {
+                String name = path.substring("/api/commands/".length());
+                json(exchange, 200, runCommand(exchange, name));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/plugins".equals(path)) {
                 json(exchange, 200, pluginsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/info".equals(path)) {
@@ -897,7 +903,35 @@ public final class WebMain {
         return value == null ? null : String.valueOf(value);
     }
 
-    // ----- static & plumbing -----
+    /** Registered backend commands (ctx.commands; roadmap B1). */
+    private WebApiModels.CommandsIndex commandsIndex() {
+        io.majo.harness.boot.commands.CommandRegistry commands =
+                boot.ctx().get(io.majo.harness.boot.commands.CommandRegistry.NAME);
+        if (commands == null) {
+            return new WebApiModels.CommandsIndex(List.of());
+        }
+        return new WebApiModels.CommandsIndex(commands.entries().stream()
+                .map(entry -> new WebApiModels.CommandInfo(entry.name(), entry.description()))
+                .toList());
+    }
+
+    private WebApiModels.CommandResult runCommand(HttpExchange exchange, String name)
+            throws IOException {
+        io.majo.harness.boot.commands.CommandRegistry commands =
+                boot.ctx().get(io.majo.harness.boot.commands.CommandRegistry.NAME);
+        if (commands == null) {
+            throw new IllegalArgumentException("commands service unavailable — mount the commands row");
+        }
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
+        if (request != null) {
+            for (Map.Entry<?, ?> entry : request.entrySet()) {
+                args.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
+        }
+        String output = commands.run(name, args);
+        return new WebApiModels.CommandResult(output == null ? "" : output);
+    }
 
     /** Full-text search across durable session events (title + message text). */
     private WebApiModels.SearchIndex searchIndex(String queryText) {

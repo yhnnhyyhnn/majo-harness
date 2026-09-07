@@ -60,6 +60,10 @@ public final class SettingsService extends Service {
     /** The value for {@code key}, or {@code null} when unset. */
     public String get(String key) {
         requireKey(key);
+        Map<String, String> overrides = OVERRIDES.get();
+        if (overrides != null && overrides.containsKey(key)) {
+            return overrides.get(key);
+        }
         return values.get(key);
     }
 
@@ -100,6 +104,36 @@ public final class SettingsService extends Service {
     /** Whether the store is file-backed. */
     public boolean isPersistent() {
         return file != null;
+    }
+
+    /**
+     * Scoped per-agent overrides (roadmap A2): while {@link #scoped} runs, every
+     * {@code get} on any SettingsService instance sees these values first; the
+     * thread-local is always torn down. Null values are ignored (no key wins).
+     */
+    private static final ThreadLocal<java.util.Map<String, String>> OVERRIDES = new ThreadLocal<>();
+
+    /** Runs {@code body} with per-scope setting overrides, restoring state after. */
+    public static <T> T scoped(Map<String, String> overrides, java.util.function.Supplier<T> body) {
+        if (overrides == null || overrides.isEmpty()) {
+            return body.get();
+        }
+        java.util.Map<String, String> previous = OVERRIDES.get();
+        java.util.Map<String, String> merged = new java.util.HashMap<>();
+        if (previous != null) {
+            merged.putAll(previous);
+        }
+        merged.putAll(overrides);
+        OVERRIDES.set(java.util.Collections.unmodifiableMap(merged));
+        try {
+            return body.get();
+        } finally {
+            if (previous == null) {
+                OVERRIDES.remove();
+            } else {
+                OVERRIDES.set(previous);
+            }
+        }
     }
 
     private static void requireKey(String key) {
