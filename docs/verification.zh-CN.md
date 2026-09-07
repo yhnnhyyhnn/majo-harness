@@ -39,6 +39,10 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar \
   `Authorization: Bearer <secret>`，SSE 用 `?token=`。
 - 离线工具卡：输入 `file examples/offline-demo/hello.txt` → Allow → 渲染带 path
   chip 与行数的文件卡（结构化 `data`）。
+- 工具卡广度（web-mock，全离线）：`shell echo hi-d2` → Allow → shell 输出卡
+  （`shell output: hi-d2`）；`fetch file:hello-page.txt` → Allow → 本地语料
+  抓取卡（零网络：local-file 后端只读 `examples/demo-corpus` 且拒绝穿越）；
+  `search majo` → Allow → 静态结果卡（`Majo FAQ` 等）。
 - 模型下拉（全局 + 按会话）、👍/👎 反馈刷新后仍在。
 - 斜杠命令：输入 `/` 出现分组补全；`/model mock`、`/help`、`/delegate 2+2`
   （返回 child id + 答案）。

@@ -41,8 +41,12 @@ Serve `--profile web-mock --port 8899`, open http://localhost:8899:
 - Optional API auth: start with `--token <secret>`; the UI reads
   `?token=…` (persisted), curl uses `Authorization: Bearer <secret>`, SSE
   uses `?token=`.
-- Tool cards offline: type `file examples/offline-demo/hello.txt` → Allow → a
-  file card with the path chip and line count renders (structured `data`).
+- Tool cards offline (web-mock): `file examples/offline-demo/hello.txt` → Allow →
+  file card with path chip and line count; `shell echo hi-d2` → Allow → shell
+  output card (`shell output: hi-d2`); `fetch file:hello-page.txt` → Allow →
+  fetch card with the local-file corpus page (zero network); `search majo` →
+  Allow → static result cards (`Majo FAQ`, …). All fully offline: the local
+  fetch backend only ever reads `examples/demo-corpus` and rejects traversal.
 - Model pickers (global + per-session), 👍/👎 feedback persists after reload.
 - Slash commands: type `/` → grouped completions; `/model mock`, `/help`,
   `/delegate 2+2` (returns a child id + answer).

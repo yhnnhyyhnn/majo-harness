@@ -102,6 +102,10 @@ public final class MockChatModel implements ChatModel, StreamingChatModel {
                 return ToolCall.of("web_search",
                         MAPPER.writeValueAsString(Map.of("query", text.substring(7).trim())));
             }
+            if (text.startsWith("fetch ") && offered.contains("web_fetch")) {
+                return ToolCall.of("web_fetch",
+                        MAPPER.writeValueAsString(Map.of("url", text.substring(6).trim())));
+            }
         } catch (Exception e) {
             throw new ModelException("cannot encode tool arguments", e);
         }
@@ -131,6 +135,8 @@ public final class MockChatModel implements ChatModel, StreamingChatModel {
                             return "command output: ";
                         case "web_search":
                             return "search: ";
+                        case "web_fetch":
+                            return "page: ";
                         default:
                             return "calculated: ";
                     }

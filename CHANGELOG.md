@@ -73,6 +73,12 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
+- **Demo depth (roadmap D2)**: offline `web_fetch`/`web_search` tool cards in
+  web-mock via a new `local-file` fetch backend (`LocalFileFetchProvider`, root
+  `examples/demo-corpus`, traversal-safe) + static search results; mock cue
+  `fetch <url>` maps to `web_fetch`, answer prefix becomes `page: `. Verified
+  in a real browser: fetch / search / shell cards all offline.
+
 - **Agent M-C4**: host-policy plugin islands (`SubagentService.registerIsland` + `islands:` on `delegate_task`/REST) mount inside scoped runs and roll back with the scope. M-C1…C4 complete on jcordis 1.0.1-SNAPSHOT (no 1.1 wait).
 
 Working notes for the next iteration (see docs/agent-context.md for the completed milestone).

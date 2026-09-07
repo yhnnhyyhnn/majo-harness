@@ -39,7 +39,7 @@
 - id: tool-approval
   name: tool-approval
   config:
-    tools: [calc, read_file, run_shell, run_command]
+    tools: [calc, read_file, run_shell, run_command, web_fetch, web_search]
 - id: skills
   name: skills
 - id: skill-files
@@ -70,3 +70,21 @@
   name: shell-tools
 - id: calc
   name: calc
+- id: web
+  name: web
+- id: web-search-static
+  name: web-search-static
+  config:
+    results:
+      - url: https://example.org/faq
+        title: Majo FAQ
+        snippet: Everything about the majo offline demo at example.org
+      - url: https://example.org/blog/majo
+        title: Majo on the blog
+        snippet: Offline canned result for majo search demos
+- id: web-fetch-local
+  name: web-fetch-local
+  config:
+    root: examples/demo-corpus
+- id: web-tools
+  name: web-tools

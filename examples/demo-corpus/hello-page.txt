@@ -1,0 +1,9 @@
+# Offline demo corpus for the web-mock profile's local-file fetch backend.
+# Any file under examples/demo-corpus is fetchable as file:<name> with
+# zero network: type `fetch file:hello-page.txt` in the web UI.
+
+Hello offline demo page.
+
+This page is served entirely from disk by the local-file fetch backend
+(web-fetch-local), so tool cards, approvals, and transcripts stay fully
+offline in the web-mock profile.
