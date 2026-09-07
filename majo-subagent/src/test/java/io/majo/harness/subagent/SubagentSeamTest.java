@@ -287,6 +287,59 @@ class SubagentSeamTest {
     }
 
     @Test
+    void islandPluginsMountInsideScopeAndRollBack() throws Exception {
+        Context ctx = stack(3);
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+        LLMService llm = ctx.get(LLMService.NAME);
+        String islandArgs = MAPPER.writeValueAsString(Map.of());
+        llm.registerModel("alt", request -> {
+            boolean sawTool = request.messages().stream()
+                    .anyMatch(message -> message.role() == io.majo.harness.llm.ChatRole.TOOL);
+            return sawTool
+                    ? ChatResponse.text("after")
+                    : ChatResponse.toolCalls(List.of(
+                            io.majo.harness.tools.ToolCall.of("island_helper", islandArgs)));
+        });
+        SubagentService subagent = ctx.get(SubagentService.NAME);
+
+        // island plugin registers a tool into ctx.tools and returns its disposer
+        io.jcordis.core.registry.Plugin island = (scope, config) -> {
+            io.jcordis.core.util.Disposable registration = tools.register(new io.majo.harness.tools.Tool() {
+                @Override
+                public io.majo.harness.tools.ToolSpec spec() {
+                    return io.majo.harness.tools.ToolSpec.of("island_helper",
+                            "only visible inside the agent scope");
+                }
+
+                @Override
+                public io.majo.harness.tools.ToolResult execute(io.majo.harness.tools.ToolCall call) {
+                    return io.majo.harness.tools.ToolResult.ok("from-island");
+                }
+            });
+            return registration;
+        };
+        assertThat(tools.specs()).extracting(io.majo.harness.tools.ToolSpec::name)
+                .doesNotContain("island_helper");
+
+        SubagentService.DelegationOutcome outcome = subagent.delegateSpec(
+                "use island", new SubagentService.AgentSpec("alt", null, null),
+                List.of(new AgentScope.Island(island, null)));
+        assertThat(outcome.answer()).isEqualTo("after");
+        SessionService sessions = ctx.get(SessionService.NAME);
+        String toolText = sessions.events(outcome.childSessionId()).stream()
+                .filter(event -> event.type() == SessionEventType.TOOL_RESULT)
+                .map(SessionEvent::content)
+                .filter(content -> content != null && content.contains("from-island"))
+                .findFirst()
+                .orElse(null);
+        assertThat(toolText).contains("from-island");
+        // island contribution rolled back when the scope ended
+        assertThat(tools.specs()).extracting(io.majo.harness.tools.ToolSpec::name)
+                .doesNotContain("island_helper");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void recentRunsLogSuccessAndBlocked() {
         Context ctx = stack(3);
         SubagentService subagent = ctx.get(SubagentService.NAME);

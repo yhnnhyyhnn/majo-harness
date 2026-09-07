@@ -135,10 +135,27 @@ public final class SubagentService extends Service {
      * with the spec's config, then disposed when the turn ends.
      */
     public DelegationOutcome delegateSpec(String task, AgentSpec spec) {
-        return guarded(task, spec == null ? new AgentSpec(null, null, null) : spec, true);
+        return delegateSpec(task, spec, java.util.List.of());
+    }
+
+    /**
+     * M-C4: like {@link #delegateSpec} but mounts {@code islands} (plugins)
+     * inside the agent scope before the turn; their registrations roll back
+     * with the scope.
+     */
+    public DelegationOutcome delegateSpec(String task, AgentSpec spec,
+            java.util.List<AgentScope.Island> islands) {
+        return guarded(task,
+                spec == null ? new AgentSpec(null, null, null, null, null, null) : spec,
+                true, islands);
     }
 
     private DelegationOutcome guarded(String task, AgentSpec spec, boolean scoped) {
+        return guarded(task, spec, scoped, java.util.List.of());
+    }
+
+    private DelegationOutcome guarded(String task, AgentSpec spec, boolean scoped,
+            java.util.List<AgentScope.Island> islands) {
         int entered = depth.incrementAndGet();
         try {
             if (entered > maxDepth) {
@@ -156,7 +173,7 @@ public final class SubagentService extends Service {
                 String answer = io.majo.harness.interaction.InteractionContext.run(agent, auto,
                         spec.allowedTools(),
                         () -> io.majo.harness.settings.SettingsService.scoped(spec.settings(),
-                                () -> scoped ? runScoped(childSessionId, task, spec)
+                                () -> scoped ? runScoped(childSessionId, task, spec, islands)
                                         : loop.runTurn(childSessionId, task, null,
                                                 spec.model(), spec.systemPrompt())));
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis(),
@@ -174,8 +191,9 @@ public final class SubagentService extends Service {
     }
 
     /** Runs the child turn inside a plugin-mounted {@link AgentScope}. */
-    private String runScoped(String childSessionId, String task, SubagentService.AgentSpec spec) {
-        AgentScope agent = new AgentScope(childSessionId, task, spec);
+    private String runScoped(String childSessionId, String task, SubagentService.AgentSpec spec,
+            java.util.List<AgentScope.Island> islands) {
+        AgentScope agent = new AgentScope(childSessionId, task, spec, islands);
         // 1.0.1 semantics: shadowing a root service requires an isolated child
         // context; the plugin fiber owns the scope and rolls registrations back
         Context scope = root.extend().isolate(AgentLoopService.NAME);

@@ -15,17 +15,27 @@ import java.util.Map;
  */
 public final class AgentScope implements Plugin {
 
+    /** A plugin to mount inside the agent scope (island), with its config. */
+    public record Island(Plugin plugin, Object config) {}
+
     private final String childSessionId;
     private final String task;
     private final SubagentService.AgentSpec spec;
+    private final java.util.List<Island> islands;
 
     private volatile String answer;
     private volatile RuntimeException failure;
 
     public AgentScope(String childSessionId, String task, SubagentService.AgentSpec spec) {
+        this(childSessionId, task, spec, java.util.List.of());
+    }
+
+    public AgentScope(String childSessionId, String task, SubagentService.AgentSpec spec,
+            java.util.List<Island> islands) {
         this.childSessionId = childSessionId;
         this.task = task;
         this.spec = spec;
+        this.islands = islands == null ? java.util.List.of() : java.util.List.copyOf(islands);
     }
 
     public String answer() {
@@ -51,12 +61,22 @@ public final class AgentScope implements Plugin {
         // scope is the plugin fiber's own context: registering agentLoop here
         // shadows the root instance and is rolled back on fiber disposal
         try {
-            new AgentLoopService(scope, loopConfig());
-            AgentLoopService loop = scope.get(AgentLoopService.NAME);
-            if (loop == null) {
-                throw new IllegalStateException("agent-scope: scoped agentLoop did not register");
+            java.util.List<io.jcordis.core.fiber.Fiber> islandFibers = new java.util.ArrayList<>();
+            try {
+                for (Island island : islands) {
+                    islandFibers.add(scope.plugin(island.plugin(), island.config()));
+                }
+                new AgentLoopService(scope, loopConfig());
+                AgentLoopService loop = scope.get(AgentLoopService.NAME);
+                if (loop == null) {
+                    throw new IllegalStateException("agent-scope: scoped agentLoop did not register");
+                }
+                answer = loop.runTurn(childSessionId, task, null, spec.model(), null);
+            } finally {
+                for (io.jcordis.core.fiber.Fiber islandFiber : islandFibers) {
+                    islandFiber.disposeAsync().join();
+                }
             }
-            answer = loop.runTurn(childSessionId, task, null, spec.model(), null);
         } catch (RuntimeException e) {
             failure = unwrap(e);
             throw failure;
