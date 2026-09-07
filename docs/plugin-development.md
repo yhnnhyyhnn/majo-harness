@@ -12,6 +12,10 @@ plugin picks one of three integration tiers (they compose freely in one jar):
 
 The shipped example (`examples/web-plugin-demo`, buildable via
 `bash scripts/build-plugin-demo.sh`) demonstrates all three tiers in one jar.
+To start a new plugin, scaffold from the template:
+`bash scripts/new-plugin.sh <name>` then `bash scripts/build-plugin.sh <name>`
+— the generated project under `examples/<name>-plugin/` contains the SPI
+class, a hosted `static-web/<name>/` page and a native `plugin.mjs`.
 The `majo-boot` `PluginJarTest` is a ready recipe for building tier-1 jars
 with Maven.
 

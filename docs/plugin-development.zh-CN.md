@@ -8,7 +8,9 @@
 | 2 · 托管页面 | `static-web/<name>/` 下的静态前端 | 独立页面，`/plugins/<name>/` 托管、同源 API + postMessage 桥 | 否 |
 | 3 · 原生模块 | `plugin.mjs`（ES module） | 运行时把组件注册进宿主槽 | 否 |
 
-仓库自带示例（`examples/web-plugin-demo`，`bash scripts/build-plugin-demo.sh` 构建）在**一个 jar 里演示全部三档**。`majo-boot` 的 `PluginJarTest` 是用 Maven 构建第一档 jar 的现成配方。
+仓库自带示例（`examples/web-plugin-demo`，`bash scripts/build-plugin-demo.sh` 构建）在**一个 jar 里演示全部三档**。
+开新插件可先脚手架：`bash scripts/new-plugin.sh <name>`，再 `bash scripts/build-plugin.sh <name>`——
+生成的 `examples/<name>-plugin/` 已含 SPI 类、托管页 `static-web/<name>/` 与原生 `plugin.mjs`。`majo-boot` 的 `PluginJarTest` 是用 Maven 构建第一档 jar 的现成配方。
 
 ---
 
