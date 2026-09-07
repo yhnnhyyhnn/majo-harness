@@ -44,4 +44,4 @@ web-ui/dist/
 /examples/web-plugin-demo/web-demo.jar
 
 # vendored jcordis-all (not on Maven Central)
-!lib/jcordis-all-1.0.0.jar
+!lib/*

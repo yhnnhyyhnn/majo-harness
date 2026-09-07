@@ -6,6 +6,13 @@ source of truth).
 
 ## [0.1.0] - 2026-09-06
 
+### Dependency
+- **jcordis 1.0.1-SNAPSHOT** (local repo): adopted agent-scope semantics —
+  per-agent runs mount on an isolated child context via a plugin fiber
+  (shadow registration + rollback), vendored libs/updated; waterfall
+  `next()` is now single-use with defensive arg copies, so pre-execute
+  rewriting was removed (observe/reject only).
+
 First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three-tier plugin model, and the agent-scoping milestone M-C1…C3 verified against a real model.
 
 ### Plugins & web serving

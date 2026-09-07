@@ -5,9 +5,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-JCORDIS_JAR="${JCORDIS_JAR:-$HOME/.m2/repository/io/jcordis/jcordis-all/1.0.0/jcordis-all-1.0.0.jar}"
+JCORDIS_JAR="${JCORDIS_JAR:-$HOME/.m2/repository/io/jcordis/jcordis-all/1.0.1-SNAPSHOT/jcordis-all-1.0.1-SNAPSHOT.jar}"
 if [ ! -f "$JCORDIS_JAR" ]; then
-  JCORDIS_JAR="/d/mvn_repository/io/jcordis/jcordis-all/1.0.0/jcordis-all-1.0.0.jar"
+  JCORDIS_JAR="/d/mvn_repository/io/jcordis/jcordis-all/1.0.1-SNAPSHOT/jcordis-all-1.0.1-SNAPSHOT.jar"
 fi
 if [ ! -f "$JCORDIS_JAR" ]; then
   echo "jcordis-all jar not found; set JCORDIS_JAR" >&2

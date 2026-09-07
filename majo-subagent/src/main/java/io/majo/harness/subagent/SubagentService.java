@@ -176,7 +176,10 @@ public final class SubagentService extends Service {
     /** Runs the child turn inside a plugin-mounted {@link AgentScope}. */
     private String runScoped(String childSessionId, String task, SubagentService.AgentSpec spec) {
         AgentScope agent = new AgentScope(childSessionId, task, spec);
-        io.jcordis.core.fiber.Fiber fiber = root.plugin(agent);
+        // 1.0.1 semantics: shadowing a root service requires an isolated child
+        // context; the plugin fiber owns the scope and rolls registrations back
+        Context scope = root.extend().isolate(AgentLoopService.NAME);
+        io.jcordis.core.fiber.Fiber fiber = scope.plugin(agent);
         try {
             fiber.await().join();
             if (agent.failure() != null) {

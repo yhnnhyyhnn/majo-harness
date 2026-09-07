@@ -94,7 +94,7 @@ class ToolRegistryTest {
     }
 
     @Test
-    void preExecuteListenerCanRewriteOrReject() {
+    void preExecuteListenerCanObserveOrReject() {
         Context root = Context.create();
         ToolRegistry tools = registry(root);
         AtomicBoolean executed = new AtomicBoolean();
@@ -118,17 +118,10 @@ class ToolRegistryTest {
             java.util.function.Supplier<Object> next = (java.util.function.Supplier<Object>) args[args.length - 1];
             return next.get();
         });
-        // rewrite the arguments before delegating
-        Disposable rewriter = root.on(ToolEvents.PRE_EXECUTE, (thisArg, args) -> {
-            args[0] = new ToolCall(((ToolCall) args[0]).id(), ((ToolCall) args[0]).name(), "rewritten");
-            @SuppressWarnings("unchecked")
-            java.util.function.Supplier<Object> next = (java.util.function.Supplier<Object>) args[args.length - 1];
-            return next.get();
-        });
 
         ToolResult result = tools.execute(ToolCall.of("demo", "original"));
         assertThat(result.ok()).isTrue();
-        assertThat(result.content()).isEqualTo("ran:rewritten");
+        assertThat(result.content()).isEqualTo("ran:original");
         assertThat(executed.get()).isTrue();
         assertThat(observed).containsExactly("demo");
 
@@ -141,7 +134,6 @@ class ToolRegistryTest {
         assertThat(executed.get()).isFalse();
 
         listener.dispose();
-        rewriter.dispose();
         policy.dispose();
         root.fiber().disposeAsync().join();
     }
