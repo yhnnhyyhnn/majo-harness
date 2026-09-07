@@ -1,6 +1,6 @@
 # 每代理上下文树（里程碑设计）
 
-状态：**M-C1…C3 已实现**（经隔离上下文子树的 scoped 子代理、按代理的交互路由 + 自动审批、
+状态：**M-C1…C4 已实现**（经隔离上下文子树的 scoped 子代理、按代理的交互路由 + 自动审批、
 工具白名单、`delegate_task` 暴露完整 agent spec），并已对**真实模型（kilo 免费层）端到端验证**：
 一条 fan-out 提示让模型在同一工具轮发起两个 `delegate_task`，子代理并行运行，SSE 上每个子代
 审批带 `subagent-<child8>` 标签，最终正确回汇结果。
@@ -90,7 +90,7 @@ finally scope.fiber().disposeAsync()
 - **M-C2 — 按代理交互路由。** `agentId` 贯穿审批/问答；SSE + rail 更新；spec `approvals` 策略。
 - **M-C3 — allowlist 与策略视图。** 包装根的工具注册表（spec `allowedTools`），在
   `tools.execute` 处强制；子轮次未知工具给结构化错误。
-- **M-C4（可选，日后）— 每子代真插件孤岛。** 若子代需要自己的 profile 行：在子上下文挂
+- **M-C4 ✅ — 宿主策略插件孤岛。** `SubagentService.registerIsland(name, plugin, config)` 按名暴露岛屿；`delegateSpecIslands` / `delegate_task` 与 REST delegate 的 `islands:` 在 scoped 运行内挂载并随作用域回滚（未知名 loud——模型永不提供代码）。剩余（可选，日后）— 每子代真插件孤岛 **若** 子代确实需要 若子代需要自己的 profile 行：在子上下文挂
   HarnessBoot-lite 装载器（自有 profile + 独立 classloader）；风险高——先做 epochs/销毁审计。
 
 ## 并发与持久化注意

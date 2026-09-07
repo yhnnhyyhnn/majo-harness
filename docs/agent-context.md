@@ -1,6 +1,6 @@
 # Per-agent context tree (milestone design)
 
-Status: **M-C1…C3 shipped** (scoped child runs via isolated context subtrees,
+Status: **M-C1…C4 shipped** (scoped child runs via isolated context subtrees,
 per-agent interaction routing + auto-approve, allowed-tools whitelist, full
 agent spec exposed on `delegate_task`), verified end-to-end against a real
 model (kilo free tier): a fan-out prompt produced two `delegate_task` calls in
@@ -124,7 +124,7 @@ the approval feature — wire types regenerate.
 - **M-C3 ✅ — allowlist & policy views.** A scoped tool registry wrapping the
   root one (spec `allowedTools`), enforced at `tools.execute`; option to
   reject unknown tools in child rounds with structured errors.
-- **M-C4 (optional later) — true plugin islands per child** if a child ever
+- **M-C4 ✅ — host-policy plugin islands.** `SubagentService.registerIsland(name, plugin, config)` exposes islands by name; `delegateSpecIslands` / `islands:` on `delegate_task` and the REST delegate mount them in the scoped run and roll back with the scope (unknown names fail loudly — the model never supplies code). Remaining (optional later) — true plugin islands per child **if** a child ever
   needs its own profile rows: mount a `HarnessBoot`-lite loader on the child
   context with its own profile rows and isolated classloaders; high risk —
   needs epoch/disposal audits before committing.

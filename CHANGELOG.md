@@ -73,4 +73,6 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
-Working notes for the next iteration (see docs/agent-context.md M-C4 for the optional plugin-island milestone).
+- **Agent M-C4**: host-policy plugin islands (`SubagentService.registerIsland` + `islands:` on `delegate_task`/REST) mount inside scoped runs and roll back with the scope. M-C1…C4 complete on jcordis 1.0.1-SNAPSHOT (no 1.1 wait).
+
+Working notes for the next iteration (see docs/agent-context.md for the completed milestone).
