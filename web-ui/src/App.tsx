@@ -287,6 +287,10 @@ function AppShell() {
     qInput: state.qInput,
     onQInput: actions.setQInput,
     onDecide: (id, granted) => void actions.decide(id, granted),
+    onDecideAll: (granted) => {
+      const ids = state.approvals.map((approval) => approval.id);
+      for (const id of ids) void actions.decide(id, granted);
+    },
     onAnswerAsk: () => void actions.answerAsk(),
   };
   const railNodes = rails

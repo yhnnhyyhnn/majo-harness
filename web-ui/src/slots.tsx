@@ -26,6 +26,7 @@ export interface RailProps {
   qInput: string;
   onQInput(value: string): void;
   onDecide(id: string, granted: boolean): void;
+  onDecideAll(granted: boolean): void;
   onAnswerAsk(): void;
 }
 
