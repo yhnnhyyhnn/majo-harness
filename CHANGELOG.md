@@ -73,6 +73,16 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
+- **Network hardening**: `majo-web` binds `127.0.0.1` by default; override
+  with `--host <addr>` (or `majo.host`), and binding a non-loopback address
+  without `--token` prints a warning. Verified by test.
+
+- **Soak round 2**: 6 jar hot reloads race 8 concurrent cross-session turns
+  (all answers stay correct; registry clean; unload works); approval timeouts
+  are now configurable (`majo.approvalTimeoutSeconds`, default 120), and a
+  dropped approval-pending SSE stream fails safe without wedging later
+  streams (verified end to end). `ConcurrencySoakTest` grows to 6 tests.
+
 - **Parallel-turn soak + store fix**: new `ConcurrencySoakTest` hammers the
   real HTTP surface (24 concurrent cross-session turns, same-session bursts
   with concurrent deletes/health checks, correctness per session). The soak

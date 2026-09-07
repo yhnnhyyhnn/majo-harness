@@ -107,7 +107,7 @@ External plugin jars follow the jcordis contract: an SPI manifest `META-INF/serv
 
 ```bash
 mvn -DskipTests install
-java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787 (web.yml)
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787 (web.yml, binds 127.0.0.1)
 java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # offline (mock llm)
 ```
 

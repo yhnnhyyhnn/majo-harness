@@ -107,7 +107,7 @@ majo "task"                                   # = --profile headless
 
 ```bash
 mvn -DskipTests install
-java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787（web.yml）
+java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar          # http://localhost:8787（web.yml；默认绑 127.0.0.1）
 java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar --profile web-mock   # 离线（mock llm）
 ```
 

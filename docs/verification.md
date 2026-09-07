@@ -19,7 +19,11 @@ concurrent cross-session turns each answer their own expression and complete
 well under the serialized control time (per-session locks + per-session-file
 store locking); 10 same-session turns burst safely while another session is
 repeatedly deleted and `/api/health` is polled; 8 independent HTTP clients
-overlap without errors.
+overlap without errors. More: 6 plugin-jar hot reloads during 8 concurrent
+sessions keep every turn correct and end with a clean registry/unload; an
+approval-pending SSE stream dropped mid-flight times out (configurable via
+`majo.approvalTimeoutSeconds`) and never wedges a later stream (which still
+gets its own approval and completes).
 
 ## 2. Plugin demo jar + web serving
 
@@ -43,6 +47,9 @@ Check (curl or browser):
 ## 3. Web UI functional pass (browser)
 
 Serve `--profile web-mock --port 8899`, open http://localhost:8899:
+
+- Binding: default `127.0.0.1`; use `--host 0.0.0.0` only with `--token`
+  (non-loopback binds warn when tokenless).
 
 - Chat: type `1+2` → approval rail → Allow → `calculated: 3`; streams live.
 - Optional API auth: start with `--token <secret>`; the UI reads

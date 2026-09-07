@@ -15,7 +15,10 @@ scoped 运行、maxSteps 上限）、settings 与类型生成器。
 并发 soak（`majo-web` `ConcurrencySoakTest`，HTTP 级）：24 个跨会话 turn 并发、
 各答各的表达式，且明显快于同规模串行对照组（per-session 锁 + 按会话文件的
 store 锁）；10 个同会话 turn 突发安全执行，同时另一会话被反复删除并轮询
-`/api/health`；8 个独立 HTTP 客户端重叠无错。
+`/api/health`；8 个独立 HTTP 客户端重叠无错。另有：8 个并发会话进行中热 reload
+6 次插件 jar，各 turn 仍正确、最终注册表干净并可 unload；审批挂起的 SSE 流中途
+断线后按（可配置 `majo.approvalTimeoutSeconds`）超时 fail-safe，绝不影响后续流
+（后续流仍各自拿到审批并完成）。
 
 ## 2. 插件示例 jar 与 web 伺服
 

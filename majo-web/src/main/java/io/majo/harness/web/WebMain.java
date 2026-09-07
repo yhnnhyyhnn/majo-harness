@@ -57,6 +57,7 @@ public final class WebMain {
     private static final String BUILTIN_PROFILE = "web.yml";
 
     private final int port;
+    private final String bindHost;
     private final HarnessBoot boot;
     private final HttpServer server;
     private final ReentrantLock turnLock = new ReentrantLock();
@@ -81,7 +82,18 @@ public final class WebMain {
     }
 
     public WebMain(int port, String profile, java.util.List<String> pluginArgs) throws IOException {
-        this(port, profile, pluginArgs, approvalTimeoutSeconds());
+        this(port, profile, pluginArgs, defaultHost(), approvalTimeoutSeconds());
+    }
+
+    public WebMain(int port, String profile, java.util.List<String> pluginArgs, String bindHost)
+            throws IOException {
+        this(port, profile, pluginArgs, bindHost, approvalTimeoutSeconds());
+    }
+
+    /** Default bind host: loopback only unless {@code --host} or {@code majo.host} says otherwise. */
+    static String defaultHost() {
+        String host = System.getProperty("majo.host", "127.0.0.1");
+        return host == null || host.isBlank() ? "127.0.0.1" : host;
     }
 
     private static long approvalTimeoutSeconds() {
@@ -89,9 +101,10 @@ public final class WebMain {
         return seconds <= 0 ? 1 : seconds;
     }
 
-    private WebMain(int port, String profile, java.util.List<String> pluginArgs,
+    private WebMain(int port, String profile, java.util.List<String> pluginArgs, String bindHost,
             long approvalTimeoutSeconds) throws IOException {
         this.port = port;
+        this.bindHost = bindHost;
         Context root = Context.create();
         new ConsoleExporter(root);
         boot = new HarnessBoot(root)
@@ -132,7 +145,7 @@ public final class WebMain {
         registerBuiltinCommands();
 
         try {
-            server = HttpServer.create(new InetSocketAddress(port), 0);
+            server = HttpServer.create(new InetSocketAddress(bindHost, port), 0);
         } catch (BindException e) {
             System.err.println("majo-web: port " + port + " is already in use (another instance running?);");
             System.err.println("  pick a free port, e.g. java -jar majo-web-0.1.0-SNAPSHOT.jar --port 9000");
@@ -1292,29 +1305,52 @@ public final class WebMain {
 
     public static void main(String[] args) throws IOException {
         int port = 8787;
+        String host = defaultHost();
         String profile = "web";
         String token = null;
         java.util.List<String> plugins = new java.util.ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--port" -> port = Integer.parseInt(args[++i]);
+                case "--host" -> host = args[++i];
                 case "--profile" -> profile = args[++i];
                 case "--plugin" -> plugins.add(args[++i]);
                 case "--token" -> token = args[++i];
                 default -> {
-                    System.err.println("usage: majo-web [--port <n>] [--profile web|<file.yml>] [--plugin name=jar]");
+                    System.err.println("usage: majo-web [--host <addr>] [--port <n>]"
+                            + " [--profile web|<file.yml>] [--plugin name=jar] [--token <secret>]");
                     System.exit(2);
                 }
             }
         }
-        WebMain app = new WebMain(port, profile, plugins);
+        WebMain app = new WebMain(port, profile, plugins, host);
         app.authToken = token;
         if (token != null) {
             System.out.println("majo web: API auth enabled (--token); pass ?token=... or Authorization: Bearer");
+        } else if (!isLoopback(host)) {
+            System.err.println("majo web: WARNING binding " + host
+                    + " without --token exposes every API to the network;"
+                    + " pass --token <secret> or bind 127.0.0.1");
         }
-        System.out.println("majo web: http://localhost:" + app.port());
+        System.out.println("majo web: http://" + host + ":" + app.port());
         System.out.println("press Ctrl+C to stop");
         Runtime.getRuntime().addShutdownHook(new Thread(app::close));
+    }
+
+    private static boolean isLoopback(String host) {
+        if (host == null) {
+            return false;
+        }
+        String lower = host.toLowerCase();
+        if ("localhost".equals(lower)) {
+            return true;
+        }
+        try {
+            java.net.InetAddress address = java.net.InetAddress.getByName(host);
+            return address.isLoopbackAddress();
+        } catch (java.net.UnknownHostException e) {
+            return false;
+        }
     }
 
     /**

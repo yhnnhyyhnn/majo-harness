@@ -463,6 +463,23 @@ final class ConcurrencySoakTest {
     }
 
     @Test
+    void bindsLoopbackByDefaultAndHonoursHostOverride() throws Exception {
+        System.setProperty("majo.host", "127.0.0.1");
+        try {
+            assertThat(WebMain.defaultHost()).isEqualTo("127.0.0.1");
+            startWith(false, java.util.List.of()); // default host from property
+            HttpClient client = HttpClient.newHttpClient();
+            HttpResponse<String> health = client.send(
+                    HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + app.port()
+                            + "/api/health")).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertThat(health.statusCode()).isEqualTo(200);
+        } finally {
+            System.clearProperty("majo.host");
+        }
+    }
+
+    @Test
     void manyTurnHttpClientsOverlapWithoutErrors() throws Exception {
         start();
         HttpClient client = HttpClient.newBuilder()
