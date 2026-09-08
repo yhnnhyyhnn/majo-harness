@@ -6,31 +6,253 @@
     "description": "Local harness REST + SSE surface. Responses are JSON (optional @OptionalWire fields omitted). TypeScript mirrors are generated from WebApiModels via scripts/gen-web-types.sh."
   },
   "paths": {
-    "/api/sessions": { "get": {"summary": "List sessions (?view=active|archived|all)", "tags": ["sessions"]}, "post": {"summary": "Create a session", "tags": ["sessions"]} },
-    "/api/sessions/{id}": { "get": {"summary": "Session detail (id, title, sessionModel, events)", "tags": ["sessions"]} },
-    "/api/sessions/import": { "post": {"summary": "Import NDJSON log into a new session", "tags": ["sessions"]} },
-    "/api/sessions/{id}/title": { "put": {"summary": "Rename a session", "tags": ["sessions"]} },
-    "/api/sessions/{id}/model": { "put": {"summary": "Set per-session model override", "tags": ["sessions"]}, "delete": {"summary": "Clear per-session model override", "tags": ["sessions"]} },
-    "/api/sessions/{id}/archive": { "put": {"summary": "Archive a session", "tags": ["sessions"]}, "delete": {"summary": "Restore a session", "tags": ["sessions"]} },
-    "/api/sessions/{id}/export": { "get": {"summary": "Download replayable JSONL", "tags": ["sessions"]} },
-    "/api/sessions/{id}/events": { "get": {"summary": "Events newer than ?since=", "tags": ["sessions"]} },
-    "/api/sessions/{id}/feedback": { "get": {"summary": "List message ratings", "tags": ["sessions"]} },
-    "/api/messages/{id}/{seq}/feedback": { "put": {"summary": "Rate a message up|down", "tags": ["sessions"]}, "delete": {"summary": "Clear a rating", "tags": ["sessions"]} },
-    "/api/search": { "get": {"summary": "Full-text search over sessions (?q=)", "tags": ["sessions"]} },
-    "/api/settings/model": { "get": {"summary": "Current model state", "tags": ["models"]}, "put": {"summary": "Set the global model", "tags": ["models"]} },
-    "/api/subagents": { "get": {"summary": "Recent delegations", "tags": ["agents"]} },
-    "/api/subagents/delegate": { "post": {"summary": "Run a scoped delegation (auto-approves by default)", "tags": ["agents"]} },
-    "/api/skills": { "get": {"summary": "Mounted skills catalog", "tags": ["capabilities"]} },
-    "/api/skills/{name}": { "get": {"summary": "Skill detail incl. instructions", "tags": ["capabilities"]} },
-    "/api/info": { "get": {"summary": "Version / models / tools / skills", "tags": ["meta"]} },
-    "/api/health": { "get": {"summary": "Liveness + request counters", "tags": ["meta"]} },
-    "/api/plugins": { "get": {"summary": "Mounted plugins with manifest metadata + mtime", "tags": ["plugins"]} },
-    "/api/plugins/{name}/reload": { "post": {"summary": "Hot-replace a plugin jar", "tags": ["plugins"]} },
-    "/api/commands": { "get": {"summary": "Registered backend commands", "tags": ["commands"]} },
-    "/api/commands/{name}": { "post": {"summary": "Run a backend command with args", "tags": ["commands"]} },
-    "/api/approvals/{id}": { "post": {"summary": "Decide an approval (decision allow|reject)", "tags": ["interactions"]} },
-    "/api/questions/{id}": { "post": {"summary": "Answer an ask-user question", "tags": ["interactions"]} },
-    "/api/turn": { "post": {"summary": "One-shot turn (JSON)", "tags": ["turns"]} },
-    "/api/turn/stream": { "get": {"summary": "SSE turn stream; frames: turn/log/chunk/approval/question/done/fail; X-Turn-Id header", "tags": ["turns"]} }
+    "/api/sessions": {
+      "get": {
+        "summary": "List sessions (?view=active|archived|all)",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "post": {
+        "summary": "Create a session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}": {
+      "get": {
+        "summary": "Session detail (id, title, sessionModel, events)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/import": {
+      "post": {
+        "summary": "Import NDJSON log into a new session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/title": {
+      "put": {
+        "summary": "Rename a session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/model": {
+      "put": {
+        "summary": "Set per-session model override",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "delete": {
+        "summary": "Clear per-session model override",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/archive": {
+      "put": {
+        "summary": "Archive a session",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "delete": {
+        "summary": "Restore a session",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/export": {
+      "get": {
+        "summary": "Download replayable JSONL",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/events": {
+      "get": {
+        "summary": "Events newer than ?since=",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/feedback": {
+      "get": {
+        "summary": "List message ratings",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/messages/{id}/{seq}/feedback": {
+      "put": {
+        "summary": "Rate a message up|down",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "delete": {
+        "summary": "Clear a rating",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "summary": "Full-text search over sessions (?q=)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/settings/model": {
+      "get": {
+        "summary": "Current model state",
+        "tags": [
+          "models"
+        ]
+      },
+      "put": {
+        "summary": "Set the global model",
+        "tags": [
+          "models"
+        ]
+      }
+    },
+    "/api/subagents": {
+      "get": {
+        "summary": "Recent delegations",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/subagents/delegate": {
+      "post": {
+        "summary": "Run a scoped delegation (auto-approves by default)",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/skills": {
+      "get": {
+        "summary": "Mounted skills catalog",
+        "tags": [
+          "capabilities"
+        ]
+      }
+    },
+    "/api/skills/{name}": {
+      "get": {
+        "summary": "Skill detail incl. instructions",
+        "tags": [
+          "capabilities"
+        ]
+      }
+    },
+    "/api/info": {
+      "get": {
+        "summary": "Version / models / tools / skills",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "Liveness + request counters",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/api/plugins": {
+      "get": {
+        "summary": "Mounted plugins with manifest metadata + mtime",
+        "tags": [
+          "plugins"
+        ]
+      }
+    },
+    "/api/plugins/{name}/reload": {
+      "post": {
+        "summary": "Hot-replace a plugin jar",
+        "tags": [
+          "plugins"
+        ]
+      }
+    },
+    "/api/commands": {
+      "get": {
+        "summary": "Registered backend commands",
+        "tags": [
+          "commands"
+        ]
+      }
+    },
+    "/api/commands/{name}": {
+      "post": {
+        "summary": "Run a backend command with args",
+        "tags": [
+          "commands"
+        ]
+      }
+    },
+    "/api/approvals/{id}": {
+      "post": {
+        "summary": "Decide an approval (decision allow|reject)",
+        "tags": [
+          "interactions"
+        ]
+      }
+    },
+    "/api/questions/{id}": {
+      "post": {
+        "summary": "Answer an ask-user question",
+        "tags": [
+          "interactions"
+        ]
+      }
+    },
+    "/api/turn": {
+      "post": {
+        "summary": "One-shot turn (JSON)",
+        "tags": [
+          "turns"
+        ]
+      }
+    },
+    "/api/turn/stream": {
+      "get": {
+        "summary": "SSE turn stream; frames: turn/log/chunk/approval/question/done/fail; X-Turn-Id header",
+        "tags": [
+          "turns"
+        ]
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "summary": "Fine metrics: status/latency buckets, turns, approvals, reloads",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    }
   }
 }

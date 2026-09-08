@@ -73,6 +73,107 @@ public final class WebMain {
     private final long startedNanos = System.nanoTime();
     private final java.util.concurrent.atomic.AtomicLong requestCount = new java.util.concurrent.atomic.AtomicLong();
     private final java.util.concurrent.atomic.AtomicLong errorCount = new java.util.concurrent.atomic.AtomicLong();
+
+    /** Per-request fine metrics for /api/metrics (static: one server per JVM). */
+    static final class Metrics {
+        private static final java.util.concurrent.atomic.AtomicLong CLIENT_ABORTS =
+                new java.util.concurrent.atomic.AtomicLong();
+        private static final java.util.concurrent.atomic.AtomicLong TURNS =
+                new java.util.concurrent.atomic.AtomicLong();
+        private static final java.util.concurrent.atomic.AtomicLong APPROVALS =
+                new java.util.concurrent.atomic.AtomicLong();
+        private static final java.util.concurrent.atomic.AtomicLong QUESTIONS =
+                new java.util.concurrent.atomic.AtomicLong();
+        private static final java.util.concurrent.atomic.AtomicLong RELOADS =
+                new java.util.concurrent.atomic.AtomicLong();
+        private static final long[] BUCKET_LIMITS_MS = {5, 20, 100, 500, 2_000};
+        private static final String[] BUCKET_NAMES = {"under5ms", "under20ms", "under100ms",
+                "under500ms", "under2000ms", "over2000ms"};
+        private static final java.util.concurrent.atomic.AtomicLong[] LATENCY =
+                new java.util.concurrent.atomic.AtomicLong[BUCKET_NAMES.length];
+        private static final java.util.concurrent.atomic.AtomicLong[] STATUS =
+                new java.util.concurrent.atomic.AtomicLong[6];
+        private static final ThreadLocal<Long> STARTED = new ThreadLocal<>();
+
+        static {
+            for (int i = 0; i < LATENCY.length; i++) {
+                LATENCY[i] = new java.util.concurrent.atomic.AtomicLong();
+            }
+            for (int i = 0; i < STATUS.length; i++) {
+                STATUS[i] = new java.util.concurrent.atomic.AtomicLong();
+            }
+        }
+
+        static void begin() {
+            STARTED.set(System.nanoTime());
+        }
+
+        /** Records one finished request; clears the per-request timer. */
+        static void record(int status) {
+            Long started = STARTED.get();
+            if (started == null) {
+                return;
+            }
+            STARTED.remove();
+            long ms = (System.nanoTime() - started) / 1_000_000;
+            int bucket = BUCKET_LIMITS_MS.length;
+            for (int i = 0; i < BUCKET_LIMITS_MS.length; i++) {
+                if (ms < BUCKET_LIMITS_MS[i]) {
+                    bucket = i;
+                    break;
+                }
+            }
+            LATENCY[bucket].incrementAndGet();
+            if (status >= 100 && status < 600) {
+                STATUS[status / 100].incrementAndGet();
+            }
+        }
+
+        static void abort() {
+            CLIENT_ABORTS.incrementAndGet();
+            STARTED.remove();
+        }
+
+        static void turn() {
+            TURNS.incrementAndGet();
+        }
+
+        static void approvalDecided() {
+            APPROVALS.incrementAndGet();
+        }
+
+        static void questionAnswered() {
+            QUESTIONS.incrementAndGet();
+        }
+
+        static void reloaded() {
+            RELOADS.incrementAndGet();
+        }
+
+        static Map<String, Object> snapshot(long startedNanos, long requests, long errors) {
+            Map<String, Long> latency = new java.util.LinkedHashMap<>();
+            for (int i = 0; i < LATENCY.length; i++) {
+                latency.put(BUCKET_NAMES[i], LATENCY[i].get());
+            }
+            Map<String, Long> status = new java.util.LinkedHashMap<>();
+            String[] labels = {"1xx", "2xx", "3xx", "4xx", "5xx"};
+            for (int i = 1; i <= 5; i++) {
+                status.put(labels[i - 1], STATUS[i].get());
+            }
+            status.put("aborted", CLIENT_ABORTS.get());
+            Map<String, Object> all = new java.util.LinkedHashMap<>();
+            all.put("uptimeMs", (System.nanoTime() - startedNanos) / 1_000_000);
+            all.put("requests", requests);
+            all.put("errors", errors);
+            all.put("turns", TURNS.get());
+            all.put("approvalsDecided", APPROVALS.get());
+            all.put("questionsAnswered", QUESTIONS.get());
+            all.put("pluginsReloaded", RELOADS.get());
+            all.put("status", status);
+            all.put("latencyMs", latency);
+            return all;
+        }
+    }
     /** Booted plugin jars mounted with {@code --plugin name=jar}; serves their static-web/ frontends. */
     private final java.util.Map<String, io.jcordis.core.registry.Plugin> webPlugins = new java.util.TreeMap<>();
     private final java.util.Map<String, java.nio.file.Path> pluginJars = new java.util.TreeMap<>();
@@ -168,6 +269,7 @@ public final class WebMain {
 
     private void route(HttpExchange exchange) throws IOException {
         requestCount.incrementAndGet();
+        Metrics.begin();
         String path = exchange.getRequestURI().getPath();
         String auth = authToken;
         if (auth != null && path.startsWith("/api/") && !authorized(exchange, auth)) {
@@ -218,6 +320,8 @@ public final class WebMain {
                 openApiSpec(exchange);
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/health".equals(path)) {
                 json(exchange, 200, healthInfo());
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/metrics".equals(path)) {
+                json(exchange, 200, Metrics.snapshot(startedNanos, requestCount.get(), errorCount.get()));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/commands".equals(path)) {
                 json(exchange, 200, commandsIndex());
             } else if ("POST".equals(exchange.getRequestMethod())
@@ -320,6 +424,7 @@ public final class WebMain {
         } catch (java.io.IOException gone) {
             // client closed the connection mid-response — a client abort, not
             // a server error: never count it against /api/health errors
+            Metrics.abort();
         } catch (Throwable failure) {
             errorCount.incrementAndGet();
             failure.printStackTrace();
@@ -723,6 +828,7 @@ public final class WebMain {
         if (!pending.decideApproval(id, granted)) {
             throw new IllegalArgumentException("unknown or expired approval " + id);
         }
+        Metrics.approvalDecided();
         return new WebApiModels.Ok(true);
     }
 
@@ -735,6 +841,7 @@ public final class WebMain {
         if (!pending.answerQuestion(id, String.valueOf(answer))) {
             throw new IllegalArgumentException("unknown or expired question " + id);
         }
+        Metrics.questionAnswered();
         return new WebApiModels.Ok(true);
     }
 
@@ -793,8 +900,10 @@ public final class WebMain {
             if (task == null || task.isBlank() || sessionId == null || sessionId.isBlank()) {
                 sse(out, writeLock, clientGone, "event: fail\ndata: " + JSON.writeValueAsString(
                         new WebApiModels.StreamFail("sessionId and task query parameters are required")) + "\n\n");
+                Metrics.record(200);
                 return;
             }
+            Metrics.turn();
             SessionService sessions = boot.service(SessionService.NAME);
             AgentLoopService loop = boot.service(AgentLoopService.NAME);
             Thread heartbeat = Thread.ofVirtual().start(() -> {
@@ -872,6 +981,7 @@ public final class WebMain {
                                 sessionModelFor(sessionId));
                         sse(out, writeLock, clientGone, "event: done\ndata: " + JSON.writeValueAsString(
                                 new WebApiModels.StreamDone(sessionId, answer)) + "\n\n");
+                        Metrics.record(200);
                     } finally {
                         pending.notifier.remove();
                     }
@@ -1180,6 +1290,7 @@ public final class WebMain {
         }
         io.jcordis.core.registry.Plugin fresh = boot.loader().replaceJar(jar, name);
         webPlugins.put(name, fresh);
+        Metrics.reloaded();
         System.out.println("majo-web: hot-reloaded plugin \"" + name + "\" from " + jar);
         return new WebApiModels.Ok(true);
     }
@@ -1345,6 +1456,7 @@ public final class WebMain {
             exchange.getResponseHeaders().set("Connection", "close");
             exchange.sendResponseHeaders(200, payload.length);
             exchange.getResponseBody().write(payload);
+            Metrics.record(200);
         }
     }
 
@@ -1385,6 +1497,7 @@ public final class WebMain {
         exchange.getResponseHeaders().set("Connection", "close");
         exchange.sendResponseHeaders(status, payload.length);
         exchange.getResponseBody().write(payload);
+        Metrics.record(status);
     }
 
     public static void main(String[] args) throws IOException {
