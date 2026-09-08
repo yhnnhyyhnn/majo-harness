@@ -172,6 +172,15 @@ export const api = {
     return postJson("/api/subagents/delegate", payload);
   },
 
+  /** Host-registered backend commands (see CommandRegistry / #3). */
+  listCommands(): Promise<{ commands: { name: string; description: string }[] }> {
+    return rpc("/api/commands");
+  },
+
+  runCommand(name: string, args: Record<string, unknown>): Promise<{ output: string }> {
+    return postJson("/api/commands/" + encodeURIComponent(name), args);
+  },
+
   info(): Promise<Info> {
     return rpc("/api/info");
   },

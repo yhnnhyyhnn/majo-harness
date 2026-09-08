@@ -41,3 +41,15 @@ describe("command completion helpers", () => {
     expect(commandHintsFor(list, "zzz")).toEqual([]);
   });
 });
+
+import { hostCommandPayload } from "./features/commands";
+
+describe("host command payload mapping", () => {
+  it("sends the rest of the line as task for delegate", () => {
+    expect(hostCommandPayload("delegate", ["2+2", "and", "more"])).toEqual({ task: "2+2 and more" });
+  });
+
+  it("sends an empty payload for other host commands", () => {
+    expect(hostCommandPayload("status", ["ignored"])).toEqual({});
+  });
+});

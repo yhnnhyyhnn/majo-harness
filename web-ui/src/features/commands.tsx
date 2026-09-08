@@ -78,7 +78,37 @@ const commands: Command[] = [
       return "child " + result.childSessionId.slice(0, 8) + " → " + (preview || "(no answer)");
     },
   },
+  {
+    names: ["status"],
+    usage: "",
+    description: "harness counters from the host backend (status)",
+    group: "system",
+    async run(_seat: CommandSeat) {
+      const result = await api.runCommand("status", {});
+      return (result.output || "").trim() || "(host returned nothing)";
+    },
+  },
 ];
+
+/** Payload mapping for host commands (pure, tested). */
+export function hostCommandPayload(name: string, args: string[]): Record<string, unknown> {
+  return name === "delegate" ? { task: args.join(" ").trim() } : {};
+}
+
+/** Host backend commands (listCommands) surface here unless a client twin exists. */
+function hostCommand(host: { name: string; description: string }): Command {
+  return {
+    names: [host.name],
+    usage: "",
+    description: host.description || "host backend command",
+    group: "host",
+    async run(_seat: CommandSeat, args: string[]) {
+      const result = await api.runCommand(host.name, hostCommandPayload(host.name, args));
+      return (result.output || "").replace(/\s+/g, " ").trim().slice(0, 200)
+        || "(host returned nothing)";
+    },
+  };
+}
 
 export const commandsFeature: Feature = {
   id: "commands",
@@ -86,5 +116,20 @@ export const commandsFeature: Feature = {
     for (const command of commands) {
       context.addCommand(command);
     }
+    const clientNames = new Set(commands.flatMap((command) => command.names));
+    // Host commands can be contributed by plugins at runtime; list them and
+    // register any that have no client twin (e.g. a plugin-provided command).
+    void api
+      .listCommands()
+      .then((index) => {
+        for (const host of index.commands) {
+          if (host.name && !clientNames.has(host.name)) {
+            context.addCommand(hostCommand(host));
+          }
+        }
+      })
+      .catch(() => {
+        // offline/older backend: host commands simply stay absent
+      });
   },
 };
