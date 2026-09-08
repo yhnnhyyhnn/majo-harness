@@ -71,7 +71,26 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 - **CI (roadmap E1) green on ubuntu** (`mvn clean verify` + vitest + plugin demo best-effort; jcordis-all/parent vendored under `lib/`); **frontend vitest suite (E2)** shipped (9 tests).
 
-## [Unreleased]
+## [0.1.1] - 2026-09-08
+
+Second tagged release (git `v0.1.0` → `v0.1.1`): the agent milestone closes
+(M-C4 plugin islands + host-policy tooling), turns run in parallel per
+session with per-stream approval routing, jcordis moves to Maven Central, and
+the harness gets soak-grade verification plus network/health hardening. 系统
+侧清单（#3/#6/#9/#10/#12/#13/#14/#16 等）全部落地；前端接线补齐（宿主命令
+进 UI、离线工具卡广度）。
+
+- **System items #3/#6/#13/#16**: host builtin backend commands (`status`,
+  `delegate`) registered on `ctx.commands` and listed/run over REST; turns
+  lock per session (parallel across sessions, real-browser verified with two
+  tabs — approvals route to their own SSE stream, distinct `X-Turn-Id` per
+  stream); every SSE stream emits a leading `turn` event carrying its id;
+  `GET /api/openapi.json` serves the curated OpenAPI descriptor.
+
+- **#12 host commands in the web UI**: `/status` shows the host counters;
+  backend commands without a client twin are auto-registered into the
+  composer completions (host group), so plugin-provided backend commands
+  appear without a frontend rebuild.
 
 - **A2 per-agent settings scoping end-to-end**: `delegate_task` and
   `POST /api/subagents/delegate` now accept an optional `settings` object
@@ -121,7 +140,7 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 - **Soak round 2**: 6 jar hot reloads race 8 concurrent cross-session turns
   (all answers stay correct; registry clean; unload works); approval timeouts
-  are now configurable (`majo.approvalTimeoutSeconds`, default 120), and a
+  are now configurable (`majo.approvalTimeoutSeconds`, default 30s), and a
   dropped approval-pending SSE stream fails safe without wedging later
   streams (verified end to end). `ConcurrencySoakTest` grows to 6 tests.
 
@@ -138,6 +157,13 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
   `fetch <url>` maps to `web_fetch`, answer prefix becomes `page: `. Verified
   in a real browser: fetch / search / shell cards all offline.
 
-- **Agent M-C4**: host-policy plugin islands (`SubagentService.registerIsland` + `islands:` on `delegate_task`/REST) mount inside scoped runs and roll back with the scope. M-C1…C4 complete on jcordis 1.0.1-SNAPSHOT (no 1.1 wait).
+- **Agent M-C4**: host-policy plugin islands (`SubagentService.registerIsland` + `islands:` on `delegate_task`/REST) mount inside scoped runs and roll back with the scope. M-C1…C4 complete (no 1.1 wait; jcordis 1.0.1 now pulled from Maven Central).
 
-Working notes for the next iteration (see docs/agent-context.md for the completed milestone).
+- **CI green on the moved-to-Central build**: GitHub Actions passes with no
+  vendored jcordis; the bubblewrap Linux test skips cleanly when the runner
+  forbids unprivileged user namespaces (real confinement still verified where
+  allowed).
+
+## [Unreleased]
+
+Working area for the next iteration.
