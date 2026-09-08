@@ -85,3 +85,32 @@ CI（GitHub Actions / ubuntu / bubblewrap / vitest）在「Maven Central 依赖�
 - 真机移动端 QA（E3）暂缓；Web UI 仅在 DevTools 窄视口测试。
 - jcordis 现位于 `io.github.yhnnhyyhnn`——旧的 `io.jcordis:jcordis-all` 聚合器
   未发布，请使用 core/loader。
+
+## Post-tag additions (folded into the v0.1.1 line) / 打标后并入 v0.1.1 线的补充
+
+- **Observability**: `GET /api/metrics` — status histogram (1xx–5xx + client
+  aborts), latency buckets (<5/20/100/500/2000ms, over), and
+  turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
+  documented in openapi.json (drift-guarded). / 新增 `/api/metrics`：状态直方图、
+  延迟桶、turn/审批/问答/热载计数，openapi 同步并有漂移守护。
+- **Plugin manifest `id`**: `plugin.json` gains a stable optional `id`;
+  `GET /api/plugins` reports it (fallback: mount name) and the Plugins panel
+  dedupes/warns by id instead of display title; duplicates & unversioned jars
+  are flagged. / manifest 增加稳定 `id`：面板按 id 去重/告警，重复挂载与缺版本可辨。
+- **`/delegate` compose form**: the Subagents sidebar now hosts a first-class
+  delegation form (task / model / maxSteps / auto-approve / allowedTools /
+  host islands / per-agent settings), backed by new
+  `GET /api/subagents/islands`; child runs appear in the activity list.
+  / Subagents 面板新增委派表单（任务/模型/步数/白名单/岛屿/作用域设置），后端新增
+  islands 列表端点。
+- **Live DDG probe**: `DdgLiveProbeTest` (opt-in `MAJO_NET_PROBE=1`) and a CI
+  best-effort step exercise the real DuckDuckGo backend where outbound
+  network exists. / 新增可选真实 DuckDuckGo 探针（CI best-effort）。
+- **Host commands in the UI + health/metrics docs**: `/status` runs the host
+  backend command and un-twin host commands auto-register into composer
+  completions; docs (architecture/web-parity, EN+ZH) now match the shipped
+  endpoints and panels. / 宿主命令进 UI；中英架构/对齐文档与现网一致。
+- **Developer tooling**: `scripts/test-module.sh <module>` runs single-module
+  tests inside the reactor (`-am`) so stale local SNAPSHOTs can't fake
+  “missing symbol” failures (README EN/ZH warns about bare `-pl`).
+  / 新增 `-am` 强制模块测试脚本并警示裸 `-pl` 陷阱。
