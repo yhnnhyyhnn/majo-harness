@@ -166,4 +166,17 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 ## [Unreleased]
 
+- **Observability (/api/metrics)**: status histogram (1xx–5xx + client
+  aborts), latency buckets (<5/20/100/500/2000 ms, over), and
+  turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
+  documented in openapi.json (drift-guarded).
+
+- **Plugin hygiene warnings**: the Plugins panel flags duplicate frontend ids
+  and unversioned jars (pure helper + vitest).
+
+- **Docs parity**: architecture & web-parity (EN/ZH) now reflect the current
+  endpoints (commands/health/metrics/openapi/plugin reload/…), host command
+  UI bridge, subagent islands + settings overrides, plugins panel, offline
+  fetch/search backends and profiles.
+
 Working area for the next iteration.

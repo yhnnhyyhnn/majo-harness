@@ -79,8 +79,11 @@ majo-interaction/ ApprovalRequest/Question/ApprovalDecision / InteractionHandler
 majo-skill/       Skill / SkillProvider 接缝 / FileSkillProvider（SKILL.md 目录）
                   / SkillRegistry / SkillPlugin / FileSkillPlugin
                   / ListSkillsTool / LoadSkillTool / SkillToolsPlugin
-majo-subagent/    SubagentService / SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
-majo-settings/    SettingsService / SettingsPlugin（JSON 文件 provider）
+majo-subagent/    SubagentService / AgentScope + 宿主策略岛屿（registerIsland /
+                  delegateSpecIslands）/ SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
+                  （delegate_task：model/maxSteps/autoApprove/allowedTools/islands/settings）
+majo-settings/    SettingsService（原子 JSON 写 + 重试）/ SettingsPlugin
+                  + per-agent scoped() 覆盖（A2）
 majo-credentials/ CredentialProvider 接缝 + EnvCredentialProvider（.env 解析）
                   / CredentialsService / CredentialsPlugin
 majo-title/       SessionTitleProvider 接缝 + HeuristicSessionTitleProvider

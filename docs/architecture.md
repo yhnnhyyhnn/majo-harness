@@ -79,24 +79,32 @@ majo-interaction/ ApprovalRequest/Question/ApprovalDecision / InteractionHandler
 majo-skill/       Skill / SkillProvider seam / FileSkillProvider (SKILL.md dirs)
                   / SkillRegistry / SkillPlugin / FileSkillPlugin
                   / ListSkillsTool / LoadSkillTool / SkillToolsPlugin
-majo-subagent/    SubagentService / SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
-majo-settings/    SettingsService / SettingsPlugin (JSON file provider)
+majo-subagent/    SubagentService / AgentScope + host-policy islands (registerIsland /
+                  delegateSpecIslands) / SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
+                  (delegate_task: model/maxSteps/autoApprove/allowedTools/islands/settings)
+majo-settings/    SettingsService (atomic JSON writes w/ retry) / SettingsPlugin
+                  + per-agent scoped() overrides (A2)
 majo-credentials/ CredentialProvider seam + EnvCredentialProvider (.env parse)
                   / CredentialsService / CredentialsPlugin
 majo-title/       SessionTitleProvider seam + HeuristicSessionTitleProvider
                   / SessionTitleService / SessionTitlePlugin / HeuristicTitlePlugin
 majo-web-access/  SearchProvider/FetchProvider seams + FetchHttpProvider (anonymous,
-                  HTML→text) / DdgSearchProvider (DuckDuckGo, no-key) +
-                  StaticSearchProvider + WikiSearchProvider / WebAccessService (ctx.web)
-                  / WebPlugin/FetchHttpPlugin/StaticSearchPlugin
+                  HTML→text) / DdgSearchProvider + DdgSearchPlugin (DuckDuckGo, no-key)
+                  / LocalFileFetchProvider + LocalFileFetchPlugin (offline corpus,
+                  traversal-safe) / StaticSearchProvider + WikiSearchProvider
+                  / WebAccessService (ctx.web)
+                  / WebPlugin / StaticSearchPlugin / WikiSearchPlugin
                   / WebSearchTool/WebFetchTool/WebToolsPlugin (web_search/web_fetch)
 majo-util/        Disposables (composite disposer factory)
-majo-boot/        HarnessBoot (builtins registration, profile parsing, launch)
+majo-boot/        HarnessBoot (builtins registration incl. host commands
+                  CommandRegistry/CommandRegistryPlugin, profile parsing, launch)
 majo-headless/    HeadlessMain / CalculatorTool / CalculatorToolPlugin / RunnerPlugin / headless.yml
                   / TranscriptPrinter (shared transcript rendering)
 majo-cli/         MajoCli (dsh-style launcher, shaded executable jar)
-majo-web/         WebMain (JDK HttpServer over the booted tree, static chat UI)
-                  / web.yml profile
+majo-web/         WebMain (JDK HttpServer over the booted tree, static chat UI,
+                  per-session turn locks, SSE heartbeat + turn ids, loopback bind)
+                  / web.yml + web-mock.yml profiles
+                  / /api/health /api/metrics /api/commands(:name) /api/openapi.json …
  docs/            this document (EN + zh-CN)
 ```
 

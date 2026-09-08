@@ -34,7 +34,7 @@
 | 会话管理/归档 | ✅ | 管理模式多选批量删除（`deleteSessions`）与批量归档；Active/Archived 视图（`?view=active\|archived\|all`），搜索结果内联恢复 |
 | 会话导出/导入 | ✅ | `GET …/export` 下载可回放 NDJSON；`POST /api/sessions/import` 回放进新会话（严格 seq、失败回滚） |
 | 模型选择控件 | ✅ | 头部两个下拉：全局（`GET/PUT /api/settings/model`）+ 按会话覆盖（`PUT/DELETE /api/sessions/:id/model`）；`REQUEST_HEADER` 记录实际所用模型 |
-| 斜杠命令（`ui-commands`） | ✅ | commands 槽：`/help /clear /new /model /session-model`，实时分组补全（↑↓/Tab/Enter/Esc）；feature 经 `addCommand` 扩展 |
+| 斜杠命令（`ui-commands`） | ✅ | commands 槽：`/help /clear /new /model /session-model /status /delegate`，实时分组补全（↑↓/Tab/Enter/Esc）；后端宿主命令（`GET /api/commands`）若无客户端同名项会自动注册进 `host` 组；feature 经 `addCommand` 扩展 |
 | 设置（通用/模型/插件） | ✅ | 侧栏 Settings 区：版本/模型/工具/技能事实（`/api/info`） |
 | 移动端布局 | ✅ | ≤860px：滑入式抽屉侧栏（☰/遮罩）、触控目标放大、safe-area 留白、16px 输入字号、横屏适配 |
 | 主题切换 | ⬜ | CSS 变量化后成本极低（当前单一 dsh 暗色主题） |
@@ -49,22 +49,23 @@
 | Jobs（`ui-jobs`） | 后端未建 | ⬜ |
 | Schedule（`ui-schedule`） | 后端未建 | ⬜ |
 | Workflow（`ui-workflow-run`） | 后端未建 | ⬜ |
-| Subagent 活动（`ui-subagent`） | 后端已有 subagent | ✅ 侧栏区（近期委派，轮询）+ delegate 卡的父→子转写链接 |
+| Subagent 活动（`ui-subagent`） | 后端已有 subagent | ✅ 侧栏区（近期委派，轮询）+ delegate 卡的父→子转写链接；委派支持 scoped model/maxSteps/autoApprove/allowedTools + 宿主岛屿 + per-agent `settings` 覆盖 |
 | Skills 面板（`ui-skill`） | 后端已有 skills | ✅ 侧栏区（`/api/skills`，轮询） |
+| 插件管理 | 三层插件模型 + jar 热 reload | ✅ 侧栏区：托管页 + 原生 `plugin.mjs` mount/reload/unload、jar mtime 自动 reload、version/slots 徽标、重复 id 与缺版本告警 |
 | Agent team（实验） | 后端未建 | ⬜ |
 | 轨迹（`ui-trajectory`） | 会话日志已含一切 | 🟡 经转写 |
 
 ## 线契约与面板机制
 
 - 类型单一真源：`WebApiModels` DTO + `SessionEventType` 枚举 → `WebTypesGenerator` → `web-ui/src/types.ts`；后端按同一 DTO 序列化（`@OptionalWire` 配合 `NON_NULL`）。
-- 端点：`GET/POST /api/sessions`（`GET ?view=active|archived|all`）、`GET/PUT/DELETE /api/sessions/:id`（`PUT …/title`、`PUT/DELETE …/model`、`PUT/DELETE …/archive`、`GET …/events?since=`、`GET …/feedback`、`GET …/export`）、`POST /api/sessions/import`、`GET /api/search?q=`、`GET/PUT /api/settings/model`、`GET /api/skills`、`GET /api/subagents`、`GET /api/plugins`、`GET /api/info`、审批/问答决策、`PUT/DELETE /api/messages/:id/:seq/feedback`、SSE `/api/turn/stream`。
+- 端点：`GET/POST /api/sessions`（`GET ?view=active|archived|all`）、`GET/PUT/DELETE /api/sessions/:id`（`PUT …/title`、`PUT/DELETE …/model`、`PUT/DELETE …/archive`、`GET …/events?since=`、`GET …/feedback`、`GET …/export`）、`POST /api/sessions/import`、`GET /api/search?q=`、`GET/PUT /api/settings/model`、`GET /api/skills`、`GET /api/subagents`（+ `POST /api/subagents/delegate`）、`GET /api/plugins`（+ `POST …/:name/reload`、`DELETE …/:name`）、`GET /api/commands`（+ `POST /api/commands/:name`）、`GET /api/health`、`GET /api/metrics`、`GET /api/info`、`GET /api/openapi.json`、审批/问答决策、`PUT/DELETE /api/messages/:id/:seq/feedback`、SSE `/api/turn/stream`（每流 `X-Turn-Id` + 心跳）。
 - 工具结果在线路上携带可选结构化 `data`（退出码、hits、child 会话 id…），卡片无需再解析文本；文本仍是模型可见的唯一真源。
 - UI 装配仍只靠注册：`features/*` 填 message-renderer/rail/sidebar/command 槽（经 `FEATURES` 编译期列表）；壳层只渲染槽并在运行时注入座位（`openSession`、`rate`、command `run`）。
 
 ## 搜索/抓取后端（服务端 web 能力族）
 
 - 接缝：`SearchProvider`/`FetchProvider` 注册到 `ctx.web`；首个可用后端（或显式 id）服务 `web_search`/`web_fetch`；无后端结构化失败；provider 文本视为外部/不可信。
-- 现役：`web-fetch-http`（匿名 HTML→文本）、`web-search-static`（离线）、`web-search-wiki`（真实无 key Wikipedia API，惰性挂载，`web.yml`）。
+- 现役：`web-fetch-http`（匿名 HTML→文本）、`web-search-duckduckgo`（无 key DuckDuckGo HTML，惰性）、`web-search-static`（离线固化）、`web-search-wiki`（真实无 key Wikipedia API，惰性）、`web-fetch-local`（离线语料 `examples/demo-corpus`，防穿越——支撑 `web-mock.yml` 的完全离线工具卡演示）。
 
 ## 建议顺序
 

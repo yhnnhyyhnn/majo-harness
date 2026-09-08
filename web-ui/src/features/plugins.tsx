@@ -3,6 +3,7 @@ import { api } from "../api";
 import type { PluginInfo } from "../types";
 import type { Feature, PluginHost, SectionProps } from "../slots";
 import { useRegistrar } from "../slots";
+import { pluginIssues } from "../plugin-issues";
 
 // Mounted plugin frontends: the backend hosts each plugin jar's
 // static-web/<name>/ assets under /plugins/<name>/; this section lists what
@@ -158,6 +159,13 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
           {plugins && plugins.length === 0 && (
             <div className="meta">
               none mounted — start with <code>--plugin name=jar</code>
+            </div>
+          )}
+          {plugins && plugins.length > 0 && (
+            <div className="meta plugin-warnings">
+              {pluginIssues(plugins).map((issue) => (
+                <div key={issue}>⚠ {issue}</div>
+              ))}
             </div>
           )}
           {plugins?.map((plugin) => {
