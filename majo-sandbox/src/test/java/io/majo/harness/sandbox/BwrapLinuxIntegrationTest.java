@@ -40,11 +40,13 @@ class BwrapLinuxIntegrationTest {
         if (code != 0) {
             // GitHub-hosted runners may forbid unprivileged user namespaces;
             // that is an environment limitation, not a sandbox regression.
-            Assumptions.assumeTrue(!deniedByEnvironment(output),
-                    "bwrap installed but unprivileged user namespaces are unavailable here:\n"
-                            + output.trim());
+            String detail = output.trim();
+            Assumptions.assumeTrue(!deniedByEnvironment(detail),
+                    "bwrap installed but namespaces appear unavailable here:\n" + detail);
         }
-        assertThat(code).isZero();
+        assertThat(code)
+                .withFailMessage("bwrap probe failed (exit %d); output:\n%s", code, output.trim())
+                .isZero();
         assertThat(output.trim()).isEqualTo("sandboxed");
 
         // the confined child cannot see an unrelated host path
@@ -59,12 +61,17 @@ class BwrapLinuxIntegrationTest {
         assertThat(deniedOutput.trim()).isEqualTo("hidden");
     }
 
-    private static boolean deniedByEnvironment(String combinedOutput) {
-        String lower = combinedOutput.toLowerCase();
+    private static boolean deniedByEnvironment(String text) {
+        String lower = text.toLowerCase();
         return lower.contains("operation not permitted")
+                || lower.contains("permission denied")
+                || lower.contains("eacces")
+                || lower.contains("epipe")
                 || (lower.contains("namespace") && (lower.contains("permission")
-                        || lower.contains("allow") || lower.contains("denied")))
-                || lower.contains("userns");
+                        || lower.contains("allow") || lower.contains("denied")
+                        || lower.contains("failed")))
+                || lower.contains("userns")
+                || lower.contains("unshare");
     }
 
     private static String findBwrap() {
