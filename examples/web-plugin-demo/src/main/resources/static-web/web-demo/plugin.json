@@ -1,5 +1,8 @@
 {
   "title": "web-demo",
   "version": "0.1.0",
-  "slots": ["sidebar-section"]
+  "slots": [
+    "sidebar-section"
+  ],
+  "id": "io.majo.demo.webdemo"
 }

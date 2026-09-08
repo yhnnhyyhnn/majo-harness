@@ -2,9 +2,17 @@ import { describe, it, expect } from "vitest";
 import { pluginIssues } from "./plugin-issues";
 
 describe("plugin hygiene warnings", () => {
-  it("flags a duplicate frontend id across mounts", () => {
+  it("flags a duplicate manifest id across mounts (display title ignored)", () => {
     const issues = pluginIssues([
-      { name: "a", title: "demo", version: "1.0.0" },
+      { name: "a", id: "io.majo.demo", title: "demo alpha", version: "1.0.0" },
+      { name: "b", id: "io.majo.demo", title: "demo beta", version: "2.0.0" },
+    ]);
+    expect(issues).toContain('duplicate frontend id "io.majo.demo" (mounted 2x)');
+  });
+
+  it("falls back to title/name when no explicit id", () => {
+    const issues = pluginIssues([
+      { name: "a", title: "demo" },
       { name: "b", title: "demo", version: "2.0.0" },
     ]);
     expect(issues).toContain('duplicate frontend id "demo" (mounted 2x)');
@@ -17,8 +25,8 @@ describe("plugin hygiene warnings", () => {
 
   it("stays quiet for distinct, versioned mounts", () => {
     const issues = pluginIssues([
-      { name: "a", title: "one", version: "1.0.0" },
-      { name: "b", title: "two", version: "0.2.0" },
+      { name: "a", id: "one", version: "1.0.0" },
+      { name: "b", id: "two", version: "0.2.0" },
     ]);
     expect(issues).toEqual([]);
   });

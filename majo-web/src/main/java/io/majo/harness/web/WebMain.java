@@ -311,6 +311,11 @@ public final class WebMain {
                 json(exchange, 200, skillDetail(name));
             } else if ("POST".equals(exchange.getRequestMethod()) && "/api/subagents/delegate".equals(path)) {
                 json(exchange, 200, delegateViaApi(exchange));
+            } else if ("GET".equals(exchange.getRequestMethod()) && "/api/subagents/islands".equals(path)) {
+                SubagentService islandSubagent = boot.ctx().get(SubagentService.NAME);
+                java.util.Set<String> names = islandSubagent == null ? java.util.Set.of()
+                        : islandSubagent.islandNames();
+                json(exchange, 200, java.util.Map.of("islands", names));
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/subagents".equals(path)) {
                 json(exchange, 200, subagentsIndex());
             } else if ("GET".equals(exchange.getRequestMethod()) && "/api/search".equals(path)) {
@@ -1372,12 +1377,16 @@ public final class WebMain {
             if (loader.getResource("static-web/" + name + "/index.html") == null) {
                 continue;
             }
+            String id = name;
             String title = name;
             String version = null;
             java.util.List<String> slots = null;
             try (InputStream manifest = loader.getResourceAsStream("static-web/" + name + "/plugin.json")) {
                 if (manifest != null) {
                     var meta = JSON.readTree(manifest.readAllBytes());
+                    if (meta.hasNonNull("id")) {
+                        id = meta.get("id").asText();
+                    }
                     if (meta.hasNonNull("title")) {
                         title = meta.get("title").asText();
                     }
@@ -1408,7 +1417,7 @@ public final class WebMain {
                 }
             }
             list.add(new WebApiModels.PluginInfo(name,
-                    "/plugins/" + name + "/index.html", title, module, version, slots, mtime));
+                    "/plugins/" + name + "/index.html", id, title, module, version, slots, mtime));
         }
         return new WebApiModels.PluginsIndex(list);
     }

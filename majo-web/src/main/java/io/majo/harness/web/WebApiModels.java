@@ -42,7 +42,7 @@ public final class WebApiModels {
 
     /** One mounted web plugin with a hosted frontend. */
     public record PluginInfo(String name, String url,
-            @OptionalWire String title, @OptionalWire String module,
+            @OptionalWire String id, @OptionalWire String title, @OptionalWire String module,
             @OptionalWire String version, @OptionalWire java.util.List<String> slots,
             @OptionalWire Long mtime) {}
 

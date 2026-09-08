@@ -152,6 +152,11 @@ public final class SubagentService extends Service {
                 true, islands);
     }
 
+    /** Host-registered island names (policy surface for UIs / API docs). */
+    public java.util.Set<String> islandNames() {
+        return new java.util.TreeSet<>(hostIslands.keySet());
+    }
+
     /**
      * Registers a host policy island under a name the model/tool may request.
      * The disposer unregisters it (and thus hides it from future delegations).

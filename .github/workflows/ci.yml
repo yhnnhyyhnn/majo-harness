@@ -38,6 +38,12 @@ jobs:
         run: npx vitest run
         working-directory: web-ui
 
+      - name: Live DuckDuckGo probe (best effort, needs outbound network)
+        continue-on-error: true
+        env:
+          MAJO_NET_PROBE: "1"
+        run: mvn -B -ntp -pl majo-web-access -am test -Dtest=DdgLiveProbeTest -Dsurefire.failIfNoSpecifiedTests=false
+
       - name: Build the plugin demo jar (best effort)
         run: |
           if bash scripts/build-plugin-demo.sh; then

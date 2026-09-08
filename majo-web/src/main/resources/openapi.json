@@ -253,6 +253,16 @@
           }
         }
       }
+    },
+    "/api/subagents/islands": {
+      "get": {
+        "summary": "Host-registered island plugin names usable in delegations",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
     }
   }
 }

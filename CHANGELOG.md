@@ -166,6 +166,24 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 ## [Unreleased]
 
+- **Plugin manifest id**: plugin.json gains an optional stable `id`;
+  `GET /api/plugins` returns it (fallback: mount name) and the Plugins panel
+  dedupes/warns by id instead of display title. Examples + scaffold updated.
+
+- **`/delegate` compose form**: the Subagents sidebar now has a first-class
+  delegation form (task/model/maxSteps/auto-approve/allowedTools/host
+  islands/per-agent settings key+value); backend exposes
+  `GET /api/subagents/islands` (host-registered names). Browser-verified
+  (mock child runs and appears in the activity list).
+
+- **Live DDG probe**: `DdgLiveProbeTest` runs only under `MAJO_NET_PROBE=1`;
+  CI adds a best-effort (continue-on-error) probe step on runners with
+  outbound network.
+
+- **Module-test script**: `scripts/test-module.sh <module>` runs tests inside
+  the reactor (`-am`) so stale local-repo SNAPSHOTs can't fake "missing
+  symbol" errors; README (EN/ZH) documents the pitfall.
+
 - **Observability (/api/metrics)**: status histogram (1xx–5xx + client
   aborts), latency buckets (<5/20/100/500/2000 ms, over), and
   turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;

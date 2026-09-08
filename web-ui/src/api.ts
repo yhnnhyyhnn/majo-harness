@@ -168,8 +168,13 @@ export const api = {
     return rpc("/api/subagents");
   },
 
-  delegate(payload: { task: string; model?: string; systemPrompt?: string; maxSteps?: number; autoApprove?: boolean; allowedTools?: string[] }): Promise<DelegateResult> {
+  delegate(payload: { task: string; model?: string; systemPrompt?: string; maxSteps?: number; autoApprove?: boolean; allowedTools?: string[]; islands?: string[]; settings?: Record<string, string> }): Promise<DelegateResult> {
     return postJson("/api/subagents/delegate", payload);
+  },
+
+  /** Host-registered island plugin names available to delegations. */
+  hostIslands(): Promise<{ islands: string[] }> {
+    return rpc("/api/subagents/islands");
   },
 
   /** Host-registered backend commands (see CommandRegistry / #3). */

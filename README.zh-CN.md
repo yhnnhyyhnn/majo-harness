@@ -77,6 +77,11 @@ mvn -DskipTests install                       # 构建并安装反应堆
 java -jar majo-cli/target/majo-cli-0.1.0-SNAPSHOT.jar "1+2"
 ```
 
+多模块内单模块构建/测试请始终用 `bash scripts/test-module.sh <module>`（或
+`mvn -pl <module> -am …`）——带 `-am` 时兄弟模块取自当前工作树；裸 `mvn
+-pl <module> test` 会静默使用 `~/.m2` 里过期的 SNAPSHOT，可能报出虚假的
+“找不到符号”（详见 scripts/test-module.sh 头部说明）。
+
 启动器加载内置 `headless` profile（全部出厂插件经 profile 行组合）并运行一次任务——无需 API key，确定性 mock 模型驱动工具轮次：
 
 ```text

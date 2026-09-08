@@ -70,6 +70,18 @@ export interface FeedbackIndex {
   entries: FeedbackEntry[];
 }
 
+export interface HealthInfo {
+  ok: boolean;
+  uptimeMs: number;
+  version: string;
+  sessions: number;
+  plugins: number;
+  tools: number;
+  models: number;
+  requests: number;
+  errors: number;
+}
+
 export interface Info {
   version: string;
   models: string[];
@@ -89,6 +101,7 @@ export interface Ok {
 export interface PluginInfo {
   name: string;
   url: string;
+  id?: string;
   title?: string;
   module?: string;
   version?: string;

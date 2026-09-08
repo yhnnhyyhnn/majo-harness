@@ -77,6 +77,12 @@ mvn -DskipTests install                       # build & install the reactor
 java -jar majo-cli/target/majo-cli-0.1.0-SNAPSHOT.jar "1+2"
 ```
 
+Building/testing a single module inside this multi-module tree: always use
+`bash scripts/test-module.sh <module>` (or plain `mvn -pl <module> -am …`) —
+with `-am` sibling modules resolve from this checkout. Bare `mvn -pl <module>
+test` silently uses stale installed SNAPSHOTs from `~/.m2` and can report
+false "missing symbol" errors (see scripts/test-module.sh header).
+
 The launcher boots the built-in `headless` profile (all shipped plugins via profile rows) and runs one task — no API key needed, the deterministic mock model drives the tool turn:
 
 ```text
