@@ -339,6 +339,8 @@ public final class WebMain {
                 String name = path.substring("/api/plugins/".length(),
                         path.length() - "/reload".length());
                 json(exchange, 200, reloadPlugin(name));
+            } else if ("POST".equals(exchange.getRequestMethod()) && "/api/plugins".equals(path)) {
+                json(exchange, 200, mountPlugin(exchange));
             } else if ("DELETE".equals(exchange.getRequestMethod())
                     && path.startsWith("/api/plugins/")) {
                 String name = path.substring("/api/plugins/".length());
@@ -426,15 +428,42 @@ public final class WebMain {
             }
         } catch (IllegalArgumentException e) {
             json(exchange, 400, Map.of("error", e.getMessage()));
-        } catch (java.io.IOException gone) {
-            // client closed the connection mid-response — a client abort, not
-            // a server error: never count it against /api/health errors
-            Metrics.abort();
+        } catch (java.io.IOException e) {
+            // distinguish a client dropping the connection (not a server error)
+            // from real IO failures inside handlers (Jackson parse errors etc.)
+            if (isClientAbort(e)) {
+                Metrics.abort();
+            } else {
+                errorCount.incrementAndGet();
+                e.printStackTrace();
+                try {
+                    json(exchange, 500, Map.of("error", String.valueOf(e.getMessage())));
+                } catch (IOException lost) {
+                    Metrics.abort(); // client vanished while we replied
+                }
+            }
         } catch (Throwable failure) {
             errorCount.incrementAndGet();
             failure.printStackTrace();
             json(exchange, 500, Map.of("error", String.valueOf(failure.getMessage())));
         }
+    }
+
+    private static boolean isClientAbort(Throwable failure) {
+        Throwable cursor = failure;
+        while (cursor != null) {
+            if (cursor instanceof java.net.SocketException) {
+                return true;
+            }
+            String message = String.valueOf(cursor.getMessage()).toLowerCase();
+            if (message.contains("broken pipe") || message.contains("connection reset")
+                    || message.contains("socket closed") || message.contains("stream closed")
+                    || message.contains("aborted")) {
+                return true;
+            }
+            cursor = cursor.getCause();
+        }
+        return false;
     }
 
     // ----- API -----
@@ -1283,6 +1312,36 @@ public final class WebMain {
     }
 
     // ----- static & plumbing -----
+
+    /**
+     * Runtime first-time mount of a plugin jar: {@code POST /api/plugins}
+     * with {@code {"name": …, "jar": <path>}} while the server runs. The
+     * plugin becomes hot-reloadable (same path) and unloadable through the
+     * existing reload/DELETE endpoints.
+     */
+    private WebApiModels.Ok mountPlugin(HttpExchange exchange) throws IOException {
+        Map<?, ?> request = JSON.readValue(exchange.getRequestBody(), Map.class);
+        String name = request == null ? null : stringValue(request.get("name"));
+        String jarValue = request == null ? null : stringValue(request.get("jar"));
+        if (name == null || !name.matches("[a-zA-Z0-9][a-zA-Z0-9._-]*")) {
+            throw new IllegalArgumentException("name must match [a-zA-Z0-9][a-zA-Z0-9._-]*");
+        }
+        if (jarValue == null || jarValue.isBlank()) {
+            throw new IllegalArgumentException("jar path is required");
+        }
+        if (pluginJars.containsKey(name)) {
+            throw new IllegalArgumentException("plugin \"" + name + "\" is already mounted");
+        }
+        java.nio.file.Path jar = java.nio.file.Path.of(jarValue);
+        if (!java.nio.file.Files.isRegularFile(jar)) {
+            throw new IllegalArgumentException("plugin jar missing: " + jar);
+        }
+        io.jcordis.core.registry.Plugin plugin = boot.loadPluginJar(jar, name);
+        webPlugins.put(name, plugin);
+        pluginJars.put(name, jar);
+        System.out.println("majo-web: mounted plugin \"" + name + "\" from " + jar);
+        return new WebApiModels.Ok(true);
+    }
 
     /** Hot-replaces a mounted plugin jar (classloader swapped, old one closed). */
     private WebApiModels.Ok reloadPlugin(String name) {

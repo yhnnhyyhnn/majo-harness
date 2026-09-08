@@ -33,6 +33,17 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar \
 majo --plugin ext=./ext-plugin.jar "task"
 ```
 
+A running server can also **mount a plugin for the first time**, then hot-
+reload / unload it — no restart:
+
+```bash
+curl -X POST -H 'Content-Type: application/json' \
+  -d '{"name":"syslog","jar":"<abs-path>/syslog.jar"}' \
+  http://localhost:8787/api/plugins            # mount
+curl -X POST -d '{}' http://localhost:8787/api/plugins/syslog/reload   # hot replace
+curl -X DELETE http://localhost:8787/api/plugins/syslog                # unload
+```
+
 Profile rows may then reference the plugin **by its mount name**, e.g.
 
 ```yaml
@@ -165,6 +176,29 @@ esbuild src/index.jsx --bundle --format=esm --external:react \
 
 Notes: hooks work because the module uses the host's single React instance.
 Loaded modules live for the page session; a reload re-runs `register`.
+
+---
+
+## Building with Maven
+
+`bash scripts/new-plugin.sh <name>` scaffolds a project with a `pom.xml`, so a
+plugin can be built the standard way instead of the javac recipe
+(`scripts/build-plugin.sh`):
+
+```bash
+mvn -DskipTests install                    # once: install harness siblings locally
+mvn -f examples/<name>-plugin/pom.xml package
+# -> examples/<name>-plugin/target/<name>-plugin-0.1.0-SNAPSHOT.jar
+```
+
+The pom declares jcordis (`io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.1`,
+Maven Central) and harness modules as **provided** — the host supplies them
+through the plugin class loader's parent at runtime, so the jar ships only
+its own classes plus the SPI line and `static-web/…` resources. The shipped
+example (`examples/web-plugin-demo/pom.xml`) builds the same way.
+
+Mounting, hot reload and unload behave identically regardless of which build
+recipe produced the jar.
 
 ---
 

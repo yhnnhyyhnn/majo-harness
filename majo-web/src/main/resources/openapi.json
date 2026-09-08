@@ -186,6 +186,35 @@
         "tags": [
           "plugins"
         ]
+      },
+      "post": {
+        "summary": "Mount a plugin jar at runtime ({name, jar: path})",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "jar": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "jar"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "mounted"
+          }
+        }
       }
     },
     "/api/plugins/{name}/reload": {

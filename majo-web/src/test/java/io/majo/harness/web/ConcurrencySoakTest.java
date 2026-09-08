@@ -277,12 +277,20 @@ final class ConcurrencySoakTest {
     }
 
     private int healthTools() throws Exception {
+        return (int) healthLong("tools");
+    }
+
+    private long healthPlugins() throws Exception {
+        return healthLong("plugins");
+    }
+
+    private long healthLong(String key) throws Exception {
         HttpClient client = HttpClient.newHttpClient();
         HttpResponse<String> health = client.send(
                 HttpRequest.newBuilder(URI.create(baseUrl() + "/api/health")).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
         assertThat(health.statusCode()).isEqualTo(200);
-        return MAPPER.readTree(health.body()).get("tools").asInt();
+        return MAPPER.readTree(health.body()).get(key).asLong();
     }
 
     private long healthErrors() throws Exception {

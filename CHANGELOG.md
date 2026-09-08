@@ -166,6 +166,15 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 ## [Unreleased]
 
+- **Runtime plugin mount + Maven builds**: `POST /api/plugins` mounts a jar
+  (name+path) on a running server — it then hot-reloads and unloads through
+  the existing endpoints (verified end-to-end against a live server). The
+  plugin scaffold and the web-plugin-demo now ship a `pom.xml` (jcordis &
+  harness as provided deps), so plugins build with plain Maven too. Also:
+  route-level IO handling now only treats genuine socket/connection aborts
+  as client aborts — handler IO failures (e.g. malformed JSON) surface as
+  500s again instead of being silently swallowed.
+
 - **Plugins panel hygiene by manifest `id`**: `plugin.json` gains an optional
   stable `id`; `GET /api/plugins` reports it (fallback: mount name) and the
   panel dedupes/flags duplicate mounts and unversioned jars by id instead of
