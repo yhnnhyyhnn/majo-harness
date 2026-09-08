@@ -73,6 +73,15 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
+- **#9 OpenAPI drift guard + two real fixes it caught**: new
+  `OpenApiDriftTest` boots a live server and probes every path/method in the
+  shipped `openapi.json` (unknown-path 404s and 500s fail). It surfaced:
+  (1) empty chunked responses never closed the body stream, so the JDK
+  HttpClient waited forever on the missing final chunk — export now closes
+  the body after zero writes (empty sessions export fine via JDK clients);
+  (2) `SettingsService` atomic writes got a short retry for transient
+  Windows defender locks.
+
 - **jcordis now from Maven Central**: jcordis is published under
   `io.github.yhnnhyyhnn` v1.0.1 (core + loader + parent + cli + maven-plugin),
   so majo-harness switched off the local 1.0.1-SNAPSHOT + vendored `lib/`:

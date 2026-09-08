@@ -155,10 +155,33 @@ public final class SettingsService extends Service {
             }
             Files.writeString(tmp, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root),
                     StandardCharsets.UTF_8);
-            try {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+            IOException last = null;
+            // Windows defenders may briefly hold the target right after the
+            // first move; retry before giving up (still atomic per attempt).
+            for (int attempt = 0; attempt < 3; attempt++) {
+                try {
+                    try {
+                        Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING,
+                                StandardCopyOption.ATOMIC_MOVE);
+                    } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                        Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    last = null;
+                    break;
+                } catch (IOException e) {
+                    last = e;
+                    if (attempt < 2) {
+                        try {
+                            Thread.sleep(25L * (attempt + 1));
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                }
+            }
+            if (last != null) {
+                throw last;
             }
             // owner-only read/write on POSIX (best effort; unsupported elsewhere)
             try {

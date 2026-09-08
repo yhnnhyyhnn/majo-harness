@@ -1016,7 +1016,12 @@ public final class WebMain {
                 "attachment; filename=\"session-" + sessionId + ".jsonl\"");
         exchange.getResponseHeaders().set("Connection", "close");
         exchange.sendResponseHeaders(200, payload.length);
-        exchange.getResponseBody().write(payload);
+        if (payload.length > 0) {
+            exchange.getResponseBody().write(payload);
+        }
+        // closing the body emits the final chunk (empty exports included);
+        // without it the JDK HttpClient waits on a terminator that never comes
+        exchange.getResponseBody().close();
     }
 
     /** Events after a durable cursor (lightweight catch-up for big sessions). */
