@@ -37,6 +37,13 @@ class BwrapLinuxIntegrationTest {
                 .start();
         String output = new String(process.getInputStream().readAllBytes());
         int code = process.waitFor();
+        if (code != 0) {
+            // GitHub-hosted runners may forbid unprivileged user namespaces;
+            // that is an environment limitation, not a sandbox regression.
+            Assumptions.assumeTrue(!deniedByEnvironment(output),
+                    "bwrap installed but unprivileged user namespaces are unavailable here:\n"
+                            + output.trim());
+        }
         assertThat(code).isZero();
         assertThat(output.trim()).isEqualTo("sandboxed");
 
@@ -50,6 +57,14 @@ class BwrapLinuxIntegrationTest {
         String deniedOutput = new String(denied.getInputStream().readAllBytes());
         assertThat(denied.waitFor()).isZero();
         assertThat(deniedOutput.trim()).isEqualTo("hidden");
+    }
+
+    private static boolean deniedByEnvironment(String combinedOutput) {
+        String lower = combinedOutput.toLowerCase();
+        return lower.contains("operation not permitted")
+                || (lower.contains("namespace") && (lower.contains("permission")
+                        || lower.contains("allow") || lower.contains("denied")))
+                || lower.contains("userns");
     }
 
     private static String findBwrap() {
