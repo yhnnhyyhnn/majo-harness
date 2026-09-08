@@ -4,6 +4,13 @@ Working list for the next release cycle. Items are grouped by theme with a
 rough effort/impact rating; pick per sprint. Status lives in CHANGELOG
 (`## [Unreleased]`).
 
+> **Status (2026-09, v0.1.1):** everything below is shipped or superseded —
+> A1 became the jcordis agent-fiber semantics, A2 landed as per-agent
+> settings scoping, B1/C1–C3/D2/E1/E2 shipped, and the original D1 split
+> into the DuckDuckGo backend here plus a live-network validation that needs
+> an internet-enabled host. The only un-done item is **E3 real-device mobile
+> QA** (manual, requires a physical phone).
+
 ## A. Agent context depth (follow-on to M-C1…C3)
 
 - **A1 · jcordis sub-context / independent-fiber experiment** (effort M,

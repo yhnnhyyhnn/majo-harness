@@ -54,7 +54,12 @@ java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar \
   `search majo` → Allow → 静态结果卡（`Majo FAQ` 等）。
 - 模型下拉（全局 + 按会话）、👍/👎 反馈刷新后仍在。
 - 斜杠命令：输入 `/` 出现分组补全；`/model mock`、`/help`、`/delegate 2+2`
-  （返回 child id + 答案）。
+  （返回 child id + 答案）；`/status` 回显宿主计数。
+- Subagents 委派表单：展开侧栏区 → 填 task `2+2`（可选 model/maxSteps/
+  auto-approve/工具/岛屿/settings）→ **delegate →** → child id + 答案预览行
+  与新的活动行。
+- `curl http://localhost:8899/api/metrics`：随流量变化，状态/延迟桶计数更新
+  （200/404/aborted）。
 - 会话搜索：搜 `calculated` → 命中高亮 → Enter/点击跳转并闪烁定位。
 - Manage 模式：多选 → Archive (n)/Delete (n)；Active/Archived 视图；搜索中
   归档结果可内联恢复。

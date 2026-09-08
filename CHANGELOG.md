@@ -166,9 +166,10 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 ## [Unreleased]
 
-- **Plugin manifest id**: plugin.json gains an optional stable `id`;
-  `GET /api/plugins` returns it (fallback: mount name) and the Plugins panel
-  dedupes/warns by id instead of display title. Examples + scaffold updated.
+- **Plugins panel hygiene by manifest `id`**: `plugin.json` gains an optional
+  stable `id`; `GET /api/plugins` reports it (fallback: mount name) and the
+  panel dedupes/flags duplicate mounts and unversioned jars by id instead of
+  display title (pure helper + vitest). Examples + scaffold updated.
 
 - **`/delegate` compose form**: the Subagents sidebar now has a first-class
   delegation form (task/model/maxSteps/auto-approve/allowedTools/host
@@ -188,9 +189,6 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   aborts), latency buckets (<5/20/100/500/2000 ms, over), and
   turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
   documented in openapi.json (drift-guarded).
-
-- **Plugin hygiene warnings**: the Plugins panel flags duplicate frontend ids
-  and unversioned jars (pure helper + vitest).
 
 - **Docs parity**: architecture & web-parity (EN/ZH) now reflect the current
   endpoints (commands/health/metrics/openapi/plugin reload/…), host command

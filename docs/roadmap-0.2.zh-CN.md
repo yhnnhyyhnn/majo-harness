@@ -3,6 +3,11 @@
 下一发布周期的备选工作清单，按主题分组并标注粗略投入/收益；按迭代挑取。
 进度记录在 CHANGELOG（`## [Unreleased]`）。
 
+> **状态（2026-09，v0.1.1）**：以下条目基本全部落地或被取代——A1 成为 jcordis
+> agent-fiber 语义、A2 落地为 per-agent settings 作用域、B1/C1–C3/D2/E1/E2
+> 均已交付；原 D1 拆为这里的 DuckDuckGo 后端 + 需联网主机的活体验证。唯一未做
+> 的是 **E3 真机移动端 QA**（手工项，需实体手机）。
+
 ## A. agent 上下文纵深（M-C1…C3 后续）
 
 - **A1 · jcordis 子上下文/独立 fiber 实验**（中投入，使能项）。当前 harness 侧

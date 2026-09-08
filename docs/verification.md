@@ -65,7 +65,13 @@ Serve `--profile web-mock --port 8899`, open http://localhost:8899:
   fetch backend only ever reads `examples/demo-corpus` and rejects traversal.
 - Model pickers (global + per-session), 👍/👎 feedback persists after reload.
 - Slash commands: type `/` → grouped completions; `/model mock`, `/help`,
-  `/delegate 2+2` (returns a child id + answer).
+  `/delegate 2+2` (returns a child id + answer); `/status` shows the host
+  counters flash.
+- Subagents delegate form: open the sidebar section → fill task `2+2` (or
+  pick model/maxSteps/auto-approve/tools/islands/settings) → **delegate →** →
+  child id + answer preview line and a new activity row.
+- `curl http://localhost:8899/api/metrics` → status/latency buckets update as
+  traffic happens (200/404/aborted).
 - Session search: query `calculated` → highlighted hit → Enter/click jumps and
   flashes the message.
 - Manage mode: multi-select → Archive (n) / Delete (n); Active/Archived views;
