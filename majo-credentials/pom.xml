@@ -16,8 +16,12 @@
 
   <dependencies>
     <dependency>
-      <groupId>io.jcordis</groupId>
-      <artifactId>jcordis-all</artifactId>
+      <groupId>io.github.yhnnhyyhnn</groupId>
+      <artifactId>jcordis-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.github.yhnnhyyhnn</groupId>
+      <artifactId>jcordis-loader</artifactId>
     </dependency>
   </dependencies>
 </project>

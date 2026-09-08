@@ -73,6 +73,13 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
+- **jcordis now from Maven Central**: jcordis is published under
+  `io.github.yhnnhyyhnn` v1.0.1 (core + loader + parent + cli + maven-plugin),
+  so majo-harness switched off the local 1.0.1-SNAPSHOT + vendored `lib/`:
+  every module depends on `jcordis-core`/`jcordis-loader` (Central), CI drops
+  its install-file step, and `lib/` is gone. No code changes — same
+  `io.jcordis.*` imports.
+
 - **D1 key-less search backend**: DuckDuckGo HTML search
   (`web-search-duckduckgo`, provider `duckduckgo`) — parsing is pure and
   offline-tested (titles/snippets/uddg-redirect URL normalization/limit);
