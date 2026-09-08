@@ -44,40 +44,9 @@ final class OpenApiDriftTest {
         Path sessions = dir.resolve("sessions");
         Files.createDirectories(sessions);
         Path settings = dir.resolve("settings.json");
-        String yml = """
-                - id: session
-                  name: session
-                  config:
-                    store: file
-                    path: %s
-                - id: session-projections
-                  name: session-projections
-                - id: tools
-                  name: tools
-                - id: settings
-                  name: settings
-                  config:
-                    path: %s
-                - id: llm
-                  name: llm
-                  config:
-                    defaultModel: mock
-                - id: llm-mock
-                  name: llm-mock
-                - id: credentials
-                  name: credentials
-                - id: session-title
-                  name: session-title
-                - id: session-title-heuristic
-                  name: session-title-heuristic
-                - id: agent-loop
-                  name: agent-loop
-                - id: calc
-                  name: calc
-                """.formatted(sessions.toString().replace('\\', '/'),
-                settings.toString().replace('\\', '/'));
+        TestProfiles.Options options = TestProfiles.Options.minimal().withTitleRows();
         Path profile = dir.resolve("openapi.yml");
-        Files.writeString(profile, yml);
+        Files.writeString(profile, TestProfiles.yml(sessions, settings, options));
         app = new WebMain(0, profile.toString());
     }
 

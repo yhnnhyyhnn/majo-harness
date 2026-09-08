@@ -49,10 +49,14 @@ public final class DelegateTaskTool implements Tool {
         allowed.put("type", "array");
         allowed.putObject("items").put("type", "string")
                 .put("description", "tools the child agent may call (default: all)");
-        properties.putObject("islands")
-                .put("type", "array")
-                .put("description", "host-registered island plugin names to mount in the child scope")
-                .putObject("items").put("type", "string");
+        ObjectNode islandsNode = properties.putObject("islands");
+        islandsNode.put("type", "array")
+                .put("description", "host-registered island plugin names to mount in the child scope");
+        islandsNode.putObject("items").put("type", "string");
+        properties.putObject("settings")
+                .put("type", "object")
+                .put("description", "per-agent settings overrides visible inside the child scope")
+                .putObject("additionalProperties").put("type", "string");
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");
         schema.set("properties", properties);
@@ -111,17 +115,31 @@ public final class DelegateTaskTool implements Tool {
                     islands = null;
                 }
             }
+            java.util.Map<String, String> settings = null;
+            if (arguments.hasNonNull("settings") && arguments.get("settings").isObject()) {
+                settings = new java.util.LinkedHashMap<>();
+                var fields = arguments.get("settings").fields();
+                while (fields.hasNext()) {
+                    var field = fields.next();
+                    if (field.getValue().isValueNode()) {
+                        settings.put(field.getKey(), field.getValue().asText());
+                    }
+                }
+                if (settings.isEmpty()) {
+                    settings = null;
+                }
+            }
             boolean scopeOptions = maxSteps != null || autoApprove != null || allowedTools != null
-                    || islands != null;
+                    || islands != null || settings != null;
             SubagentService.DelegationOutcome outcome = scopeOptions
                     ? (islands != null
                             ? subagent.delegateSpecIslands(taskText,
                                     new SubagentService.AgentSpec(model, systemPrompt, maxSteps,
-                                            autoApprove, allowedTools),
+                                            autoApprove, allowedTools, settings),
                                     islands)
                             : subagent.delegateSpec(taskText,
                                     new SubagentService.AgentSpec(model, systemPrompt, maxSteps,
-                                            autoApprove, allowedTools)))
+                                            autoApprove, allowedTools, settings)))
                     : subagent.delegateConfigured(taskText, model, systemPrompt);
             java.util.Map<String, Object> data = new java.util.HashMap<>();
             data.put("childSessionId", outcome.childSessionId());

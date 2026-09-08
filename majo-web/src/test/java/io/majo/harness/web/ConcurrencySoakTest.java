@@ -50,6 +50,10 @@ final class ConcurrencySoakTest {
         return "http://127.0.0.1:" + app.port();
     }
 
+    private static final String AGENT_LOOP_YML =
+            "    systemPrompt: \"You are a small calculator harness. Use the calc tool whenever asked for arithmetic.\"\n"
+                    + "    maxSteps: 4\n";
+
     private void start() throws Exception {
         startWith(false, java.util.List.of());
     }
@@ -58,54 +62,15 @@ final class ConcurrencySoakTest {
         Path sessions = dir.resolve("sessions");
         Files.createDirectories(sessions);
         Path settings = dir.resolve("settings.json");
-        String gateRows = gateCalc
-                ? """
-                - id: interactions
-                  name: interactions
-                - id: tool-approval
-                  name: tool-approval
-                  config:
-                    tools: [calc]
-                """
-                : "";
-        String pluginRow = "";
+        TestProfiles.Options options = TestProfiles.Options.minimal()
+                .withAgentLoopConfig(AGENT_LOOP_YML)
+                .gate(gateCalc);
         if (!pluginArgs.isEmpty()) {
             String name = pluginArgs.get(0).substring(0, pluginArgs.get(0).indexOf('='));
-            pluginRow = "- id: ext\n  name: " + name + "\n";
+            options = options.withPluginRow("- id: ext\n  name: " + name + "\n");
         }
-        String yml = """
-                - id: session
-                  name: session
-                  config:
-                    store: file
-                    path: %s
-                - id: session-projections
-                  name: session-projections
-                - id: tools
-                  name: tools
-                - id: settings
-                  name: settings
-                  config:
-                    path: %s
-                - id: llm
-                  name: llm
-                  config:
-                    defaultModel: mock
-                - id: llm-mock
-                  name: llm-mock
-                - id: credentials
-                  name: credentials
-                - id: agent-loop
-                  name: agent-loop
-                  config:
-                    systemPrompt: "You are a small calculator harness. Use the calc tool whenever asked for arithmetic."
-                    maxSteps: 4
-                - id: calc
-                  name: calc
-                %s%s""".formatted(sessions.toString().replace('\\', '/'),
-                settings.toString().replace('\\', '/'), gateRows, pluginRow);
         Path profile = dir.resolve("soak.yml");
-        Files.writeString(profile, yml);
+        Files.writeString(profile, TestProfiles.yml(sessions, settings, options));
         app = new WebMain(0, profile.toString(), pluginArgs);
     }
 

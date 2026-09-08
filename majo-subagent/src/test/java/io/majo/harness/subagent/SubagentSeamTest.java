@@ -45,6 +45,22 @@ class SubagentSeamTest {
         return ctx;
     }
 
+    /** Stack with the loop seam plus the settings service (A2 per-agent scope). */
+    private static Context stackWithSettings(int maxDepth) {
+        Context ctx = Context.create();
+        ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        ctx.plugin(new SessionProjectionsPlugin(), null).await().join();
+        ctx.plugin(new ToolsPlugin(), null).await().join();
+        ctx.plugin(new io.majo.harness.settings.SettingsPlugin(), null).await().join();
+        ctx.plugin(new LLMServicePlugin(), Map.of("defaultModel", "fake")).await().join();
+        LLMService llm = ctx.get(LLMService.NAME);
+        llm.registerModel("fake", FINAL_MODEL);
+        ctx.plugin(new AgentLoopPlugin(), null).await().join();
+        ctx.plugin(new SubagentPlugin(), Map.of("maxDepth", maxDepth)).await().join();
+        ctx.plugin(new SubagentToolPlugin(), null).await().join();
+        return ctx;
+    }
+
     /** Stack with parallelDelegates enabled and a custom parent model. */
     private static Context stackConfigured(int maxDepth, boolean parallel, ChatModel parent) {
         Context ctx = Context.create();
@@ -383,6 +399,64 @@ class SubagentSeamTest {
         assertThat(unknown.ok()).isFalse();
         assertThat(unknown.visibleText()).contains("unknown host island \"ghost\"");
         ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void perAgentSettingsOverrideIsVisibleToScopedToolsAndRollsBack() throws Exception {
+        Context ctx = stackWithSettings(3);
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+        LLMService llm = ctx.get(LLMService.NAME);
+        SessionService sessions = ctx.get(SessionService.NAME);
+        io.majo.harness.settings.SettingsService settings =
+                ctx.get(io.majo.harness.settings.SettingsService.NAME);
+        settings.set("agent.tag", "root");
+        SubagentService subagent = ctx.get(SubagentService.NAME);
+        String emptyArgs = MAPPER.writeValueAsString(Map.of());
+        llm.registerModel("alt", request -> {
+            boolean sawTool = request.messages().stream()
+                    .anyMatch(message -> message.role() == io.majo.harness.llm.ChatRole.TOOL);
+            return sawTool
+                    ? ChatResponse.text("after")
+                    : ChatResponse.toolCalls(List.of(io.majo.harness.tools.ToolCall.of(
+                            "tag_tool", emptyArgs)));
+        });
+        subagent.registerIsland("taggy", (scope, config) -> tools.register(
+                new io.majo.harness.tools.Tool() {
+                    @Override
+                    public io.majo.harness.tools.ToolSpec spec() {
+                        return io.majo.harness.tools.ToolSpec.of("tag_tool", "reports the agent.tag override");
+                    }
+
+                    @Override
+                    public io.majo.harness.tools.ToolResult execute(io.majo.harness.tools.ToolCall call) {
+                        String tag = settings.get("agent.tag");
+                        return io.majo.harness.tools.ToolResult.ok("tag=" + (tag == null ? "none" : tag));
+                    }
+                }), null);
+
+        assertThat(runScopedIslandTurn(subagent, tools, sessions, "alpha")).contains("tag=alpha");
+        assertThat(runScopedIslandTurn(subagent, tools, sessions, "beta")).contains("tag=beta");
+        // override rolled back: the root value is visible again outside scopes
+        assertThat(settings.get("agent.tag")).isEqualTo("root");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    private static String runScopedIslandTurn(SubagentService subagent, ToolRegistry tools,
+            SessionService sessions, String tag) throws Exception {
+        io.majo.harness.tools.ToolResult ok = tools.execute(
+                io.majo.harness.tools.ToolCall.of("delegate_task", MAPPER.writeValueAsString(
+                        java.util.Map.of("task", "report", "model", "alt", "islands", List.of("taggy"),
+                                "settings", Map.of("agent.tag", tag)))));
+        assertThat(ok.ok()).isTrue();
+        assertThat(ok.data()).isNotNull();
+        String child = String.valueOf(ok.data().get("childSessionId"));
+        return sessions.events(child).stream()
+                .filter(event -> event.type() == SessionEventType.TOOL_RESULT
+                        && event.content() != null)
+                .map(SessionEvent::content)
+                .filter(content -> content.startsWith("tag="))
+                .findFirst()
+                .orElse("missing");
     }
 
     @Test

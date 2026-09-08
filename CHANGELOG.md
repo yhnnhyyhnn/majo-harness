@@ -73,6 +73,17 @@ First tagged release (git `v0.1.0`): full capability seams, web-parity UI, three
 
 ## [Unreleased]
 
+- **A2 per-agent settings scoping end-to-end**: `delegate_task` and
+  `POST /api/subagents/delegate` now accept an optional `settings` object
+  forwarded into the scoped run (settings keys visible only inside the child
+  scope, rolling back after). Test: an island tool reads `agent.tag` — alpha
+  and beta children each see their own override while the root value stays
+  untouched.
+
+- **#10 web test-kit**: shared `TestProfiles` builds the offline mock profile
+  for `ConcurrencySoakTest` and `OpenApiDriftTest` (gate/title/plugin/loop
+  toggles) — the duplicated row blocks are gone.
+
 - **#9 OpenAPI drift guard + two real fixes it caught**: new
   `OpenApiDriftTest` boots a live server and probes every path/method in the
   shipped `openapi.json` (unknown-path 404s and 500s fail). It surfaced:

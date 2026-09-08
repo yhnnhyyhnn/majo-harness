@@ -601,12 +601,19 @@ public final class WebMain {
                 islands.add(String.valueOf(item));
             }
         }
+        java.util.Map<String, String> settings = null;
+        if (request.get("settings") instanceof Map<?, ?> rawSettings) {
+            settings = new java.util.LinkedHashMap<>();
+            for (Map.Entry<?, ?> item : rawSettings.entrySet()) {
+                settings.put(String.valueOf(item.getKey()), String.valueOf(item.getValue()));
+            }
+        }
         boolean scopeOptions = maxSteps != null || autoApprove != null || allowedTools != null
-                || islands != null;
+                || islands != null || settings != null;
         SubagentService.DelegationOutcome outcome;
         if (scopeOptions) {
             SubagentService.AgentSpec spec = new SubagentService.AgentSpec(
-                    model, systemPrompt, maxSteps, autoApprove, allowedTools);
+                    model, systemPrompt, maxSteps, autoApprove, allowedTools, settings);
             outcome = islands != null
                     ? subagent.delegateSpecIslands(task, spec, islands)
                     : subagent.delegateSpec(task, spec);
