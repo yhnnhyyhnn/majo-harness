@@ -96,6 +96,22 @@
         ]
       }
     },
+    "/api/sessions/{id}/todos": {
+      "get": {
+        "summary": "The session todo list (dsh todo)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/plan": {
+      "get": {
+        "summary": "The session plan-mode snapshot (dsh plan-mode)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/messages/{id}/{seq}/feedback": {
       "put": {
         "summary": "Rate a message up|down",

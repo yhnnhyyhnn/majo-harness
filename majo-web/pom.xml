@@ -26,6 +26,16 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-todo</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-plan</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>io.github.yhnnhyyhnn</groupId>
       <artifactId>jcordis-core</artifactId>
     </dependency>

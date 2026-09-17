@@ -11,6 +11,8 @@ export type EventKind =
   | "CONTEXT_NOTE"
   | "APPROVAL_REQUESTED"
   | "APPROVAL_DECIDED"
+  | "TODO_SET"
+  | "PLAN_SET"
 
 export interface ApprovalDecision {
   decision?: string;
@@ -99,6 +101,11 @@ export interface ModelState {
 
 export interface Ok {
   ok: boolean;
+}
+
+export interface PlanSnapshot {
+  active: boolean;
+  plan?: string;
 }
 
 export interface PluginInfo {
@@ -196,6 +203,15 @@ export interface SubagentRun {
 
 export interface SubagentsIndex {
   runs: SubagentRun[];
+}
+
+export interface TodoIndex {
+  items: TodoItem[];
+}
+
+export interface TodoItem {
+  content: string;
+  status: string;
 }
 
 export interface ToolCallFrame {

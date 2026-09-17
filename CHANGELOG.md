@@ -199,6 +199,21 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
   documented in openapi.json (drift-guarded).
 
+- **P2-A todo** (dsh `packages/todo`): new `majo-todo` module — the
+  `todo_write` tool replaces the session's whole task list durably
+  (`TODO_SET` events), the `todo` projection folds the latest list,
+  `GET /api/sessions/{id}/todos` serves it, and a conversation TodoPanel
+  (☐/↻/✅) re-reads on session change and after each turn.
+
+- **P2-A plan mode** (dsh `packages/plan/plan-mode`): new `majo-plan`
+  module — the host `/plan` command arms plan mode per session
+  (`PLAN_SET` events; the task text is model-visible via inbox inject),
+  the model calls `exit_plan_mode` when its draft is ready and the human
+  approves (deactivation recorded) or answers with feedback (plan stays
+  active, feedback rides the tool result); `GET /api/sessions/{id}/plan`
+  + a composer chip ("📋 plan mode · ✕") complete the loop. Reads
+  degrade gracefully (empty/inactive) when the modules are not mounted.
+
 - **P1 llm-replay** (dsh `test-support/llm-replay` analog): `RecordingChatModel`
   persists (request, streamed chunks, response) as `majo-llm-replay` v1 JSONL;
   `ReplayChatModel` replays in call order and fails loud on derived-request

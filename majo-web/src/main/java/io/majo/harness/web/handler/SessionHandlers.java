@@ -2,9 +2,12 @@ package io.majo.harness.web.handler;
 
 import com.sun.net.httpserver.HttpExchange;
 import io.majo.harness.llm.LLMService;
+import io.majo.harness.plan.PlanState;
 import io.majo.harness.session.SessionEvent;
+import io.majo.harness.session.SessionProjections;
 import io.majo.harness.session.SessionService;
 import io.majo.harness.settings.SettingsService;
+import io.majo.harness.todo.TodoState;
 import io.majo.harness.web.Http;
 import io.majo.harness.web.WebApiModels;
 import io.majo.harness.web.WebContext;
@@ -14,13 +17,46 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/** Session lifecycle: list/create/delete, rename, archive, per-session model, feedback, import/export, event cursors. */
+/** Session lifecycle: list/create/delete, rename, archive, per-session model, feedback, import/export, event cursors, todos, plan. */
 public final class SessionHandlers {
 
     private final WebContext ctx;
 
     public SessionHandlers(WebContext ctx) {
         this.ctx = ctx;
+    }
+
+    /** The session's todo list (dsh todo); empty when the module is unmounted. */
+    public WebApiModels.TodoIndex todos(String sessionId) {
+        SessionService sessions = ctx.boot.service(SessionService.NAME);
+        SessionSupport.requireKnownSession(sessions, sessionId);
+        TodoState todo = todoState();
+        if (todo == null) {
+            return new WebApiModels.TodoIndex(List.of());
+        }
+        return new WebApiModels.TodoIndex(todo.items(sessionId).stream()
+                .map(item -> new WebApiModels.TodoItem(item.content(), item.status()))
+                .toList());
+    }
+
+    private TodoState todoState() {
+        SessionProjections projections = ctx.boot.ctx().get(SessionProjections.NAME);
+        // profiles without the todo row legitimately serve an empty list
+        return projections == null || !projections.has(TodoState.KEY)
+                ? null : projections.require(TodoState.KEY);
+    }
+
+    /** The session's plan-mode snapshot (dsh plan-mode). */
+    public WebApiModels.PlanSnapshot plan(String sessionId) {
+        SessionService sessions = ctx.boot.service(SessionService.NAME);
+        SessionSupport.requireKnownSession(sessions, sessionId);
+        SessionProjections projections = ctx.boot.ctx().get(SessionProjections.NAME);
+        if (projections == null || !projections.has(PlanState.KEY)) {
+            return new WebApiModels.PlanSnapshot(false, null);
+        }
+        PlanState plans = projections.require(PlanState.KEY);
+        PlanState.Snapshot snapshot = plans.snapshot(sessionId);
+        return new WebApiModels.PlanSnapshot(snapshot.active(), snapshot.plan());
     }
 
     public WebApiModels.SessionsIndex sessionsIndex(Map<String, String> query) {

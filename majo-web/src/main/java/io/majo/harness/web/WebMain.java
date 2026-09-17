@@ -206,6 +206,8 @@ public final class WebMain {
                 .get("/api/turn/stream", (exchange, rest) -> turns.streamTurn(exchange))
                 .get("/api/sessions/*/export", (exchange, id) -> sessions.exportSession(exchange, id))
                 .get("/api/sessions/*/feedback", (exchange, id) -> Http.json(exchange, 200, sessions.feedbackIndex(id)))
+                .get("/api/sessions/*/todos", (exchange, id) -> Http.json(exchange, 200, sessions.todos(id)))
+                .get("/api/sessions/*/plan", (exchange, id) -> Http.json(exchange, 200, sessions.plan(id)))
                 .get("/api/sessions/*/events", (exchange, id) -> Http.json(exchange, 200, sessions.eventsSince(id, Http.query(exchange))))
                 .get("/api/sessions/*", (exchange, id) -> Http.json(exchange, 200, sessions.sessionDetail(id)))
                 .post("/api/turn", (exchange, rest) -> Http.json(exchange, 200, turns.turn(exchange)))

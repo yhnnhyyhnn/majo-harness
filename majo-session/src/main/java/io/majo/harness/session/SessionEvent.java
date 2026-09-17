@@ -41,6 +41,14 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_DECISION = "decision";
     /** Who decided: {@code policy} (session policy / auto-approve) | {@code handler}. */
     public static final String FIELD_SOURCE = "source";
+    /** The todo entries of a {@link SessionEventType#TODO_SET}: a list of {@code {content, status}} maps. */
+    public static final String FIELD_ITEMS = "items";
+    /** Lifecycle status of one todo entry: {@code pending} | {@code in_progress} | {@code completed}. */
+    public static final String FIELD_STATUS = "status";
+    /** Active flag of a {@link SessionEventType#PLAN_SET}. */
+    public static final String FIELD_ACTIVE = "active";
+    /** Plan text of a {@link SessionEventType#PLAN_SET}. */
+    public static final String FIELD_PLAN = "plan";
 
     public SessionEvent {
         fields = fields == null ? Map.of() : Map.copyOf(fields);

@@ -40,6 +40,10 @@
   name: tool-approval
   config:
     tools: [calc, read_file, run_shell, run_command, web_fetch, web_search]
+- id: todo
+  name: todo
+- id: plan
+  name: plan
 - id: skills
   name: skills
 - id: skill-files

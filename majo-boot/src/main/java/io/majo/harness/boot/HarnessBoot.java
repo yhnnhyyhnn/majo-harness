@@ -26,6 +26,7 @@ import io.majo.harness.webaccess.WebPlugin;
 import io.majo.harness.webaccess.WebToolsPlugin;
 import io.majo.harness.interaction.InteractionPlugin;
 import io.majo.harness.interaction.ToolApprovalPlugin;
+import io.majo.harness.plan.PlanPlugin;
 import io.majo.harness.sandbox.SandboxPlugin;
 import io.majo.harness.skill.FileSkillPlugin;
 import io.majo.harness.skill.SkillPlugin;
@@ -36,6 +37,7 @@ import io.majo.harness.subagent.SubagentPlugin;
 import io.majo.harness.subagent.SubagentToolPlugin;
 import io.majo.harness.subprocess.SubprocessPlugin;
 import io.majo.harness.subprocess.SubprocessToolPlugin;
+import io.majo.harness.todo.TodoPlugin;
 import io.majo.harness.tools.ToolsPlugin;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -86,6 +88,8 @@ public final class HarnessBoot {
     public static final String PLUGIN_WEB_SEARCH_STATIC = StaticSearchPlugin.NAME;
     public static final String PLUGIN_WEB_SEARCH_WIKI = WikiSearchPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
+    public static final String PLUGIN_TODO = TodoPlugin.NAME;
+    public static final String PLUGIN_PLAN = PlanPlugin.NAME;
     public static final String PLUGIN_COMMANDS = io.majo.harness.boot.commands.CommandRegistryPlugin.NAME;
 
     private final Context ctx;
@@ -130,6 +134,8 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_WEB_SEARCH_STATIC, new StaticSearchPlugin());
         loader.builtin(PLUGIN_WEB_SEARCH_WIKI, new WikiSearchPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
+        loader.builtin(PLUGIN_TODO, new TodoPlugin());
+        loader.builtin(PLUGIN_PLAN, new PlanPlugin());
         loader.builtin(PLUGIN_COMMANDS, new io.majo.harness.boot.commands.CommandRegistryPlugin());
     }
 

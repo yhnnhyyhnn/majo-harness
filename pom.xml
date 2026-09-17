@@ -34,6 +34,8 @@
     <module>majo-settings</module>
     <module>majo-credentials</module>
     <module>majo-title</module>
+    <module>majo-todo</module>
+    <module>majo-plan</module>
     <module>web-ui</module>
     <module>majo-cli</module>
     <module>majo-web</module>

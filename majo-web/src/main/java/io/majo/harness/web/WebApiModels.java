@@ -56,6 +56,14 @@ public final class WebApiModels {
     /** Result of running a backend command. */
     public record CommandResult(String output) {}
 
+    /** One session todo entry (dsh todo). */
+    public record TodoItem(String content, String status) {}
+
+    public record TodoIndex(List<TodoItem> items) {}
+
+    /** The session plan-mode snapshot (dsh plan-mode). */
+    public record PlanSnapshot(boolean active, @OptionalWire String plan) {}
+
     /** One full-text hit across sessions. */
     public record SearchHit(String id, String title,
             @OptionalWire String snippet, @OptionalWire Long seq,

@@ -29,5 +29,9 @@ public enum SessionEventType {
     /** An approval was asked (durable audit; the open turn wraps it). */
     APPROVAL_REQUESTED,
     /** An approval was resolved: allow/deny and the deciding source. */
-    APPROVAL_DECIDED
+    APPROVAL_DECIDED,
+    /** The session todo list was replaced wholesale (todo_write). */
+    TODO_SET,
+    /** The session plan state changed: active flag plus the plan text. */
+    PLAN_SET
 }

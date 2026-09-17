@@ -24,10 +24,11 @@ public final class MessageDeriver {
         List<ChatMessage> messages = new ArrayList<>();
         for (SessionEvent event : events) {
             switch (event.type()) {
-                case TURN_START, TURN_END, REQUEST_HEADER, APPROVAL_REQUESTED, APPROVAL_DECIDED -> {
-                    // turn boundaries, request composition headers, and the
-                    // approval audit pair are not model messages (audit trails
-                    // stay out of the derived history)
+                case TURN_START, TURN_END, REQUEST_HEADER, APPROVAL_REQUESTED, APPROVAL_DECIDED,
+                        TODO_SET, PLAN_SET -> {
+                    // turn boundaries, request headers, the approval audit
+                    // pair, and todo/plan bookkeeping are not model messages
+                    // (tool results and spliced notes carry the model text)
                 }
                 case USER_MESSAGE, CONTEXT_NOTE -> messages.add(ChatMessage.user(event.content()));
                 case ASSISTANT_MESSAGE -> messages.add(ChatMessage.assistant(

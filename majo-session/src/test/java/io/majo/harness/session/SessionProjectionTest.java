@@ -159,6 +159,8 @@ class SessionProjectionTest {
                 case TypedSessionEvent.ContextNote ignored -> SessionEventType.CONTEXT_NOTE;
                 case TypedSessionEvent.ApprovalRequested ignored -> SessionEventType.APPROVAL_REQUESTED;
                 case TypedSessionEvent.ApprovalDecided ignored -> SessionEventType.APPROVAL_DECIDED;
+                case TypedSessionEvent.TodoSet ignored -> SessionEventType.TODO_SET;
+                case TypedSessionEvent.PlanSet ignored -> SessionEventType.PLAN_SET;
             };
         }
 

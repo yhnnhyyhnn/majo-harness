@@ -3,6 +3,7 @@ package io.majo.harness.web.handler;
 import com.sun.net.httpserver.HttpExchange;
 import io.majo.harness.boot.commands.CommandRegistry;
 import io.majo.harness.llm.LLMService;
+import io.majo.harness.plan.PlanState;
 import io.majo.harness.session.SessionService;
 import io.majo.harness.subagent.SubagentService;
 import io.majo.harness.tools.ToolRegistry;
@@ -47,6 +48,70 @@ public final class CommandHandlers {
                     subagent.delegateConfigured(String.valueOf(taskValue), model, null);
             return outcome.childSessionId() + " → " + outcome.answer();
         });
+        registerPlanCommand(commands);
+    }
+
+    /**
+     * The {@code plan} host command (dsh plan-mode): {@code /plan <task>}
+     * activates plan mode for the session (the task text is spliced into the
+     * next turn as model-visible context), {@code /plan off} deactivates,
+     * bare {@code /plan} reports the state. The UI's composer chip rides the
+     * same command.
+     */
+    private void registerPlanCommand(CommandRegistry commands) {
+        commands.register("plan", "plan mode: /plan <task> arms it, /plan off clears, /plan inspects",
+                (commandCtx, args) -> {
+                    io.majo.harness.session.SessionService sessions =
+                            ctx.boot.ctx().get(io.majo.harness.session.SessionService.NAME);
+                    io.majo.harness.session.SessionProjections projections =
+                            ctx.boot.ctx().get(io.majo.harness.session.SessionProjections.NAME);
+                    if (sessions == null || projections == null
+                            || !projections.has(io.majo.harness.plan.PlanState.KEY)) {
+                        throw new IllegalArgumentException(
+                                "plan: the plan module is not mounted in this profile");
+                    }
+                    PlanState plans = projections.require(PlanState.KEY);
+                    String sessionId = String.valueOf(args.get("session"));
+                    if (sessionId == null || sessionId.isBlank() || "null".equals(sessionId)) {
+                        throw new IllegalArgumentException("plan: pass the current session id");
+                    }
+                    if (!sessions.sessionIds().contains(sessionId)) {
+                        throw new IllegalArgumentException("unknown session \"" + sessionId + "\"");
+                    }
+                    List<String> argv = new java.util.ArrayList<>();
+                    if (args.get("args") instanceof List<?> raw) {
+                        for (Object item : raw) {
+                            argv.add(String.valueOf(item));
+                        }
+                    }
+                    if (argv.isEmpty()) {
+                        PlanState.Snapshot snapshot = plans.snapshot(sessionId);
+                        return snapshot.active()
+                                ? "plan mode is ACTIVE: " + snapshot.plan()
+                                : "plan mode is off";
+                    }
+                    if ("off".equalsIgnoreCase(argv.get(0))) {
+                        sessions.append(sessionId, io.majo.harness.session.SessionEventType.PLAN_SET,
+                                Map.of(
+                                        io.majo.harness.session.SessionEvent.FIELD_ACTIVE, false,
+                                        io.majo.harness.session.SessionEvent.FIELD_PLAN, ""));
+                        return "plan mode off";
+                    }
+                    String task = String.join(" ", argv);
+                    sessions.append(sessionId, io.majo.harness.session.SessionEventType.PLAN_SET,
+                            Map.of(
+                                    io.majo.harness.session.SessionEvent.FIELD_ACTIVE, true,
+                                    io.majo.harness.session.SessionEvent.FIELD_PLAN, task));
+                    // model-visible activation: injected without waking the loop
+                    io.majo.harness.agent.loop.AgentLoopService loop =
+                            ctx.boot.ctx().get(io.majo.harness.agent.loop.AgentLoopService.NAME);
+                    if (loop != null) {
+                        loop.inject(sessionId, "PLAN MODE active for this task: " + task
+                                + " — draft a step-by-step plan first, then call exit_plan_mode"
+                                + " for human review before implementing anything.");
+                    }
+                    return "plan mode armed — the next turn drafts a plan for review";
+                });
     }
 
     private String statusText() {

@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { SlotRoot, useSlots, type RailProps } from "./slots";
 import { Composer } from "./components/Composer";
+import { PlanChip } from "./components/PlanChip";
 import { PluginFrame } from "./components/PluginFrame";
 import { SessionSidebar } from "./components/SessionSidebar";
+import { TodoPanel } from "./components/TodoPanel";
 import { FEATURES } from "./features";
 import type { EventFrame, EventKind } from "./types";
 import { useChat } from "./useChat";
@@ -212,6 +214,8 @@ function AppShell() {
                 ))}
               </div>
             )}
+            <TodoPanel state={state} />
+            <PlanChip state={state} />
             <Conversation
               events={state.events}
               live={state.busy ? state.live : null}

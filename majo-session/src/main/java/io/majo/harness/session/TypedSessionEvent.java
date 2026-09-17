@@ -58,6 +58,19 @@ public sealed interface TypedSessionEvent {
     record ApprovalDecided(String approvalId, String decision, String source)
             implements TypedSessionEvent {}
 
+    /** The session todo list replaced wholesale. */
+    record TodoSet(List<TodoEntry> items) implements TypedSessionEvent {
+        public TodoSet {
+            items = items == null ? List.of() : List.copyOf(items);
+        }
+    }
+
+    /** One todo entry as stored on a {@link TodoSet}. */
+    record TodoEntry(String content, String status) {}
+
+    /** The session plan state changed. */
+    record PlanSet(boolean active, String plan) implements TypedSessionEvent {}
+
     /** A serialized assistant tool call (the log's wire form of a ToolCall). */
     record ToolCallEntry(String id, String name, String arguments) {}
 
@@ -89,6 +102,10 @@ public sealed interface TypedSessionEvent {
                     text(fields, SessionEvent.FIELD_APPROVAL_ID),
                     text(fields, SessionEvent.FIELD_DECISION),
                     text(fields, SessionEvent.FIELD_SOURCE));
+            case TODO_SET -> new TodoSet(todoItems(fields, event.seq()));
+            case PLAN_SET -> new PlanSet(
+                    Boolean.parseBoolean(text(fields, SessionEvent.FIELD_ACTIVE)),
+                    text(fields, SessionEvent.FIELD_PLAN));
         };
     }
 
@@ -133,6 +150,24 @@ public sealed interface TypedSessionEvent {
     private static String text(Map<?, ?> map, String key) {
         Object value = map.get(key);
         return value == null ? null : String.valueOf(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<TodoEntry> todoItems(Map<String, Object> fields, long seq) {
+        Object raw = fields.get(SessionEvent.FIELD_ITEMS);
+        if (!(raw instanceof List<?> items)) {
+            throw new IllegalArgumentException("session event " + seq + ": items must be a list");
+        }
+        List<TodoEntry> entries = new ArrayList<>();
+        for (Object item : items) {
+            if (!(item instanceof Map<?, ?> entry)) {
+                throw new IllegalArgumentException("session event " + seq + ": todo entry must be an object");
+            }
+            entries.add(new TodoEntry(
+                    text(entry, SessionEvent.FIELD_CONTENT),
+                    text(entry, SessionEvent.FIELD_STATUS)));
+        }
+        return List.copyOf(entries);
     }
 
     private static boolean ok(Map<String, Object> fields) {

@@ -7,6 +7,7 @@ import type {
   Info,
   ModelState,
   Ok,
+  PlanSnapshot,
   PluginsIndex,
   SearchIndex,
   SessionDetail,
@@ -18,6 +19,7 @@ import type {
   StreamFail,
   StreamEvent,
   SubagentsIndex,
+  TodoIndex,
 } from "./types";
 
 // Typed HTTP + SSE client for the majo-web API ("connection" layer). Payload
@@ -162,6 +164,16 @@ export const api = {
 
   skillDetail(name: string): Promise<SkillDetail> {
     return rpc("/api/skills/" + encodeURIComponent(name));
+  },
+
+  /** The session todo list (dsh todo). */
+  todos(sessionId: string): Promise<TodoIndex> {
+    return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/todos");
+  },
+
+  /** The session plan-mode snapshot (dsh plan-mode). */
+  plan(sessionId: string): Promise<PlanSnapshot> {
+    return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/plan");
   },
 
   subagents(): Promise<SubagentsIndex> {
