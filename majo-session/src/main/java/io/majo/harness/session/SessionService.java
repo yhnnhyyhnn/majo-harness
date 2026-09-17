@@ -52,6 +52,11 @@ public final class SessionService extends Service {
         return store.events(sessionId);
     }
 
+    /** Durable event count without materializing the events. */
+    public int eventCount(String sessionId) {
+        return store.eventCount(sessionId);
+    }
+
     /**
      * Imports a pre-recorded log into an existing session as-is: events keep
      * their original seq/timestamp and are broadcast so live projections and

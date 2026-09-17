@@ -122,7 +122,7 @@ public final class SessionHandlers {
                 continue;
             }
             list.add(new WebApiModels.SessionInfo(
-                    sessionId, SessionSupport.titleFor(ctx, sessionId), sessions.events(sessionId).size()));
+                    sessionId, SessionSupport.titleFor(ctx, sessionId), sessions.eventCount(sessionId)));
         }
         return new WebApiModels.SessionsIndex(list);
     }

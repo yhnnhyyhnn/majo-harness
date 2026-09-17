@@ -29,6 +29,16 @@ public interface SessionStore {
     /** All events of a session in append order (immutable copy). */
     List<SessionEvent> events(String sessionId);
 
+    /**
+     * Number of durable events without materializing them; equals
+     * {@code events(sessionId).size()} for existing sessions and 0 for
+     * unknown ones. Implementations may answer from cheap metadata so
+     * listing callers skip full parses.
+     */
+    default int eventCount(String sessionId) {
+        return events(sessionId).size();
+    }
+
     /** Every session id known to this store. */
     List<String> sessionIds();
 }

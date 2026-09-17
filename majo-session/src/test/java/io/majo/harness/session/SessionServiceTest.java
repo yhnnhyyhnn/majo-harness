@@ -95,21 +95,24 @@ class SessionServiceTest {
             throws IOException {
         FileSessionStore store = new FileSessionStore(directory);
 
-        // a crash leaves a partial final line without a newline: recover past it
+        // a crash leaves a partial final line without a newline: recover past
+        // it and repair the file (the partial line was never committed)
         String x = store.createSession("x");
         store.append(x, new SessionEvent(1, SessionEventType.TURN_START,
                 System.currentTimeMillis(), Map.of()));
         store.append(x, new SessionEvent(2, SessionEventType.USER_MESSAGE,
                 System.currentTimeMillis(), Map.of(SessionEvent.FIELD_CONTENT, "hi")));
-        Files.writeString(directory.resolve("x.jsonl"), "{\"seq\":3,\"typ",
+        Files.writeString(directory.resolve("x.v1.jsonl"), "{\"seq\":3,\"typ",
                 StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
         assertThat(store.events(x)).extracting(SessionEvent::seq).containsExactly(1L, 2L);
+        assertThat(Files.readString(directory.resolve("x.v1.jsonl")))
+                .doesNotContain("{\"seq\":3");
 
         // a full corrupt line in the middle still fails loudly
         String y = store.createSession("y");
         store.append(y, new SessionEvent(1, SessionEventType.TURN_START,
                 System.currentTimeMillis(), Map.of()));
-        Files.writeString(directory.resolve("y.jsonl"), "not json at all\n",
+        Files.writeString(directory.resolve("y.v1.jsonl"), "not json at all\n",
                 StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.APPEND);
         store.append(y, new SessionEvent(2, SessionEventType.USER_MESSAGE,
                 System.currentTimeMillis(), Map.of(SessionEvent.FIELD_CONTENT, "hi")));
@@ -139,9 +142,9 @@ class SessionServiceTest {
             file.createSession("y");
             file.append(fileId, new SessionEvent(1, SessionEventType.TURN_START,
                     System.currentTimeMillis(), Map.of()));
-            assertThat(Files.exists(directory.resolve("x.jsonl"))).isTrue();
+            assertThat(Files.exists(directory.resolve("x.v1.jsonl"))).isTrue();
             file.remove(fileId);
-            assertThat(Files.exists(directory.resolve("x.jsonl"))).isFalse();
+            assertThat(Files.exists(directory.resolve("x.v1.jsonl"))).isFalse();
             assertThat(file.sessionIds()).containsExactly("y");
             assertThatThrownBy(() -> file.remove(fileId))
                     .isInstanceOf(IllegalArgumentException.class);
@@ -173,7 +176,8 @@ class SessionServiceTest {
             SessionService sessions = root.get(SessionService.NAME);
             String sessionId = sessions.createSession();
             sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
-            assertThat(Files.exists(home.resolve(".majo-harness/sessions").resolve(sessionId + ".jsonl"))).isTrue();
+            assertThat(Files.exists(home.resolve(".majo-harness/sessions")
+                    .resolve(sessionId + ".v1.jsonl"))).isTrue();
             root.fiber().disposeAsync().join();
         } finally {
             System.setProperty("user.home", previous);

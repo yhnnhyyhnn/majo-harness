@@ -324,4 +324,16 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 ## [Unreleased]
 
-Working area for the next iteration.
+Working area for the next iteration (roadmap-0.4).
+
+- **Session file generations** (roadmap-0.4 Phase 1, dsh
+  `session-persistence-jsonl` analog): durable session logs are now named
+  `<id>.v1.jsonl` and start with a one-line format header; `SessionFileFormat`
+  adds header-only `stat`/`listStats` (directory listings never parse event
+  bodies), one-step legacy migration (`<id>.jsonl` migrates transparently on
+  first touch), and loud downgrade protection for newer generations. A
+  partial trailing line from a crash is now repaired on read (it was never a
+  committed event); a complete corrupt line still fails loudly. New cheap
+  `eventCount` seam — `GET /api/sessions` stops full-parsing every log per
+  poll. 会话文件代际化：`<id>.v1.jsonl` + 格式头 + 一步迁移 + 降级保护；
+  会话列表不再全量解析。
