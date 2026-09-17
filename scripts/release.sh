@@ -17,7 +17,7 @@ version=${1:-}
 [[ -z $(git status --porcelain) ]] || {
   echo "working tree not clean — commit or stash first"; exit 2;
 }
-current=$(sed -n 's|<version>\(.*-SNAPSHOT\)</version>|\1|p' pom.xml | head -1)
+current=$(sed -n 's|.*<version>\(.*-SNAPSHOT\)</version>.*|\1|p' pom.xml | head -1)
 [[ -n "$current" ]] || { echo "cannot detect the current -SNAPSHOT version from pom.xml"; exit 2; }
 today=$(date +%Y-%m-%d)
 
