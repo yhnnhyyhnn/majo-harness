@@ -10,7 +10,7 @@ import java.util.Map;
  * Start with:
  *
  * <pre>
- *   java -jar majo-web-0.2.0.jar --profile web-mock --plugin web-demo=./examples/web-plugin-demo/web-demo.jar
+ *   java -jar majo-web-0.3.0.jar --profile web-mock --plugin web-demo=./examples/web-plugin-demo/web-demo.jar
  * </pre>
  *
  * The UI lists the plugin under the sidebar "Plugins" section; opening it

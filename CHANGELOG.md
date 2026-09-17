@@ -322,7 +322,7 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   web-parity markdown-table row is corrected to ✅ (GFM tables + language
   captions shipped with tests).
 
-## [Unreleased]
+## [0.3.0] - 2026-09-18
 
 Working area for the next iteration.
 
@@ -376,3 +376,7 @@ Working area for the next iteration.
   `eventCount` seam — `GET /api/sessions` stops full-parsing every log per
   poll. 会话文件代际化：`<id>.v1.jsonl` + 格式头 + 一步迁移 + 降级保护；
   会话列表不再全量解析。
+
+## [Unreleased]
+
+Working area for the next iteration.
