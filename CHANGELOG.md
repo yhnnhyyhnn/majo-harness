@@ -326,6 +326,22 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 Working area for the next iteration (roadmap-0.4).
 
+- **LLM fault injection** (roadmap-0.4 Phase 1, dsh
+  `llm-mock-server` analog): `FaultLlmServer` — a raw-socket scripted HTTP
+  server that controls the exact wire bytes (status/headers/body, and
+  Content-Length lies for real mid-body disconnects) — plus
+  `FaultChatModel`, the seam-level wrapper whose script throws on the n-th
+  call or kills a stream after n deltas. Wire tests (`OpenAiFaultTest`) pin
+  the provider contract: mid-stream disconnects, 429/5xx, malformed SSE
+  chunks, in-stream error objects, and non-JSON bodies all fail loudly as
+  `ModelException` — never a silently truncated "success", and no hidden
+  adapter retry (429 → exactly one request). Loop tests (`FaultTurnTest`)
+  pin the turn contract: a model failure fails the turn loudly, the session
+  log keeps only the open turn (no half-committed assistant round, no
+  TURN_END), the session recovers on the next turn, and a failed driver
+  turn cannot wedge the inbox queue. LLM 故障注入：线级脚本 server + 接缝级
+  包装器；断流/429/5xx/畸形 chunk 全部 loud 失败，回合无半提交。
+
 - **Session file generations** (roadmap-0.4 Phase 1, dsh
   `session-persistence-jsonl` analog): durable session logs are now named
   `<id>.v1.jsonl` and start with a one-line format header; `SessionFileFormat`
