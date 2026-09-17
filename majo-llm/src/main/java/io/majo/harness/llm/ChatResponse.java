@@ -18,6 +18,7 @@ public record ChatResponse(String content, List<ToolCall> toolCalls) {
     }
 
     /** Whether this round asked the harness to execute tools. */
+    @com.fasterxml.jackson.annotation.JsonIgnore // derived view, not a wire property
     public boolean isToolRound() {
         return toolCalls != null && !toolCalls.isEmpty();
     }
