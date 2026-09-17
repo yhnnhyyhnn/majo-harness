@@ -82,7 +82,20 @@ curl -X POST -H 'Content-Type: application/json' \
 Fan-out SSE 检查：提示要求同一轮发起两个 `delegate_task` → 每个子代理审批
 带 `subagent-<child8>` 标签；逐一 Allow 后得到正确汇总答案。
 
-## 5. Git 卫生
+## 5. MCP 实测探针（可选，需网络 + node）
+
+用真实生态的 filesystem server 实测客户端（首次运行经 npx 下载包）：
+
+```bash
+MAJO_MCP_PROBE=1 mvn -pl majo-mcp -am test \
+  -Dtest=McpFilesystemLiveProbeTest -Dsurefire.failIfNoSpecifiedTests=false
+# 预期：握手成功，列出 14 个 filesystem 工具，read_file 往返读回探针标记，
+# 卸载关闭服务器进程
+```
+
+CI 以 best-effort（continue-on-error）运行，与 DuckDuckGo 探针一致。
+
+## 6. Git 卫生
 
 - `git status` 干净；`git push origin main` 与远端一致。
 - HEAD 上带注解的 release tag（`v0.1.0`）。

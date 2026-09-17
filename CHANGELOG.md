@@ -380,3 +380,10 @@ Working area for the next iteration.
 ## [Unreleased]
 
 Working area for the next iteration.
+
+- **MCP live probe**: `McpFilesystemLiveProbeTest` runs the client against
+  the real ecosystem's `@modelcontextprotocol/server-filesystem` (handshake,
+  full tool list, `read_file` round-trip through the registry bridge,
+  unmount teardown). Gated by `MAJO_MCP_PROBE=1` and run best-effort in CI,
+  like the DuckDuckGo probe; verification docs gained the manual command.
+  MCP 实测探针：对官方 filesystem server 验证握手/工具清单/读取往返。

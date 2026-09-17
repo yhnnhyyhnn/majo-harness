@@ -102,7 +102,21 @@ Fan-out SSE check: a prompt asking for two `delegate_task` calls in one round
 produces per-child approvals tagged `subagent-<child8>`; allowing each yields a
 correct combined answer.
 
-## 5. Git hygiene
+## 5. MCP live probe (optional, network + node)
+
+Runs the client against the real ecosystem's filesystem server (first run
+downloads the package via npx):
+
+```bash
+MAJO_MCP_PROBE=1 mvn -pl majo-mcp -am test \
+  -Dtest=McpFilesystemLiveProbeTest -Dsurefire.failIfNoSpecifiedTests=false
+# expect: handshake ok, 14 filesystem tools listed, read_file round-trips
+# the probe marker, unmount closes the server
+```
+
+CI runs it best-effort (continue-on-error), like the DuckDuckGo probe.
+
+## 6. Git hygiene
 
 - `git status` clean; `git push origin main` up to date.
 - Annotated release tag on HEAD (`v0.1.0`).
