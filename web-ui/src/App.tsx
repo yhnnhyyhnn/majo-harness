@@ -5,6 +5,8 @@ import { PlanChip } from "./components/PlanChip";
 import { PluginFrame } from "./components/PluginFrame";
 import { JobsButton, ScheduleCatalog, ContextMeter } from "./components/SessionPanels";
 import { SessionSidebar } from "./components/SessionSidebar";
+import { ThemeToggle } from "./components/ThemeToggle";
+import { Trajectory } from "./components/Trajectory";
 import { TodoPanel } from "./components/TodoPanel";
 import { FEATURES } from "./features";
 import type { EventFrame, EventKind } from "./types";
@@ -82,6 +84,8 @@ function AppShell() {
   const { state, actions } = useChat();
   const { rails, sidebarSections } = useSlots();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // the conversation view ring (dsh ui-conversation): chat vs trajectory
+  const [view, setView] = useState<"chat" | "trajectory">("chat");
 
   useEffect(() => {
     void actions.loadInitial();
@@ -170,9 +174,28 @@ function AppShell() {
             ☰
           </button>
           <span id="current-title">{state.title}</span>
+          <span id="view-ring" role="tablist">
+            <button
+              type="button"
+              className={view === "chat" ? "on" : undefined}
+              onClick={() => setView("chat")}
+              title="conversation view"
+            >
+              chat
+            </button>
+            <button
+              type="button"
+              className={view === "trajectory" ? "on" : undefined}
+              onClick={() => setView("trajectory")}
+              title="trajectory ledger"
+            >
+              trajectory
+            </button>
+          </span>
           <JobsButton state={state} />
           <ScheduleCatalog state={state} />
           <ContextMeter state={state} />
+          <ThemeToggle />
           <label className="model-picker">
             model
             <select
@@ -220,13 +243,17 @@ function AppShell() {
             )}
             <TodoPanel state={state} />
             <PlanChip state={state} />
-            <Conversation
-              events={state.events}
-              live={state.busy ? state.live : null}
-              onOpenSession={(id) => void actions.selectSession(id)}
-              feedback={state.feedback}
-              onRate={(seq, value) => void actions.rate(seq, value)}
-            />
+            {view === "trajectory" ? (
+              <Trajectory events={state.events} />
+            ) : (
+              <Conversation
+                events={state.events}
+                live={state.busy ? state.live : null}
+                onOpenSession={(id) => void actions.selectSession(id)}
+                feedback={state.feedback}
+                onRate={(seq, value) => void actions.rate(seq, value)}
+              />
+            )}
             <Composer state={state} actions={actions} />
             <footer id="status" className={state.offline ? "error" : "online"}>
               {state.offline ? "offline" : "online"}

@@ -199,6 +199,16 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
   documented in openapi.json (drift-guarded).
 
+- **P2-D trajectory + theme** (dsh `ui-trajectory` + `ui-theme`): a
+  Chat/Trajectory view ring — the trajectory is a turn-grouped ledger of
+  every durable event (request headers, approvals, compaction, bookkeeping —
+  exactly the kinds the chat view hides) with per-turn durations, per-event
+  deltas, and a text filter, over the existing session endpoint (no backend
+  change). Theme switching cycles dark → light → system: the stylesheet was
+  already token-based, so light is a variable re-aliasing block keyed on
+  `data-theme`, tracking `prefers-color-scheme` live and persisted in
+  localStorage. web-parity: theme/trajectory/context-meter rows now ✅.
+
 - **P2-C compaction** (dsh `packages/compaction`): new `majo-compaction`
   module — the loop emits an `agent/before-request` waterfall before every
   model request, and the compaction listener summarizes over-budget history

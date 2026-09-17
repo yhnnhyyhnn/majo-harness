@@ -993,7 +993,7 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   max-width: 720px;
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--border, #2a2a33);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.02);
 }
@@ -1036,7 +1036,7 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
 .header-catalog .header-action {
   padding: 4px 8px;
   font-size: 12px;
-  border: 1px solid var(--border, #2a2a33);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: transparent;
   color: inherit;
@@ -1052,9 +1052,9 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   max-height: 320px;
   overflow: auto;
   padding: 8px;
-  border: 1px solid var(--border, #2a2a33);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: var(--panel, #17171d);
+  background: var(--bg-surface);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
@@ -1077,7 +1077,7 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  border: 1px solid var(--border, #2a2a33);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   font-size: 12px;
 }
@@ -1097,3 +1097,122 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   background: #7ab7ff;
 }
 #context-meter.hot .meter-fill { background: #ff6b6b; }
+
+/* ---- light theme (dsh ui-theme light aliases): the dark block above keeps
+ *     working unchanged; [data-theme="light"] re-aliases the same tokens ---- */
+[data-theme="light"] {
+  --bg-base: rgb(247, 248, 250);
+  --bg-sidebar: rgb(240, 242, 245);
+  --bg-surface: rgb(255, 255, 255);
+  --bg-raised: rgb(255, 255, 255);
+  --bg-hover: rgb(233, 236, 240);
+  --bg-active: rgb(222, 226, 232);
+
+  --text-primary: rgb(24, 26, 31);
+  --text-secondary: rgb(55, 60, 66);
+  --text-tertiary: rgb(90, 96, 104);
+  --text-caption: rgb(130, 136, 144);
+
+  --accent: rgb(53, 105, 230);
+  --accent-strong: rgb(38, 88, 210);
+  --accent-dim: rgb(213, 226, 252);
+  --success: rgb(22, 163, 74);
+  --success-soft: rgb(220, 242, 228);
+  --danger: rgb(210, 55, 55);
+  --danger-soft: rgb(252, 226, 226);
+  --warn: rgb(180, 120, 20);
+  --warn-soft: rgb(252, 242, 220);
+
+  --border-hair: rgba(0, 0, 0, 0.06);
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.18);
+}
+
+/* ---- trajectory view (dsh ui-trajectory, proportionate) ---- */
+#trajectory {
+  flex: 1;
+  overflow: auto;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 8px 16px 16px;
+}
+#trajectory-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  padding: 6px 0;
+  background: var(--bg-base);
+  z-index: 5;
+}
+#trajectory-bar input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+.trajectory-turn {
+  margin-bottom: 10px;
+  border: 1px solid var(--border-hair);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+}
+.trajectory-turn-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 10px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-hair);
+}
+.trajectory-ledger { width: 100%; border-collapse: collapse; font-size: 12px; }
+.trajectory-ledger td {
+  padding: 4px 8px;
+  border-top: 1px solid var(--border-hair);
+  vertical-align: top;
+}
+.trajectory-ledger tr:first-child td { border-top: none; }
+.trajectory-ledger .t-seq { width: 44px; color: var(--text-caption); text-align: right; }
+.trajectory-ledger .t-delta { width: 64px; color: var(--text-tertiary); white-space: nowrap; }
+.trajectory-ledger .t-text { word-break: break-word; color: var(--text-secondary); }
+.kind-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: var(--font-code);
+  white-space: nowrap;
+}
+.kind-user { background: var(--accent-dim); color: var(--text-primary); }
+.kind-assistant { background: var(--success-soft); color: var(--success); }
+.kind-tool { background: var(--warn-soft); color: var(--warn); }
+.kind-header { background: var(--bg-hover); color: var(--text-tertiary); }
+.kind-audit { background: var(--danger-soft); color: var(--danger); }
+.kind-compaction { background: var(--accent-dim); color: var(--accent-strong); }
+.kind-turn { background: var(--bg-hover); color: var(--text-caption); }
+.kind-bookkeeping { background: var(--bg-hover); color: var(--text-caption); }
+
+/* ---- view ring (chat / trajectory) + theme toggle ---- */
+#view-ring { display: inline-flex; border: 1px solid var(--border-subtle); border-radius: 6px; overflow: hidden; }
+#view-ring button {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: transparent;
+  color: var(--text-tertiary);
+  border: none;
+  cursor: pointer;
+}
+#view-ring button.on { background: var(--accent-dim); color: var(--text-primary); }
+#theme-toggle {
+  padding: 4px 8px;
+  font-size: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}

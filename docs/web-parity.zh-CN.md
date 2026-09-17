@@ -19,6 +19,7 @@
 | 工具调用与结果渲染 | ✅ | 参数 chip、ok/error 圆点 |
 | turn/请求元信息 | 🟡 | REQUEST_HEADER 元行（model、工具列表） |
 | 流式 token 显示 | ✅ | SSE `/api/turn/stream`：chunk 帧喂入 live 气泡 |
+| 上下文计量（`ui-conversation` ContextMeter） | ✅ | `GET /api/sessions/{id}/context` 估算压力对比压缩预算；头部进度条，≥80% 变热 |
 | 增量追加（免全量重绘） | ✅ | 每个 log/chunk 帧只推一条事件；done 收尾 |
 | 消息复制/反馈（👍👎） | ✅ | assistant 文本与工具卡 ⧉ 复制；用户气泡复制；👍👎 按 durable seq 持久化（`/api/messages/…/feedback`） |
 | 回答的 Markdown/代码渲染 | ✅ | 等价 `ui-renderer`：带语言标签的代码块、链接、列表、GFM 管道表格（有单测） |
@@ -37,7 +38,7 @@
 | 斜杠命令（`ui-commands`） | ✅ | commands 槽：`/help /clear /new /model /session-model /status /delegate`，实时分组补全（↑↓/Tab/Enter/Esc）；后端宿主命令（`GET /api/commands`）若无客户端同名项会自动注册进 `host` 组；feature 经 `addCommand` 扩展 |
 | 设置（通用/模型/插件） | ✅ | 侧栏 Settings 区：版本/模型/工具/技能事实（`/api/info`） |
 | 移动端布局 | ✅ | ≤860px：滑入式抽屉侧栏（☰/遮罩）、触控目标放大、safe-area 留白、16px 输入字号、横屏适配 |
-| 主题切换 | ⬜ | CSS 变量化后成本极低（当前单一 dsh 暗色主题） |
+| 主题切换 | ✅ | 暗色（默认）/ 浅色 / 跟随系统循环切换（`data-theme` 令牌重别名，`prefers-color-scheme` 实时跟随，localStorage 持久化） |
 | 连接状态与重连横幅 | ✅ | offline 横幅 + Retry |
 
 ## 能力面板（依赖后端接缝）
@@ -53,7 +54,7 @@
 | Skills 面板（`ui-skill`） | 后端已有 skills | ✅ 侧栏区（`/api/skills`，轮询） |
 | 插件管理 | 三层插件模型 + jar 热 reload | ✅ 侧栏区：托管页 + 原生 `plugin.mjs` mount/reload/unload、jar mtime 自动 reload、version/slots 徽标、重复 id 与缺版本告警 |
 | Agent team（实验） | 后端未建 | ⬜ |
-| 轨迹（`ui-trajectory`） | 会话日志已含一切 | 🟡 经转写 |
+| 轨迹（`ui-trajectory`） | 会话日志已含一切 | ✅ Chat/Trajectory 视图环：按 turn 分组的事件台账（请求头、审批、压缩、簿记一应俱全），带回合时长、逐事件耗时与文本过滤 |
 
 ## 线契约与面板机制
 

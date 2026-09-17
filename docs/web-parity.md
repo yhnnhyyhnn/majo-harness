@@ -20,6 +20,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Tool call + result rendering | ✅ | chips with JSON args, ok/error dots |
 | Turn/request metadata | 🟡 | REQUEST_HEADER meta line (model, tool list) |
 | Streaming token display | ✅ | SSE `/api/turn/stream`: chunk frames feed the live bubble |
+| Context meter (`ui-conversation` ContextMeter) | ✅ | `GET /api/sessions/{id}/context` estimated pressure vs the compaction budget; header bar, hot ≥ 80% |
 | Incremental append (no full re-render) | ✅ | each log/chunk frame pushes one event; stream closes on done |
 | Message copy / feedback (👍👎) | ✅ | assistant text + tool cards ⧉ copy; user bubbles copy; 👍👎 persisted per durable seq (`/api/messages/…/feedback`) |
 | Markdown/code rendering in answers | ✅ | `ui-renderer` equivalent: code blocks with language caption, links, lists, GFM pipe tables (unit-tested) |
@@ -38,7 +39,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Slash commands (`ui-commands`) | ✅ | commands slot: `/help /clear /new /model /session-model /status /delegate` with live grouped completions (↑↓/Tab/Enter/Esc); backend host commands (`GET /api/commands`) without a client twin auto-register in a `host` group; features extend via `addCommand` |
 | Settings (general/models/plugins) | ✅ | sidebar Settings section: version/models/tools/skills facts (`/api/info`) |
 | Mobile layout | ✅ | ≤860px: slide-in sidebar drawer (☰/backdrop), enlarged touch targets, safe-area padding, 16px composer font, landscape tweaks |
-| Theme switching | ⬜ | trivial CSS once colors are variables (single dark theme today, dsh tokens) |
+| Theme switching | ✅ | dark (default) / light / system cycle (`data-theme` token re-aliasing, `prefers-color-scheme` live, localStorage-persisted) |
 | Web/ACP connectivity & reconnect banner | ✅ | offline banner + retry |
 
 ## Capability panels (tied to backend seams)
@@ -54,7 +55,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Skills panel (`ui-skill`) | backend skills exists | ✅ sidebar section (`/api/skills`, polls) |
 | Plugins management | three-tier plugin model + jar hot reload | ✅ sidebar section: hosted pages + native `plugin.mjs` mount/reload/unload, jar mtime auto-reload, version/slots chips, duplicate-id & unversioned warnings |
 | Agent team (`ui-agent-team`, experimental) | backend not built | ⬜ |
-| Trajectory (`ui-trajectory`) | backend session log has everything | 🟡 via transcript |
+| Trajectory (`ui-trajectory`) | backend session log has everything | ✅ Chat/Trajectory view ring: turn-grouped ledger of every durable event (headers, approvals, compaction, bookkeeping) with per-turn durations, per-event deltas, and a text filter |
 
 ## Wire contract & panels plumbing
 
