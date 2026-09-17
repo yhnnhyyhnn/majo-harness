@@ -204,4 +204,23 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   UI bridge, subagent islands + settings overrides, plugins panel, offline
   fetch/search backends and profiles.
 
+- **Engineering foundation (roadmap-0.3 Phase 0, dsh-informed)**: the
+  1715-line `WebMain` split into `WebMain` (assembly) + `Router` (pattern
+  route table) + a per-domain `handler/` package + extracted
+  `Metrics`/`PendingInteractions`/`Http`/`WebContext`; behavior preserved
+  (OpenApiDriftTest + ConcurrencySoakTest green, openapi.json untouched).
+  Token comparison is now constant-time (`MessageDigest.isEqual`), the
+  version in `/api/info` + `/api/health` comes from a Maven-filtered
+  resource, service logging moved to slf4j (+`slf4j-simple`) with a
+  `scripts/verify-no-stdout.sh` gate, and the README (EN/ZH) gained a
+  security model section (`?token=` SSE caveat included). Frontend: the
+  783-line `App.tsx` shrank to the shell with new
+  `components/SessionSidebar|PluginFrame|Composer`, a shared
+  `usePollingSection` hook replaces three copy-pasted poll loops, and ESLint
+  9 (flat config, `npm run lint`) runs clean. Docs: `docs/roadmap-0.3(.zh-CN).md`
+  plans Phases 1–3 (agent-loop inbox, durable approval audit, record/replay
+  LLM tests, plan/todo/jobs/schedule/compaction/trajectory parity); the
+  web-parity markdown-table row is corrected to ✅ (GFM tables + language
+  captions shipped with tests).
+
 Working area for the next iteration.

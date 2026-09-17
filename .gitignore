@@ -45,3 +45,6 @@ web-ui/dist/
 
 # vendored jcordis-all (not on Maven Central)
 !lib/*
+
+# session-local assistant workspace
+.zcode/

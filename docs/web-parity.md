@@ -22,7 +22,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Streaming token display | ✅ | SSE `/api/turn/stream`: chunk frames feed the live bubble |
 | Incremental append (no full re-render) | ✅ | each log/chunk frame pushes one event; stream closes on done |
 | Message copy / feedback (👍👎) | ✅ | assistant text + tool cards ⧉ copy; user bubbles copy; 👍👎 persisted per durable seq (`/api/messages/…/feedback`) |
-| Markdown/code rendering in answers | ⬜ | `ui-renderer`; code blocks + links + lists exist; tables/language tags pending |
+| Markdown/code rendering in answers | ✅ | `ui-renderer` equivalent: code blocks with language caption, links, lists, GFM pipe tables (unit-tested) |
 | Ask-user inline question bubble | ✅ | rail in approval/ask features (`ctx.interactions` queue → SSE) |
 | Approval prompt UI | ✅ | rail with allow/reject (`ctx.interactions` + `tool-approval`) |
 

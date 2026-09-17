@@ -159,6 +159,18 @@ curl -X POST -H 'Content-Type: application/x-ndjson' --data-binary @session.json
 - **打包版在 Chrome 里黑屏/无限 loading**：JDK `HttpServer` 按 keep-alive 连接串行处理请求，会挂住 Chrome 并发的 module 抓取。`WebMain` 对静态/JSON 响应发送 `Connection: close`（SSE 保持打开），让每个资源走新连接；改服务器时请保留该头。调试期可直接用上面的 dev 服务器绕行。
 - 后端不可达时页面显示可见的 “offline” 横幅，而不是静默空白。
 
+### 安全模型
+
+`majo-web` 默认只绑 `127.0.0.1`，面向本地单用户。传 `--token <secret>` 后 `/api/*` 需要
+`Authorization: Bearer <secret>`（浏览器 UI 首次通过 `?token=` 拿到 token 并存入
+`localStorage`）；非 loopback 绑定且无 token 时启动会打印警告。
+
+两个已知限制，在“本地单用户”定位下视为可接受：
+- SSE 端点同时接受 `?token=`，因为 `EventSource` 无法设置请求头——因此 token 可能出现在
+  本机进程日志/访问日志里。请不要复用保护其他资产的密钥。
+- token 比较是常量时间，但没有速率限制；`--host 0.0.0.0` 的局域网暴露只有在可信网络 +
+  强 token 的前提下才安全。
+
 ## 自带模型端点
 
 运行 harness 不需要任何 key：确定性 mock 无需网络；`llm-openai` provider 按 OpenAI `chat/completions` 线协议与你选择的任何端点通信（LM Studio、Ollama、vLLM、One-API 类网关，或带你自己 key 的厂商）。替换模型 provider 只需改 profile——把 mock 两行换成 provider 行，并把 `llm.defaultModel` 指向其注册名：

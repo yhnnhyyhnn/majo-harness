@@ -21,7 +21,7 @@
 | 流式 token 显示 | ✅ | SSE `/api/turn/stream`：chunk 帧喂入 live 气泡 |
 | 增量追加（免全量重绘） | ✅ | 每个 log/chunk 帧只推一条事件；done 收尾 |
 | 消息复制/反馈（👍👎） | ✅ | assistant 文本与工具卡 ⧉ 复制；用户气泡复制；👍👎 按 durable seq 持久化（`/api/messages/…/feedback`） |
-| 回答的 Markdown/代码渲染 | ⬜ | `ui-renderer`；已有代码块/链接/列表；表格与语言标签待补 |
+| 回答的 Markdown/代码渲染 | ✅ | 等价 `ui-renderer`：带语言标签的代码块、链接、列表、GFM 管道表格（有单测） |
 | ask-user 行内问题气泡 | ✅ | approval/ask 特性 rail（`ctx.interactions` 队列 → SSE） |
 | 审批提示 UI | ✅ | rail 提供 allow/reject（`ctx.interactions`+`tool-approval`） |
 

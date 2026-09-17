@@ -4,6 +4,7 @@ import type { PluginInfo } from "../types";
 import type { Feature, PluginHost, SectionProps } from "../slots";
 import { useRegistrar } from "../slots";
 import { pluginIssues } from "../plugin-issues";
+import { usePollingSection } from "../usePollingSection";
 
 // Mounted plugin frontends: the backend hosts each plugin jar's
 // static-web/<name>/ assets under /plugins/<name>/; this section lists what
@@ -38,7 +39,6 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
     if (!url) return;
     setNativeStates((s) => ({ ...s, [plugin.name]: "loading" }));
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mod = (await import(/* @vite-ignore */ url)) as {
         register?: (host: PluginHost) => unknown;
       };
@@ -117,32 +117,24 @@ function PluginsMenu({ openPlugin }: { openPlugin?: (name: string, url: string) 
     if (plugin.module && !loadedModules.has(plugin.name)) mountNative(plugin);
   };
 
-  useEffect(() => {
-    if (!open) return;
-    void load()
-      .then((list) => {
-        for (const plugin of list) autoMount(plugin);
-      })
-      .catch(() => setPlugins([]));
-    const timer = window.setInterval(() => {
-      void load().then((list) => {
-        for (const plugin of list) autoMount(plugin);
-      });
-    }, 5000);
-    return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const loadAndMount = async () => {
+    const list = await load();
+    for (const plugin of list) autoMount(plugin);
+  };
+
+  usePollingSection(open, loadAndMount, 5000, () => setPlugins([]));
 
   useEffect(() => {
+    const disposers = disposersRef.current;
     return () => {
-      for (const disposer of disposersRef.current.values()) {
+      for (const disposer of disposers.values()) {
         try {
           disposer();
         } catch {
           // ignore unload errors during teardown
         }
       }
-      disposersRef.current.clear();
+      disposers.clear();
       loadedModules.clear();
     };
   }, []);

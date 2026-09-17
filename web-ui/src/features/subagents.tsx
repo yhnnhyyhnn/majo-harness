@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { SubagentRun } from "../types";
 import type { Feature } from "../slots";
+import { usePollingSection } from "../usePollingSection";
 
 /** Compose form state for one delegation (all optional except the task). */
 interface Form {
@@ -55,14 +56,14 @@ function SubagentsPanel() {
     }
   };
 
-  // fetch on open, then poll so finished delegations appear without a click
+  // one-shot option catalogs when the form opens
   useEffect(() => {
     if (!open) return;
     void loadOptions();
-    void load().catch(() => setRuns([]));
-    const timer = window.setInterval(() => void load().catch(() => {}), 3000);
-    return () => window.clearInterval(timer);
   }, [open]);
+
+  // fetch on open, then poll so finished delegations appear without a click
+  usePollingSection(open, load, 3000, () => setRuns([]));
 
   const delegate = async () => {
     const task = form.task.trim();

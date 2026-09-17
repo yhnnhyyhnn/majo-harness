@@ -127,6 +127,10 @@ export function SlotRoot({ features, children }: { features: Feature[]; children
   }
   const [tick, setTick] = useState(0);
   const notify = useCallback(() => setTick((tick) => tick + 1), []);
+  // tick is the re-render trigger for runtime registrations: the memo must be
+  // recomputed (fresh context value) when notify() fires, though the body
+  // never reads tick.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const value = useMemo<RegistryRef>(() => ({ state: stateRef.current!, notify }), [tick, notify]);
   return <RegistryContext.Provider value={value}>{children}</RegistryContext.Provider>;
 }

@@ -172,6 +172,21 @@ Troubleshooting:
 - The page shows a visible "offline" banner instead of failing silently when the backend
   cannot be reached.
 
+### Security model
+
+`majo-web` binds `127.0.0.1` by default and is meant for a local single user. Pass
+`--token <secret>` to require `Authorization: Bearer <secret>` on `/api/*` (the browser
+UI picks the token up from `?token=` on first load and stores it in `localStorage`); a
+non-loopback bind without a token prints a startup warning.
+
+Two known limitations, accepted for the local single-user scope:
+- SSE endpoints also accept `?token=` because `EventSource` cannot set headers — tokens
+  can therefore appear in local process logs/access logs. Don't reuse a secret that
+  protects anything beyond this machine.
+- Token comparison is constant-time, but there is no rate limiting; a LAN exposure
+  (`--host 0.0.0.0`) is only safe behind a trusted network plus a strong token.
+
+
 ## Bring your own model endpoint
 
 No key is required to run the harness: the deterministic mock needs no network, and the `llm-openai` provider speaks the OpenAI `chat/completions` wire protocol to any endpoint you choose (LM Studio, Ollama, vLLM, a One-API-style gateway, or a vendor with your own key). Replacing the model provider is a profile edit only — swap the mock rows for the provider rows and point `llm.defaultModel` at the registered name:

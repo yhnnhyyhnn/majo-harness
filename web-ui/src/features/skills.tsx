@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../api";
 import type { SkillDetail, SkillInfo } from "../types";
 import type { Feature } from "../slots";
+import { usePollingSection } from "../usePollingSection";
 
 function SkillRow({ skill }: { skill: SkillInfo }) {
   const [open, setOpen] = useState(false);
@@ -58,12 +59,7 @@ function SkillsPanel() {
   };
 
   // fetch on open, then keep the catalog fresh while the panel is visible
-  useEffect(() => {
-    if (!open) return;
-    void load().catch(() => setSkills([]));
-    const timer = window.setInterval(() => void load().catch(() => {}), 8000);
-    return () => window.clearInterval(timer);
-  }, [open]);
+  usePollingSection(open, load, 8000, () => setSkills([]));
 
   return (
     <div className="side-section">
