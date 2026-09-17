@@ -4,7 +4,7 @@ majo-harness is a Java 21 port of the deepseek-harness ("dsh") architecture.
 This roadmap sequences the next iterations by what the reference project does
 and what majo still lacks, audited against `D:\code\git\deepseek-harness`
 (architecture docs + `packages/`) in 2026-09. Status lives in CHANGELOG
-(`## [Unreleased]`); Phase 0 is in flight.
+(`## [Unreleased]`); **Phase 0 and Phase 1 are shipped**, Phase 2 is next.
 
 Phased order (agreed): engineering foundation first, then architecture
 mechanics ported from dsh, then the missing feature surface, then ecosystem

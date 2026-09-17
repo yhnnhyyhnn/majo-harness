@@ -199,6 +199,36 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
   documented in openapi.json (drift-guarded).
 
+- **P1 llm-replay** (dsh `test-support/llm-replay` analog): `RecordingChatModel`
+  persists (request, streamed chunks, response) as `majo-llm-replay` v1 JSONL;
+  `ReplayChatModel` replays in call order and fails loud on derived-request
+  drift or script exhaustion — real-provider sessions become offline
+  regression fixtures. `ChatResponse.isToolRound` is `@JsonIgnore` for clean
+  fixtures.
+
+- **P1 agent-loop dual inbox** (dsh next-turn/next-step): per-session
+  `AgentInbox` — `followup` queues a next turn (idle wake via a
+  virtual-thread driver whose polling stays under the per-session turn
+  mutex; inline converge when a turn is running), `steer` splices durable
+  user input at the next step boundary, `inject` lands a new
+  `CONTEXT_NOTE` session event without ever waking. Turn-serialization is
+  now owned by the loop itself. `AgentInboxTest` pins all four behaviors.
+
+- **P1 approval audit + policy** (dsh user-approval): gated tool calls
+  running inside a turn persist `APPROVAL_REQUESTED` + `APPROVAL_DECIDED`
+  into the session log (policy resolutions audited with `source=policy`);
+  session policy `session.approval.<id>` = `ask|never|auto` (fallback
+  `defaultPolicy` config, fallback `ask`) decides before handlers, deny
+  stays fail-closed. The loop binds each turn's session via
+  `InteractionContext.runSession`; the audit pair stays out of derived
+  model history. `ApprovalAuditTest`.
+
+- **P1 "model-visible means logged" invariant**: `ModelVisibleMeansLoggedTest`
+  rebuilds every model request from the durable log at ask time (system
+  prompt + `MessageDeriver.derive`) and fails on any divergence — covering
+  steered input, injected notes, and tool rounds. `scripts/check.sh` is the
+  single local/CI gate entry (no-stdout, ESLint, vitest, Maven verify).
+
 - **Docs parity**: architecture & web-parity (EN/ZH) now reflect the current
   endpoints (commands/health/metrics/openapi/plugin reload/…), host command
   UI bridge, subagent islands + settings overrides, plugins panel, offline

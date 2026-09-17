@@ -3,7 +3,8 @@
 majo-harness 是 deepseek-harness（"dsh"）架构的 Java 21 移植版。本路线图以
 参考项目为准绳排布后续迭代：dsh 做了什么、majo 还缺什么。依据 2026-09 对
 `D:\code\git\deepseek-harness`（架构文档 + `packages/`）的审计结果编写。
-状态记录在 CHANGELOG（`## [Unreleased]`）；Phase 0 正在进行。
+状态记录在 CHANGELOG（`## [Unreleased]`）；**Phase 0 与 Phase 1 已交付**，
+下一步是 Phase 2。
 
 阶段顺序（已确认）：先工程地基，再移植 dsh 架构机制，然后补齐功能面，
 最后生态加固。每期可独立交付。
