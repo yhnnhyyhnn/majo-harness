@@ -37,9 +37,9 @@ awk 'BEGIN{blank=""} {lines[NR]=$0} END{
 }' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
 
 echo "== step 2/5: lockstep version stamp =="
-# Git Bash grep emits backslash paths: normalize to forward slashes so the
-# target filter and sed behave
-grep -rl "$current" --include="pom.xml" . 2>/dev/null | tr '\\' '/' \
+# Git Bash grep emits backslash paths with CRLF line endings: normalize both
+# (tr eats the \r and flips the slashes) so the target filter and sed behave
+grep -rl "$current" --include="pom.xml" . 2>/dev/null | tr -d '\r' | tr '\\' '/' \
   | grep -v "/target/" | while read -r f; do
   sed -i "s/$current/$version/g" "$f"
 done
@@ -47,7 +47,7 @@ done
 # fails the build when the two drift apart)
 (cd web-ui && npm version "$version" --no-git-tag-version > /dev/null)
 # example javadoc references the web jar by name
-grep -rl "majo-web-$current.jar" --include="*.java" . 2>/dev/null | tr '\\' '/' \
+grep -rl "majo-web-$current.jar" --include="*.java" . 2>/dev/null | tr -d '\r' | tr '\\' '/' \
   | while read -r f; do
   sed -i "s/majo-web-$current\.jar/majo-web-$version.jar/g" "$f"
 done
