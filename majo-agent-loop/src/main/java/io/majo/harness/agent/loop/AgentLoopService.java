@@ -235,8 +235,8 @@ public final class AgentLoopService extends Service {
                 // steering + notes splice in at step boundaries, never mid-request
                 deliverQueuedNotes(sessionId);
             }
-            ChatRequest request = new ChatRequest(buildMessages(sessionId, effectivePrompt),
-                    tools.specs(), modelOverride);
+                ChatRequest request = new ChatRequest(beforeRequest(sessionId, effectivePrompt),
+                        tools.specs(), modelOverride);
             // log the request composition before it reaches the model so the
             // header (model, system prompt, offered tool names) is durable
             // even when the completion itself fails
@@ -424,11 +424,21 @@ public final class AgentLoopService extends Service {
         return value;
     }
 
-    private List<ChatMessage> buildMessages(String sessionId, String prompt) {
+    /**
+     * The model-visible input of one request: the derived history passes
+     * through the {@link AgentLoopEvents#BEFORE_REQUEST} waterfall (context
+     * policies may persist adjustments and rewrite it — what they return is
+     * already in the log), then the system prompt joins at position 0.
+     */
+    @SuppressWarnings("unchecked")
+    private List<ChatMessage> beforeRequest(String sessionId, String prompt) {
         List<ChatMessage> history = MessageDeriver.derive(sessions.events(sessionId));
-        List<ChatMessage> messages = new ArrayList<>(history.size() + 1);
+        List<ChatMessage> rewritten = (List<ChatMessage>) ctx.waterfall(null,
+                AgentLoopEvents.BEFORE_REQUEST, new Object[]{sessionId, history},
+                args -> args[1]);
+        List<ChatMessage> messages = new ArrayList<>(rewritten.size() + 1);
         messages.add(ChatMessage.system(prompt));
-        messages.addAll(history);
+        messages.addAll(rewritten);
         return List.copyOf(messages);
     }
 

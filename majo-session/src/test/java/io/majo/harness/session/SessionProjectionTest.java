@@ -162,6 +162,7 @@ class SessionProjectionTest {
                 case TypedSessionEvent.TodoSet ignored -> SessionEventType.TODO_SET;
                 case TypedSessionEvent.PlanSet ignored -> SessionEventType.PLAN_SET;
                 case TypedSessionEvent.ScheduleSet ignored -> SessionEventType.SCHEDULE_SET;
+                case TypedSessionEvent.ContextCompaction ignored -> SessionEventType.CONTEXT_COMPACTION;
             };
         }
 

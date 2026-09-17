@@ -128,6 +128,14 @@
         ]
       }
     },
+    "/api/sessions/{id}/context": {
+      "get": {
+        "summary": "Estimated context pressure (dsh token-meter)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/messages/{id}/{seq}/feedback": {
       "put": {
         "summary": "Rate a message up|down",

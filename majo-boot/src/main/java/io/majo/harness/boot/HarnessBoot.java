@@ -27,6 +27,7 @@ import io.majo.harness.webaccess.WebToolsPlugin;
 import io.majo.harness.interaction.InteractionPlugin;
 import io.majo.harness.interaction.ToolApprovalPlugin;
 import io.majo.harness.jobs.JobsPlugin;
+import io.majo.harness.compaction.CompactionPlugin;
 import io.majo.harness.plan.PlanPlugin;
 import io.majo.harness.sandbox.SandboxPlugin;
 import io.majo.harness.schedule.SchedulePlugin;
@@ -94,6 +95,7 @@ public final class HarnessBoot {
     public static final String PLUGIN_PLAN = PlanPlugin.NAME;
     public static final String PLUGIN_JOBS = JobsPlugin.NAME;
     public static final String PLUGIN_SCHEDULE = SchedulePlugin.NAME;
+    public static final String PLUGIN_COMPACTION = CompactionPlugin.NAME;
     public static final String PLUGIN_COMMANDS = io.majo.harness.boot.commands.CommandRegistryPlugin.NAME;
 
     private final Context ctx;
@@ -142,6 +144,7 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_PLAN, new PlanPlugin());
         loader.builtin(PLUGIN_JOBS, new JobsPlugin());
         loader.builtin(PLUGIN_SCHEDULE, new SchedulePlugin());
+        loader.builtin(PLUGIN_COMPACTION, new CompactionPlugin());
         loader.builtin(PLUGIN_COMMANDS, new io.majo.harness.boot.commands.CommandRegistryPlugin());
     }
 

@@ -3,7 +3,7 @@ import { SlotRoot, useSlots, type RailProps } from "./slots";
 import { Composer } from "./components/Composer";
 import { PlanChip } from "./components/PlanChip";
 import { PluginFrame } from "./components/PluginFrame";
-import { JobsButton, ScheduleCatalog } from "./components/SessionPanels";
+import { JobsButton, ScheduleCatalog, ContextMeter } from "./components/SessionPanels";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { TodoPanel } from "./components/TodoPanel";
 import { FEATURES } from "./features";
@@ -172,6 +172,7 @@ function AppShell() {
           <span id="current-title">{state.title}</span>
           <JobsButton state={state} />
           <ScheduleCatalog state={state} />
+          <ContextMeter state={state} />
           <label className="model-picker">
             model
             <select

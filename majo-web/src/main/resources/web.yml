@@ -60,6 +60,8 @@
   name: jobs
 - id: schedule
   name: schedule
+- id: compaction
+  name: compaction
 - id: skill-files
   name: skill-files
   config:

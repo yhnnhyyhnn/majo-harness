@@ -77,6 +77,10 @@ public final class WebApiModels {
 
     public record SchedulesIndex(List<ScheduleInfo> schedules) {}
 
+    /** Estimated context pressure for the session (dsh token-meter / Context Meter). */
+    public record ContextSnapshot(boolean available, @OptionalWire Integer estimatedTokens,
+            @OptionalWire Integer budget, @OptionalWire Double pressure) {}
+
     /** One full-text hit across sessions. */
     public record SearchHit(String id, String title,
             @OptionalWire String snippet, @OptionalWire Long seq,

@@ -14,6 +14,7 @@ export type EventKind =
   | "TODO_SET"
   | "PLAN_SET"
   | "SCHEDULE_SET"
+  | "CONTEXT_COMPACTION"
 
 export interface ApprovalDecision {
   decision?: string;
@@ -37,6 +38,13 @@ export interface CommandResult {
 
 export interface CommandsIndex {
   commands: CommandInfo[];
+}
+
+export interface ContextSnapshot {
+  available: boolean;
+  estimatedTokens?: number;
+  budget?: number;
+  pressure?: number;
 }
 
 export interface CreateSession {

@@ -118,3 +118,42 @@ export function ScheduleCatalog({ state }: { state: ChatState }) {
     </span>
   );
 }
+
+/**
+ * Context pressure meter (dsh ui-conversation ContextMeter): estimated token
+ * use vs the compaction budget; the host /compact command collapses history
+ * when it climbs.
+ */
+export function ContextMeter({ state }: { state: ChatState }) {
+  const snapshot = useSessionCatalog(
+    state.sessionId,
+    state.busy,
+    api.context.bind(api)
+  );
+  if (
+    !state.sessionId ||
+    !snapshot ||
+    !snapshot.available ||
+    snapshot.estimatedTokens == null
+  ) {
+    return null;
+  }
+  const pressure = snapshot.pressure ?? 0;
+  const percent = Math.round(pressure * 100);
+  const hot = pressure >= 0.8;
+  return (
+    <span
+      id="context-meter"
+      className={hot ? "hot" : undefined}
+      title={
+        `context ≈ ${snapshot.estimatedTokens} / ${snapshot.budget} tokens` +
+        (hot ? " — consider /compact" : "")
+      }
+    >
+      <span className="meter-bar">
+        <span className="meter-fill" style={{ width: `${percent}%` }} />
+      </span>
+      <span className="meta">{percent}%</span>
+    </span>
+  );
+}

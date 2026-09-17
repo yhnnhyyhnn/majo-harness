@@ -49,6 +49,32 @@ public final class CommandHandlers {
             return outcome.childSessionId() + " → " + outcome.answer();
         });
         registerPlanCommand(commands);
+        registerCompactCommand(commands);
+    }
+
+    /**
+     * The {@code compact} host command (dsh /compact): summarizes the
+     * session's history into a durable CONTEXT_COMPACTION event without
+     * burning a model turn of the user's conversation.
+     */
+    private void registerCompactCommand(CommandRegistry commands) {
+        commands.register("compact", "compact this session's context into a durable summary",
+                (commandCtx, args) -> {
+                    io.majo.harness.compaction.CompactionService compaction =
+                            ctx.boot.ctx().get(io.majo.harness.compaction.CompactionService.NAME);
+                    if (compaction == null) {
+                        throw new IllegalArgumentException(
+                                "compact: the compaction module is not mounted in this profile");
+                    }
+                    String sessionId = String.valueOf(args.get("session"));
+                    if (sessionId == null || sessionId.isBlank() || "null".equals(sessionId)) {
+                        throw new IllegalArgumentException("compact: pass the current session id");
+                    }
+                    String summary = compaction.compactNow(sessionId);
+                    return summary == null
+                            ? "nothing to compact — the session has no derived history"
+                            : "compacted: " + summary;
+                });
     }
 
     /**

@@ -59,6 +59,8 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_INTERVAL_SECONDS = "intervalSeconds";
     /** Deletion marker of a {@link SessionEventType#SCHEDULE_SET}. */
     public static final String FIELD_CANCELLED = "cancelled";
+    /** Log cursor covered by a {@link SessionEventType#CONTEXT_COMPACTION}. */
+    public static final String FIELD_UP_TO_SEQ = "upToSeq";
 
     public SessionEvent {
         fields = fields == null ? Map.of() : Map.copyOf(fields);

@@ -31,6 +31,15 @@ public final class MessageDeriver {
                     // messages (tool results and spliced notes carry the
                     // model text; schedules deliver their prompt as a turn)
                 }
+                case CONTEXT_COMPACTION -> {
+                    // dsh compaction: everything logged before this event is
+                    // replaced by its summary — the summary itself is durable
+                    // model-visible content, so the invariant still holds
+                    messages.clear();
+                    if (event.content() != null && !event.content().isBlank()) {
+                        messages.add(ChatMessage.user("[conversation summary] " + event.content()));
+                    }
+                }
                 case USER_MESSAGE, CONTEXT_NOTE -> messages.add(ChatMessage.user(event.content()));
                 case ASSISTANT_MESSAGE -> messages.add(ChatMessage.assistant(
                         event.content(), toToolCalls(event.fields())));

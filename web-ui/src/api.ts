@@ -4,6 +4,7 @@ import type {
   EventFrame,
   EventsDelta,
   FeedbackIndex,
+  ContextSnapshot,
   Info,
   JobsIndex,
   ModelState,
@@ -186,6 +187,11 @@ export const api = {
   /** The session's scheduled reminders (dsh schedule). */
   schedules(sessionId: string): Promise<SchedulesIndex> {
     return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/schedules");
+  },
+
+  /** Estimated context pressure (dsh token-meter). */
+  context(sessionId: string): Promise<ContextSnapshot> {
+    return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/context");
   },
 
   subagents(): Promise<SubagentsIndex> {

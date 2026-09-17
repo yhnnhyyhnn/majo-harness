@@ -75,6 +75,9 @@ public sealed interface TypedSessionEvent {
     record ScheduleSet(String scheduleId, String prompt, long dueAtMs,
             long intervalSeconds, boolean cancelled) implements TypedSessionEvent {}
 
+    /** Context compaction: the summary of everything logged before it. */
+    record ContextCompaction(String summary, long upToSeq) implements TypedSessionEvent {}
+
     /** A serialized assistant tool call (the log's wire form of a ToolCall). */
     record ToolCallEntry(String id, String name, String arguments) {}
 
@@ -116,6 +119,10 @@ public sealed interface TypedSessionEvent {
                     Long.parseLong(text(fields, SessionEvent.FIELD_DUE_AT)),
                     Long.parseLong(text(fields, SessionEvent.FIELD_INTERVAL_SECONDS)),
                     Boolean.parseBoolean(text(fields, SessionEvent.FIELD_CANCELLED)));
+            case CONTEXT_COMPACTION -> new ContextCompaction(
+                    text(fields, SessionEvent.FIELD_CONTENT),
+                    Long.parseLong(String.valueOf(fields.getOrDefault(
+                            SessionEvent.FIELD_UP_TO_SEQ, 0))));
         };
     }
 

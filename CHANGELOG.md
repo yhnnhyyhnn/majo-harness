@@ -199,6 +199,16 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
   documented in openapi.json (drift-guarded).
 
+- **P2-C compaction** (dsh `packages/compaction`): new `majo-compaction`
+  module — the loop emits an `agent/before-request` waterfall before every
+  model request, and the compaction listener summarizes over-budget history
+  with the model itself and persists it as a durable `CONTEXT_COMPACTION`
+  event; derivation restarts from the summary, so "model-visible means
+  logged" survives the rewrite (asserted at ask time in CompactionTest).
+  Token pressure uses a ~4-chars/token estimate; `GET /api/sessions/{id}/
+  context` feeds a header Context Meter, and the host `/compact` command
+  collapses history on demand without burning a conversation turn.
+
 - **P2-B jobs** (dsh `packages/jobs`): new `majo-jobs` module — a per-session
   background-job registry (`shell-N` ids, concurrency cap, bounded output
   tails, live process handles) with `run_background` / `job_output` (optional

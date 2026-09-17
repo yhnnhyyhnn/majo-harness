@@ -35,5 +35,10 @@ public enum SessionEventType {
     /** The session plan state changed: active flag plus the plan text. */
     PLAN_SET,
     /** A schedule record was created or replaced (schedule_create/delete). */
-    SCHEDULE_SET
+    SCHEDULE_SET,
+    /**
+     * Context compaction (dsh compaction): the content carries the summary of
+     * everything logged before it; derived history restarts from the summary.
+     */
+    CONTEXT_COMPACTION
 }

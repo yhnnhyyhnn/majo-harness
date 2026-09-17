@@ -93,7 +93,9 @@ public final class WebTypesGenerator {
             return "boolean";
         }
         if (type == int.class || type == Integer.class
-                || type == long.class || type == Long.class) {
+                || type == long.class || type == Long.class
+                || type == double.class || type == Double.class
+                || type == float.class || type == Float.class) {
             return "number";
         }
         if (type instanceof Class<?> clazz) {

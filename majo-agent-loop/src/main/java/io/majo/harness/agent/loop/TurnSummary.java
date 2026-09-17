@@ -48,6 +48,7 @@ public final class TurnSummary implements SessionProjection {
             case TypedSessionEvent.ToolResult ignored -> new Summary(
                     current.turnOpen(), current.turnCount(), current.assistantRounds(), current.toolCalls() + 1,
                     current.lastUserText(), current.lastFinalText());
+            case TypedSessionEvent.ContextCompaction ignored -> current;
         };
         state.put(sessionId, next);
     }

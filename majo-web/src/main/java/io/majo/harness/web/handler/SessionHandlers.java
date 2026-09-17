@@ -94,6 +94,21 @@ public final class SessionHandlers {
                 .toList());
     }
 
+    /** Estimated context pressure (dsh Context Meter); unavailable when the module is unmounted. */
+    public WebApiModels.ContextSnapshot context(String sessionId) {
+        SessionService sessions = ctx.boot.service(SessionService.NAME);
+        SessionSupport.requireKnownSession(sessions, sessionId);
+        io.majo.harness.compaction.CompactionService compaction =
+                ctx.boot.ctx().get(io.majo.harness.compaction.CompactionService.NAME);
+        if (compaction == null) {
+            return new WebApiModels.ContextSnapshot(false, null, null, null);
+        }
+        int tokens = compaction.estimateTokens(sessionId);
+        int budget = compaction.budget();
+        return new WebApiModels.ContextSnapshot(true, tokens, budget,
+                Math.min(1.0, Math.round(tokens / (double) budget * 1000.0) / 1000.0));
+    }
+
     public WebApiModels.SessionsIndex sessionsIndex(Map<String, String> query) {
         SessionService sessions = ctx.boot.service(SessionService.NAME);
         String view = query.getOrDefault("view", "active"); // active | archived | all
