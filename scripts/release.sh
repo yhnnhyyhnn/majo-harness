@@ -44,14 +44,16 @@ grep -rl "$current" --include="pom.xml" . 2>/dev/null | tr -d '\r' | tr '\\' '/'
   sed -i "s/$current/$version/g" "$f"
 done
 # npm version updates package.json AND package-lock.json atomically (npm ci
-# fails the build when the two drift apart)
-(cd web-ui && npm version "$version" --no-git-tag-version > /dev/null)
+# fails the build when the two drift apart); "Version not changed" is fine on
+# an idempotent re-run
+(cd web-ui && npm version "$version" --no-git-tag-version > /dev/null) \
+  || echo "npm version: already at $version"
 # example javadoc references the web jar by name
 grep -rl "majo-web-$current.jar" --include="*.java" . 2>/dev/null | tr -d '\r' | tr '\\' '/' \
   | while read -r f; do
   sed -i "s/majo-web-$current\.jar/majo-web-$version.jar/g" "$f"
 done
-remaining=$(grep -rl "$current" --include="pom.xml" . 2>/dev/null | grep -cv "/target/")
+remaining=$(grep -rl "$current" --include="pom.xml" . 2>/dev/null | grep -cv "/target/" || true)
 [[ "$remaining" == "0" ]] || { echo "stamp incomplete: $remaining pom(s) still carry $current"; exit 1; }
 
 echo "== step 3/5: full gates at the release version =="
