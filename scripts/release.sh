@@ -37,15 +37,21 @@ awk 'BEGIN{blank=""} {lines[NR]=$0} END{
 }' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
 
 echo "== step 2/5: lockstep version stamp =="
-grep -rl "$current" --include="pom.xml" . 2>/dev/null | grep -v "/target/" | while read -r f; do
+# Git Bash grep emits backslash paths: normalize to forward slashes so the
+# target filter and sed behave
+grep -rl "$current" --include="pom.xml" . 2>/dev/null | tr '\\' '/' \
+  | grep -v "/target/" | while read -r f; do
   sed -i "s/$current/$version/g" "$f"
 done
-sed -i "s/\"version\": \"[0-9.]*\"/\"version\": \"$version\"/" web-ui/package.json
+# npm version updates package.json AND package-lock.json atomically (npm ci
+# fails the build when the two drift apart)
+(cd web-ui && npm version "$version" --no-git-tag-version > /dev/null)
 # example javadoc references the web jar by name
-grep -rl "majo-web-$current.jar" --include="*.java" . 2>/dev/null | while read -r f; do
+grep -rl "majo-web-$current.jar" --include="*.java" . 2>/dev/null | tr '\\' '/' \
+  | while read -r f; do
   sed -i "s/majo-web-$current\.jar/majo-web-$version.jar/g" "$f"
 done
-remaining=$(grep -rl "$current" --include="pom.xml" . 2>/dev/null | grep -v "/target/" | wc -l)
+remaining=$(grep -rl "$current" --include="pom.xml" . 2>/dev/null | grep -cv "/target/")
 [[ "$remaining" == "0" ]] || { echo "stamp incomplete: $remaining pom(s) still carry $current"; exit 1; }
 
 echo "== step 3/5: full gates at the release version =="
