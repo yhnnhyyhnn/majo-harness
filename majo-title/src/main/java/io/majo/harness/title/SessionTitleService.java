@@ -17,6 +17,9 @@ public final class SessionTitleService extends Service {
 
     private final SessionService sessions;
     private volatile SessionTitleProvider provider;
+    /** Derived titles are append-stable: one derivation per session, cached. */
+    private final java.util.concurrent.ConcurrentHashMap<String, String> titleCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public SessionTitleService(Context ctx, SessionService sessions) {
         super(ctx, NAME);
@@ -30,6 +33,7 @@ public final class SessionTitleService extends Service {
             throw new IllegalStateException("a session title provider is already registered");
         }
         provider = titleProvider;
+        titleCache.clear(); // a new provider may title differently
         return () -> {
             if (provider == titleProvider) {
                 provider = null;
@@ -42,12 +46,25 @@ public final class SessionTitleService extends Service {
         return provider != null;
     }
 
-    /** The derived title of {@code sessionId}, or {@code null} when untitled. */
+    /**
+     * The derived title of {@code sessionId}, or {@code null} when untitled.
+     * Successful derivations are memoized — the sidebar polls titles on every
+     * cycle and a derivation parses the whole log; untitled sessions retry
+     * until a title exists.
+     */
     public String title(String sessionId) {
         SessionTitleProvider active = provider;
         if (active == null) {
             throw new TitleException("no session title provider is registered");
         }
-        return active.title(sessions.events(sessionId));
+        String cached = titleCache.get(sessionId);
+        if (cached != null) {
+            return cached;
+        }
+        String derived = active.title(sessions.events(sessionId));
+        if (derived != null) {
+            titleCache.put(sessionId, derived);
+        }
+        return derived;
     }
 }

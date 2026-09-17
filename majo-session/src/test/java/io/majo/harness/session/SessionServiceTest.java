@@ -158,6 +158,33 @@ class SessionServiceTest {
     }
 
     @Test
+    void appendSeqMemoizesAndRestartsOnRecreate() {
+        Context ctx = Context.create();
+        InMemorySessionStore store = new InMemorySessionStore();
+        SessionService sessions = new SessionService(ctx, store);
+
+        store.createSession("x");
+        sessions.append("x", SessionEventType.USER_MESSAGE, Map.of(SessionEvent.FIELD_CONTENT, "a"));
+        sessions.append("x", SessionEventType.USER_MESSAGE, Map.of(SessionEvent.FIELD_CONTENT, "b"));
+        assertThat(sessions.events("x")).extracting(SessionEvent::seq).containsExactly(1L, 2L);
+
+        // remove forgets the memo: a recreated id restarts at seq 1
+        sessions.remove("x");
+        store.createSession("x");
+        sessions.append("x", SessionEventType.USER_MESSAGE, Map.of(SessionEvent.FIELD_CONTENT, "c"));
+        assertThat(sessions.events("x")).extracting(SessionEvent::seq).containsExactly(1L);
+
+        // an imported run extends the memo: the next append continues it
+        store.createSession("y");
+        sessions.importEvents("y", List.of(
+                new SessionEvent(1, SessionEventType.USER_MESSAGE, 1L, Map.of(SessionEvent.FIELD_CONTENT, "i1")),
+                new SessionEvent(2, SessionEventType.USER_MESSAGE, 2L, Map.of(SessionEvent.FIELD_CONTENT, "i2"))));
+        sessions.append("y", SessionEventType.USER_MESSAGE, Map.of(SessionEvent.FIELD_CONTENT, "i3"));
+        assertThat(sessions.events("y")).extracting(SessionEvent::seq).containsExactly(1L, 2L, 3L);
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
     void expandHomeTilde() {
         String home = System.getProperty("user.home");
         assertThat(SessionPlugin.expandHome("~")).isEqualTo(home);

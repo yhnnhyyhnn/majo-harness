@@ -22,6 +22,14 @@ public final class SessionService extends Service {
     public static final String EVENT = "session/event";
 
     private final SessionStore store;
+    /**
+     * Memoized next sequence number per session: derivation parses the whole
+     * log once per session per process, then appends advance it in O(1).
+     * Appends to one session are serialized by callers (the loop's turn
+     * mutex); {@code remove} forgets the memo so a recreated id restarts at 1.
+     */
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> nextSeq =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public SessionService(Context ctx, SessionStore store) {
         super(ctx, NAME);
@@ -30,19 +38,23 @@ public final class SessionService extends Service {
 
     /** Creates a session with a fresh id and returns it. */
     public String createSession() {
-        return store.createSession(UUID.randomUUID().toString());
+        String sessionId = store.createSession(UUID.randomUUID().toString());
+        nextSeq.put(sessionId, 1L);
+        return sessionId;
     }
 
     /**
-     * Appends a durable event to {@code sessionId}, assigns its sequence
+     * Appends one durable event to {@code sessionId}, assigns its sequence
      * number and timestamp, and broadcasts {@link #EVENT} with the session id
      * so observers (projections, replay) know which session the event belongs
      * to.
      */
     public SessionEvent append(String sessionId, SessionEventType type, Map<String, Object> fields) {
-        long seq = store.events(sessionId).size() + 1;
+        Long known = nextSeq.get(sessionId);
+        long seq = known != null ? known : store.events(sessionId).size() + 1;
         SessionEvent event = new SessionEvent(seq, type, System.currentTimeMillis(), fields);
         store.append(sessionId, event);
+        nextSeq.put(sessionId, seq + 1);
         ctx.events().emit((Object) null, EVENT, sessionId, event);
         return event;
     }
@@ -74,6 +86,9 @@ public final class SessionService extends Service {
             ctx.events().emit((Object) null, EVENT, sessionId, event);
             expected++;
         }
+        if (!events.isEmpty()) {
+            nextSeq.put(sessionId, expected);
+        }
     }
 
     /** Every session id known to this service's store. */
@@ -84,5 +99,6 @@ public final class SessionService extends Service {
     /** Removes a session and its durable log (unknown ids fail loudly). */
     public void remove(String sessionId) {
         store.remove(sessionId);
+        nextSeq.remove(sessionId);
     }
 }

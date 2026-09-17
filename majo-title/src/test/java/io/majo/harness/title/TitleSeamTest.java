@@ -85,4 +85,44 @@ class TitleSeamTest {
         assertThatThrownBy(() -> titles.title("x")).isInstanceOf(TitleException.class);
         ctx.fiber().disposeAsync().join();
     }
+
+    /**
+     * Titles memoize once derived (the sidebar polls every cycle; a
+     * derivation parses the whole log), untitled sessions retry until a user
+     * message exists, and re-registering a provider forgets the memo.
+     */
+    @Test
+    void titlesMemoizeAndRetryWhileUntitled() {
+        Context ctx = Context.create();
+        SessionService service = sessions(ctx);
+        ctx.plugin(new SessionTitlePlugin(), null).await().join();
+        SessionTitleService titles = ctx.get(SessionTitleService.NAME);
+        java.util.concurrent.atomic.AtomicInteger derivations =
+                new java.util.concurrent.atomic.AtomicInteger();
+        Disposable first = titles.registerProvider(events -> {
+            derivations.incrementAndGet();
+            return events.stream()
+                    .anyMatch(event -> event.type() == SessionEventType.USER_MESSAGE)
+                    ? "titled"
+                    : null;
+        });
+
+        String sessionId = service.createSession();
+        assertThat(titles.title(sessionId)).isNull();
+        assertThat(titles.title(sessionId)).isNull(); // retried while untitled
+        service.append(sessionId, SessionEventType.USER_MESSAGE,
+                Map.of(SessionEvent.FIELD_CONTENT, "hello"));
+        assertThat(titles.title(sessionId)).isEqualTo("titled");
+        service.append(sessionId, SessionEventType.USER_MESSAGE,
+                Map.of(SessionEvent.FIELD_CONTENT, "second"));
+        assertThat(titles.title(sessionId)).isEqualTo("titled");
+        // 2 untitled retries + exactly 1 successful derivation
+        assertThat(derivations.get()).isEqualTo(3);
+
+        first.dispose();
+        titles.registerProvider(events -> "replacement");
+        assertThat(titles.title(sessionId)).isEqualTo("replacement");
+        assertThat(derivations.get()).isEqualTo(3); // the old provider ran no more
+        ctx.fiber().disposeAsync().join();
+    }
 }
