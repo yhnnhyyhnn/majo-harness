@@ -39,6 +39,7 @@
     <module>majo-jobs</module>
     <module>majo-schedule</module>
     <module>majo-compaction</module>
+    <module>majo-mcp</module>
     <module>web-ui</module>
     <module>majo-cli</module>
     <module>majo-web</module>

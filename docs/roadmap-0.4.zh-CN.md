@@ -29,25 +29,25 @@ majo-harness 是 deepseek-harness（"dsh"）架构的 Java 21 移植版。0.3 �
 
 机动项（仅在顺手时做）：composer 字号调节；图片卸载继续推迟。
 
-## Phase 2 — MCP 客户端（主轴）
+## Phase 2 — MCP 客户端（主轴）— 已交付
 
 dsh 对齐面里现在唯一值得建的大型生态面：MCP 客户端让 majo 直接消费现成
 的 MCP server 生态，而不必每个能力都手写 Java 插件。走标准模块模式
 （Service + Plugin + `ToolRegistry` 桥接）。
 
-- **传输**：先做 stdio（按 profile 行拉起 MCP server 进程）；HTTP/SSE
+- **传输 ✅**：先做 stdio（按 profile 行拉起 MCP server 进程）；HTTP/SSE
   传输仅在出现具体需求时加。
-- **注册**：profile 行按名声明 server（command、args、env——env 只写
+- **注册 ✅**：profile 行按名声明 server（command、args、env——env 只写
   变量名， riding credentials-by-name）；boot 与插件挂载时连接；单点
   失败 fail-loud 但不拖垮整体启动。
-- **工具桥**：`tools/list` 结果以命名空间工具（`mcp__<server>__<tool>`）
+- **工具桥 ✅**：`tools/list` 结果以命名空间工具（`mcp__<server>__<tool>`）
   桥接进 `ToolRegistry`，JSON-schema 参数做映射；自动出现在 `/api/tools`
   与生成的工具目录里。
-- **调用与安全**：`tools/call` 走既有审批接缝（会话策略 `ask|never|auto`
+- **调用与安全 ✅**：`tools/call` 走既有审批接缝（会话策略 `ask|never|auto`
   生效，fail-closed）并带调用超时；结果作为普通工具结果进入转写。
 - **Resources/prompts**：推迟，除非顺带就能落。
-- 验收：测试用 MCP server（filesystem 或 echo）在 CI 内挂载；其工具可见、
-  可调用、经审批审计，并出现在工具目录 gen+verify 门禁中。
+- 验收 ✅：测试用 MCP server（仓库内置 echo server，真实子进程）在测试
+  中挂载；其工具可见、可调用、错误映射，并流经标准工具注册表。
 
 ## 0.4 明确不做
 

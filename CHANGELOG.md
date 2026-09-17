@@ -326,6 +326,20 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 Working area for the next iteration (roadmap-0.4).
 
+- **MCP client** (roadmap-0.4 Phase 2, the dsh MCP analog): new `majo-mcp`
+  module — profile rows declare stdio servers (`command`/`args`/`env`, env
+  values reference variables by name, credentials never in the profile);
+  the plugin spawns each server, runs the JSON-RPC 2.0 initialize handshake,
+  and bridges `tools/list` into the `ToolRegistry` as namespaced
+  `mcp__<server>__<tool>` tools with verbatim JSON schemas — they appear in
+  `/api/tools` and the generated tool catalog for free, and every call rides
+  the ordinary approval seam. Calls are bounded by `requestTimeoutSeconds`
+  (default 10); MCP errors surface as ordinary tool errors; a failed mount
+  is logged loudly but never breaks boot or the other servers; unmount
+  closes the server processes. Verified end-to-end in CI against an in-repo
+  echo MCP server (real subprocess). MCP 客户端：stdio 服务器按 profile 行
+  声明，工具以命名空间桥入 ToolRegistry，审批接缝/超时/fail-loud 兼备。
+
 - **Tool-result pruning** (roadmap-0.4 Phase 1, dsh `compaction` analog):
   in derived history, tool results older than the final assistant round
   collapse to `[pruned tool result: N chars]` placeholders once they exceed

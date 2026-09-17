@@ -52,6 +52,10 @@
   name: schedule
 - id: compaction
   name: compaction
+- id: mcp
+  name: mcp
+  config:
+    servers: {}
 - id: skill-files
   name: skill-files
   config:
