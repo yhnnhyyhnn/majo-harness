@@ -30,6 +30,8 @@ public final class CompactionService extends io.jcordis.core.service.Service {
 
     public static final String NAME = "compaction";
     public static final int DEFAULT_MAX_TOKENS = 32_000;
+    /** Tool results older than the final assistant round collapse to a placeholder past this many characters. */
+    public static final int DEFAULT_PRUNE_CHARS = 4_000;
     public static final String SUMMARIZE_INSTRUCTION =
             "Summarize the conversation so far for a replacement context: keep key facts, "
                     + "decisions, user preferences, and open threads. Be concise but complete. "
@@ -39,6 +41,7 @@ public final class CompactionService extends io.jcordis.core.service.Service {
     private final SessionService sessions;
     private final LLMService llm;
     private final int maxTokens;
+    private final int pruneChars;
 
     public CompactionService(io.jcordis.core.context.Context ctx, SessionService sessions,
             LLMService llm, Object config) {
@@ -54,6 +57,15 @@ public final class CompactionService extends io.jcordis.core.service.Service {
                     "compaction: maxTokens must be >= 100, got " + tokens);
         }
         this.maxTokens = tokens;
+        int prune = DEFAULT_PRUNE_CHARS;
+        if (config instanceof Map<?, ?> map && map.get("pruneChars") instanceof Number number) {
+            prune = number.intValue();
+        }
+        if (prune < 0) {
+            throw new IllegalArgumentException(
+                    "compaction: pruneChars must be >= 0, got " + prune);
+        }
+        this.pruneChars = prune;
     }
 
     /** The configured pressure budget in (estimated) tokens. */
@@ -73,6 +85,47 @@ public final class CompactionService extends io.jcordis.core.service.Service {
             }
         }
         return chars / 4 + messages.size() * 4;
+    }
+
+    /** The configured per-tool-result prune threshold in characters. */
+    public int pruneChars() {
+        return pruneChars;
+    }
+
+    /**
+     * Tool-result pruning (roadmap-0.4): in <em>derived</em> history, tool
+     * results older than the final assistant round collapse to a
+     * {@code [pruned tool result: N chars]} placeholder once they exceed the
+     * prune threshold; the newest round stays intact (the model usually needs
+     * it verbatim). The durable log is untouched — pruning is a deterministic
+     * function of the log, so "model-visible means logged" still holds.
+     */
+    public List<ChatMessage> pruneToolResults(List<ChatMessage> history) {
+        int lastAssistant = -1;
+        for (int index = 0; index < history.size(); index++) {
+            if (history.get(index).role() == io.majo.harness.llm.ChatRole.ASSISTANT) {
+                lastAssistant = index;
+            }
+        }
+        List<ChatMessage> pruned = null;
+        for (int index = 0; index < history.size(); index++) {
+            ChatMessage message = history.get(index);
+            if (index >= lastAssistant
+                    || message.role() != io.majo.harness.llm.ChatRole.TOOL
+                    || message.content() == null
+                    || message.content().length() <= pruneChars) {
+                if (pruned != null) {
+                    pruned.add(message);
+                }
+                continue;
+            }
+            if (pruned == null) {
+                pruned = new ArrayList<>(history.subList(0, index));
+            }
+            pruned.add(ChatMessage.toolResult(message.toolCallId(),
+                    "[pruned tool result: " + message.content().length() + " chars]"));
+        }
+        return pruned == null ? history : List.copyOf(pruned);
     }
 
     /** The estimated token pressure of the session's current derived history. */

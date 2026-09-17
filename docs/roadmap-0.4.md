@@ -6,11 +6,11 @@ hardens what exists, then adds the one big missing ecosystem surface: an MCP
 client. Sequenced so each phase ships independently; status lives in the
 CHANGELOG (`## [Unreleased]`).
 
-## Phase 1 — Durability & test hardening (no new user-visible surface)
+## Phase 1 — Durability & test hardening (no new user-visible surface) — SHIPPED
 
 Debt that compounds if deferred; all three items are independent.
 
-- **Session format generations** (ref dsh
+- **Session format generations** ✅ (ref dsh
   `packages/session/session-persistence-jsonl`): durable files named
   `session.v1.jsonl`; committed generations are immutable; header-only
   stat/list (directory listings stop parsing full event logs); a one-step
@@ -18,14 +18,14 @@ Debt that compounds if deferred; all three items are independent.
   The in-memory store is untouched. Acceptance: existing on-disk stores open
   transparently after the rename, export/import and replay are unaffected,
   and a legacy `sessions.jsonl` (unversioned name) migrates in one step.
-- **LLM fault-injection mock server** (ref dsh
+- **LLM fault-injection mock server** ✅ (ref dsh
   `packages/test-support/llm-mock-server`): a scriptable local server (and
   direct `ChatModel` wrappers) injecting mid-stream disconnects, 429/5xx
   responses, and malformed SSE chunks. Acceptance: loop/provider tests pin
   the failure contract — a killed stream fails the turn loudly, the session
   log stays consistent (no half-committed turns), and retry behavior is
   explicit rather than accidental.
-- **Tool-result pruning** (ref dsh `packages/compaction`): oversized tool
+- **Tool-result pruning** ✅ (ref dsh `packages/compaction`): oversized tool
   results are pruned in *derived* history (oldest rounds first) behind a
   visible `[pruned N chars]` placeholder; the durable log is untouched
   ("model-visible means logged" still holds — the placeholder is what the

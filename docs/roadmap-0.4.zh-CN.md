@@ -5,22 +5,22 @@ majo-harness 是 deepseek-harness（"dsh"）架构的 Java 21 移植版。0.3 �
 生态面：MCP 客户端。顺序保证每期可独立交付；状态记录在 CHANGELOG
 （`## [Unreleased]`）。
 
-## Phase 1 — 持久性与测试加固（无新增用户可见面）
+## Phase 1 — 持久性与测试加固（无新增用户可见面）— 已交付
 
 越晚做成本越高的债务；三项互相独立。
 
-- **会话格式代际化**（参照 dsh
+- **会话格式代际化 ✅**（参照 dsh
   `packages/session/session-persistence-jsonl`）：持久文件命名
   `session.v1.jsonl`；已提交代际不可变；header-only stat/list（目录枚举
   不再解析整个事件日志）；一步式迁移链（`v(n)` → `v(n+1)`），未知版本
   fail-loud。内存 store 不动。验收：既有落盘数据在改名后透明可开，
   export/import 与回放不受影响，遗留的无版本名 `sessions.jsonl` 一步迁移。
-- **LLM 故障注入 mock server**（参照 dsh
+- **LLM 故障注入 mock server ✅**（参照 dsh
   `packages/test-support/llm-mock-server`）：可脚本化的本地 server（及直连
   `ChatModel` 包装器），注入流中断连、429/5xx 响应、畸形 SSE chunk。
   验收：loop/provider 测试钉死故障契约——被杀的流让回合 fail-loud，会话
   日志保持一致（无半提交回合），重试行为是显式契约而非偶然。
-- **工具结果裁剪**（参照 dsh `packages/compaction`）：超长工具结果在
+- **工具结果裁剪 ✅**（参照 dsh `packages/compaction`）：超长工具结果在
   *派生*历史中被裁剪（优先裁更早的轮次），代之以可见的
   `[pruned N chars]` 占位；持久日志不动（"model-visible means logged"
   依旧成立——占位符即模型所见）。

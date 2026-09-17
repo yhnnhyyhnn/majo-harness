@@ -16,7 +16,9 @@ import java.util.Map;
  * event) and returns the fresh derivation — the request the model finally
  * sees is exactly what the log rebuilds.
  *
- * <p>Config: {@code {maxTokens: <n>}} (estimated-token budget, default 32000).
+ * <p>Config: {@code {maxTokens: <n>, pruneChars: <n>}} — estimated-token
+ * budget (default 32000) and the per-tool-result prune threshold applied to
+ * derived history older than the final assistant round (default 4000).
  */
 public final class CompactionPlugin implements Plugin {
 
@@ -30,8 +32,9 @@ public final class CompactionPlugin implements Plugin {
         return ctx.on(AgentLoopEvents.BEFORE_REQUEST, (thisArg, args) -> {
             String sessionId = (String) args[0];
             compaction.maybeCompact(sessionId);
-            // the summary (if any) is durable now: return the fresh derivation
-            return MessageDeriver.derive(sessions.events(sessionId));
+            // the summary (if any) is durable now: return the fresh derivation,
+            // with oversized older tool results collapsed to placeholders
+            return compaction.pruneToolResults(MessageDeriver.derive(sessions.events(sessionId)));
         });
     }
 

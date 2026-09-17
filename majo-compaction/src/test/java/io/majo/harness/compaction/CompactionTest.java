@@ -181,4 +181,98 @@ class CompactionTest {
                 .hasCauseInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("maxTokens must be >= 100");
     }
+
+    @Test
+    void negativePruneCharsFailsLoud() {
+        Context ctx = Context.create();
+        ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        ctx.plugin(new LLMServicePlugin(), Map.of("defaultModel", "model")).await().join();
+        assertThatThrownBy(() -> ctx.plugin(new CompactionPlugin(), Map.of("pruneChars", -1))
+                .await().join())
+                .hasCauseInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pruneChars must be >= 0");
+    }
+
+    /**
+     * Pruning contract: oversized tool results older than the final assistant
+     * round collapse to placeholders in the request; the newest round stays
+     * intact; the request equals system + prune(derive(log)) — the pipeline
+     * invariant survives the prune.
+     */
+    @Test
+    void oversizedOlderToolResultsPruneInTheRequestAndMatchThePipeline() {
+        Context ctx = harness(Map.of("maxTokens", 1_000_000, "pruneChars", 200));
+        SessionService sessions = ctx.get(SessionService.NAME);
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+        LLMService llm = ctx.get(LLMService.NAME);
+        io.majo.harness.agent.loop.AgentLoopService loop =
+                ctx.get(io.majo.harness.agent.loop.AgentLoopService.NAME);
+        String sessionId = sessions.createSession();
+        String bigResult = "BIGRESULT " + "x".repeat(500);
+        tools.register(new io.majo.harness.tools.Tool() {
+            @Override
+            public ToolSpec spec() {
+                return ToolSpec.of("big", "returns an oversized payload");
+            }
+
+            @Override
+            public ToolResult execute(ToolCall call) {
+                return ToolResult.ok(bigResult, Map.of());
+            }
+        });
+        tools.register(new io.majo.harness.tools.Tool() {
+            @Override
+            public ToolSpec spec() {
+                return ToolSpec.of("tiny", "returns a small payload");
+            }
+
+            @Override
+            public ToolResult execute(ToolCall call) {
+                return ToolResult.ok("tiny-result", Map.of());
+            }
+        });
+
+        List<ChatRequest> finalRequests = new ArrayList<>();
+        List<String> violations = new ArrayList<>();
+        llm.registerModel("model", new ChatModel() {
+            @Override
+            public ChatResponse complete(ChatRequest request) {
+                long toolResults = request.messages().stream()
+                        .filter(message -> message.role() == io.majo.harness.llm.ChatRole.TOOL)
+                        .count();
+                if (toolResults == 0) {
+                    return ChatResponse.toolCalls(List.of(ToolCall.of("big", "{}")));
+                }
+                if (toolResults == 1) {
+                    return ChatResponse.toolCalls(List.of(ToolCall.of("tiny", "{}")));
+                }
+                finalRequests.add(request);
+                // capture the pipeline invariant AT ASK TIME: the request must
+                // equal system + prune(derive(log)) as of this exact moment
+                CompactionService compaction = ctx.get(CompactionService.NAME);
+                List<ChatMessage> expected = new ArrayList<>();
+                expected.add(ChatMessage.system(
+                        io.majo.harness.agent.loop.AgentLoopService.DEFAULT_SYSTEM_PROMPT));
+                expected.addAll(compaction.pruneToolResults(
+                        MessageDeriver.derive(sessions.events(sessionId))));
+                if (!request.messages().equals(expected)) {
+                    violations.add("request diverged from prune(derive(log))");
+                }
+                return ChatResponse.text("done");
+            }
+        });
+
+        String answer = loop.runTurn(sessionId, "exercise pruning");
+        assertThat(answer).isEqualTo("done");
+        assertThat(finalRequests).hasSize(1);
+        assertThat(violations).isEmpty();
+
+        // the older oversized result is a placeholder; the newest stays intact
+        String joined = finalRequests.get(0).messages().stream()
+                .map(message -> message.content() == null ? "" : message.content())
+                .reduce("", String::concat);
+        assertThat(joined).contains("[pruned tool result: " + bigResult.length() + " chars]");
+        assertThat(joined).doesNotContain("BIGRESULT");
+        assertThat(joined).contains("tiny-result");
+    }
 }

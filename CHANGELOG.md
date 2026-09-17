@@ -326,6 +326,15 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 Working area for the next iteration (roadmap-0.4).
 
+- **Tool-result pruning** (roadmap-0.4 Phase 1, dsh `compaction` analog):
+  in derived history, tool results older than the final assistant round
+  collapse to `[pruned tool result: N chars]` placeholders once they exceed
+  the configurable threshold (`pruneChars`, default 4000); the newest round
+  stays intact and the durable log is untouched — pruning is a deterministic
+  function of the log, so the pipeline invariant (request == system +
+  prune(derive(log))) holds at ask time. 上下文压力管理补齐：超长工具结果
+  在派生历史中折叠为占位符，最新一轮保持原样。
+
 - **LLM fault injection** (roadmap-0.4 Phase 1, dsh
   `llm-mock-server` analog): `FaultLlmServer` — a raw-socket scripted HTTP
   server that controls the exact wire bytes (status/headers/body, and
