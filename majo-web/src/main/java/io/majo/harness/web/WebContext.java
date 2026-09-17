@@ -13,6 +13,9 @@ public final class WebContext {
 
     public final HarnessBoot boot;
     public final PendingInteractions pending;
+    /** Versioned search cache shared by the search + session handler groups. */
+    public final io.majo.harness.web.handler.SearchIndex searchIndex =
+            new io.majo.harness.web.handler.SearchIndex();
     /** Optional shared secret: when set, /api/* requires Bearer or ?token=. */
     public volatile String authToken;
     public final long startedNanos = System.nanoTime();

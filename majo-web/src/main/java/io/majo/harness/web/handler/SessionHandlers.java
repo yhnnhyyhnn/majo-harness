@@ -280,6 +280,7 @@ public final class SessionHandlers {
                 return new WebApiModels.Ok(true);
             } finally {
                 ctx.removeLock(sessionId);
+                ctx.searchIndex.drop(sessionId);
             }
         }
     }

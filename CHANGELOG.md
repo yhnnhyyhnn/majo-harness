@@ -199,6 +199,24 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
   documented in openapi.json (drift-guarded).
 
+- **P3 tool catalog, generative** (dsh docs/tool-catalog.md + verify):
+  `ToolCatalogTest` boots the shipped offline profile and asserts
+  `docs/tool-catalog.md` matches the live ToolRegistry (name/description/
+  parameters per tool, 18 tools); `scripts/gen-tool-catalog.sh` regenerates
+  (`-Dmajo.gen.tool-catalog=true`) — a tool change without regenerating
+  fails the build.
+
+- **P3 search indexing**: the debounced dashboard search no longer rescans
+  and re-lowercases the whole log per keystroke — a versioned per-session
+  entry cache (event-count version, ≤64 sessions) serves matches, invalidated
+  on session delete; hit/snippet behavior is byte-identical.
+
+- **P3 credentials by name — verified already shipped**: profiles reference
+  `${ENV_VAR}` names (provider config expands them fail-loud; values never
+  sit in config), `EnvCredentialProvider` resolves by name, and resolved
+  values are redacted at durable boundaries. Roadmap item closed as
+  confirmed-existing behavior.
+
 - **P2-D trajectory + theme** (dsh `ui-trajectory` + `ui-theme`): a
   Chat/Trajectory view ring — the trajectory is a turn-grouped ledger of
   every durable event (request headers, approvals, compaction, bookkeeping —

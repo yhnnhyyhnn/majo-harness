@@ -5,7 +5,9 @@ This roadmap sequences the next iterations by what the reference project does
 and what majo still lacks, audited against `D:\code\git\deepseek-harness`
 (architecture docs + `packages/`) in 2026-09. Status lives in CHANGELOG
 (`## [Unreleased]`); **Phase 0, Phase 1, and Phase 2 (batches A–D) are all
-shipped**; Phase 3 (ecosystem deepening) is next.
+shipped; Phase 3 is mostly shipped** (tool catalog, search indexing, and
+credentials-by-name done — see the Phase 3 section), the release pipeline
+remains.
 
 Phased order (agreed): engineering foundation first, then architecture
 mechanics ported from dsh, then the missing feature surface, then ecosystem
@@ -94,14 +96,18 @@ consumers + web API + UI section). dsh references are the behavior spec.
 
 ## Phase 3 — Ecosystem deepening
 
-- **Tool catalog, generative** (ref `docs/tool-catalog.md` + verify scripts):
+Status: tool catalog, search indexing, and credentials-by-name are shipped
+(CHANGELOG `## [Unreleased]`); the release pipeline remains.
+
+- **Tool catalog, generative** ✅ (ref `docs/tool-catalog.md` + verify scripts):
   generate a tool catalog from `ToolRegistry.specs()` at boot/test time and
   fail CI when the doc drifts ("gen + verify" pairing).
-- **Credentials by name** (ref `packages/credentials`): profiles reference
-  env-var names, never values; the web layer only ever sees
-  "set / unset / source".
-- **Search indexing**: replace the O(N) `/api/search` full scan with a
-  per-session inverted index (or SQLite FTS) behind the same endpoint.
+- **Credentials by name** ✅ verified already shipped (ref
+  `packages/credentials`): profiles reference env-var names, never values;
+  the web layer only ever sees "set / unset / source".
+- **Search indexing** ✅ (ref `session-query` SQLite FTS, scoped down):
+  versioned per-session lowercase entry cache replaces the O(N) per-keystroke
+  scan behind the same endpoint; SQLite FTS remains an option if logs grow.
 - **Release pipeline** (ref `scripts/release/*`): lockstep version bump,
   topology-ordered publish order, packed-artifact verification.
 
