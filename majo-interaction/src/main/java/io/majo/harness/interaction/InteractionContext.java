@@ -15,6 +15,7 @@ public final class InteractionContext {
     private static final ThreadLocal<String> AGENT = new ThreadLocal<>();
     private static final ThreadLocal<Boolean> AUTO_APPROVE = new ThreadLocal<>();
     private static final ThreadLocal<List<String>> ALLOWED_TOOLS = new ThreadLocal<>();
+    private static final ThreadLocal<String> SESSION = new ThreadLocal<>();
 
     private InteractionContext() {}
 
@@ -31,6 +32,25 @@ public final class InteractionContext {
     /** The current scope's allowed-tool whitelist, or {@code null} (inherit all). */
     public static List<String> allowedTools() {
         return ALLOWED_TOOLS.get();
+    }
+
+    /**
+     * The session the running turn appends to, or {@code null} outside a turn
+     * (headless paths). The approval gate uses it to persist the durable
+     * ask/decision audit pair into that session's log.
+     */
+    public static String sessionId() {
+        return SESSION.get();
+    }
+
+    /** Runs {@code body} bound to a session; always restores state. */
+    public static <T> T runSession(String sessionId, Supplier<T> body) {
+        SESSION.set(sessionId);
+        try {
+            return body.get();
+        } finally {
+            SESSION.remove();
+        }
     }
 
     /** Runs {@code body} inside an agent scope; always restores state. */

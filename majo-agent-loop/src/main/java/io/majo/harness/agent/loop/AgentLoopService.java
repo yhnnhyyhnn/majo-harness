@@ -2,6 +2,7 @@ package io.majo.harness.agent.loop;
 
 import io.jcordis.core.context.Context;
 import io.jcordis.core.service.Service;
+import io.majo.harness.interaction.InteractionContext;
 import io.majo.harness.llm.ChatMessage;
 import io.majo.harness.llm.ChatRequest;
 import io.majo.harness.llm.ChatResponse;
@@ -202,51 +203,59 @@ public final class AgentLoopService extends Service {
 
     // ----- turn mechanics -----
 
-    /** One durable turn: open, deliver opening notes, step to convergence, close. */
+    /** One durable turn: open, deliver opening notes, step to convergence, close.
+     * The turn binds its session so the approval gate can persist the durable
+     * ask/decision audit pair into this session's log. */
     private String runSingleTurn(String sessionId, String userText,
             java.util.function.Consumer<String> textSink, String modelOverride, String prompt) {
         String effectivePrompt = prompt == null || prompt.isBlank() ? systemPrompt : prompt;
         AtomicBoolean busy = inTurn(sessionId);
         busy.set(true);
         try {
-            sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
-            // notes queued while nobody was driving land before the user message
-            deliverQueuedNotes(sessionId);
-            sessions.append(sessionId, SessionEventType.USER_MESSAGE,
-                    Map.of(SessionEvent.FIELD_CONTENT, userText));
-            for (int step = 1; ; step++) {
-                if (step > maxSteps) {
-                    throw new IllegalStateException("agent-loop: turn on session \"" + sessionId
-                            + "\" exceeded maxSteps=" + maxSteps + " without a final answer");
-                }
-                if (step > 1) {
-                    // steering + notes splice in at step boundaries, never mid-request
-                    deliverQueuedNotes(sessionId);
-                }
-                ChatRequest request = new ChatRequest(buildMessages(sessionId, effectivePrompt),
-                        tools.specs(), modelOverride);
-                // log the request composition before it reaches the model so the
-                // header (model, system prompt, offered tool names) is durable
-                // even when the completion itself fails
-                sessions.append(sessionId, SessionEventType.REQUEST_HEADER, Map.of(
-                        SessionEvent.FIELD_MODEL, llm.modelNameOf(request),
-                        SessionEvent.FIELD_SYSTEM_PROMPT, effectivePrompt,
-                        SessionEvent.FIELD_TOOL_NAMES,
-                        request.tools().stream().map(ToolSpec::name).toList()));
-                ChatResponse response = textSink == null
-                        ? llm.complete(request)
-                        : llm.completeStream(request, textSink);
-                appendAssistantRound(sessionId, response);
-                if (!response.isToolRound()) {
-                    break;
-                }
-                executeTools(sessionId, response.toolCalls());
-            }
-            sessions.append(sessionId, SessionEventType.TURN_END, Map.of());
-            return lastFinalText(sessions.events(sessionId));
+            return InteractionContext.runSession(sessionId,
+                    () -> runSingleTurnBound(sessionId, userText, textSink, modelOverride, effectivePrompt));
         } finally {
             busy.set(false);
         }
+    }
+
+    private String runSingleTurnBound(String sessionId, String userText,
+            java.util.function.Consumer<String> textSink, String modelOverride, String effectivePrompt) {
+        sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
+        // notes queued while nobody was driving land before the user message
+        deliverQueuedNotes(sessionId);
+        sessions.append(sessionId, SessionEventType.USER_MESSAGE,
+                Map.of(SessionEvent.FIELD_CONTENT, userText));
+        for (int step = 1; ; step++) {
+            if (step > maxSteps) {
+                throw new IllegalStateException("agent-loop: turn on session \"" + sessionId
+                        + "\" exceeded maxSteps=" + maxSteps + " without a final answer");
+            }
+            if (step > 1) {
+                // steering + notes splice in at step boundaries, never mid-request
+                deliverQueuedNotes(sessionId);
+            }
+            ChatRequest request = new ChatRequest(buildMessages(sessionId, effectivePrompt),
+                    tools.specs(), modelOverride);
+            // log the request composition before it reaches the model so the
+            // header (model, system prompt, offered tool names) is durable
+            // even when the completion itself fails
+            sessions.append(sessionId, SessionEventType.REQUEST_HEADER, Map.of(
+                    SessionEvent.FIELD_MODEL, llm.modelNameOf(request),
+                    SessionEvent.FIELD_SYSTEM_PROMPT, effectivePrompt,
+                    SessionEvent.FIELD_TOOL_NAMES,
+                    request.tools().stream().map(ToolSpec::name).toList()));
+            ChatResponse response = textSink == null
+                    ? llm.complete(request)
+                    : llm.completeStream(request, textSink);
+            appendAssistantRound(sessionId, response);
+            if (!response.isToolRound()) {
+                break;
+            }
+            executeTools(sessionId, response.toolCalls());
+        }
+        sessions.append(sessionId, SessionEventType.TURN_END, Map.of());
+        return lastFinalText(sessions.events(sessionId));
     }
 
     /** Appends queued notes: steer as user input, inject as a context note. */

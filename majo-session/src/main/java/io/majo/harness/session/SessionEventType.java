@@ -25,5 +25,9 @@ public enum SessionEventType {
      * Context spliced in without waking the loop (dsh "inject"): model-visible
      * at the next step boundary or turn opening, but never starts a turn.
      */
-    CONTEXT_NOTE
+    CONTEXT_NOTE,
+    /** An approval was asked (durable audit; the open turn wraps it). */
+    APPROVAL_REQUESTED,
+    /** An approval was resolved: allow/deny and the deciding source. */
+    APPROVAL_DECIDED
 }

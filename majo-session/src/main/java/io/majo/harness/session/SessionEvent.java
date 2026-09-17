@@ -29,6 +29,18 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_SYSTEM_PROMPT = "systemPrompt";
     /** Tool names offered by a {@link SessionEventType#REQUEST_HEADER}. */
     public static final String FIELD_TOOL_NAMES = "toolNames";
+    /** Correlation id of an {@link SessionEventType#APPROVAL_REQUESTED} / {@code APPROVAL_DECIDED} pair. */
+    public static final String FIELD_APPROVAL_ID = "approvalId";
+    /** Human-readable subject of an approval ask. */
+    public static final String FIELD_SUMMARY = "summary";
+    /** Context payload of an approval ask. */
+    public static final String FIELD_DETAILS = "details";
+    /** Originating agent label of an approval ask (root turns omit it). */
+    public static final String FIELD_AGENT = "agent";
+    /** Resolution of {@link SessionEventType#APPROVAL_DECIDED}: {@code allow} | {@code deny}. */
+    public static final String FIELD_DECISION = "decision";
+    /** Who decided: {@code policy} (session policy / auto-approve) | {@code handler}. */
+    public static final String FIELD_SOURCE = "source";
 
     public SessionEvent {
         fields = fields == null ? Map.of() : Map.copyOf(fields);

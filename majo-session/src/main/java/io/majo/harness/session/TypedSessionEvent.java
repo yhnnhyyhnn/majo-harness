@@ -50,6 +50,14 @@ public sealed interface TypedSessionEvent {
     /** Context spliced in without waking the loop (dsh "inject"). */
     record ContextNote(String content) implements TypedSessionEvent {}
 
+    /** An approval ask (durable audit; the open turn wraps it). */
+    record ApprovalRequested(String approvalId, String summary, String details, String agent)
+            implements TypedSessionEvent {}
+
+    /** An approval resolution: allow/deny and the deciding source (policy|handler). */
+    record ApprovalDecided(String approvalId, String decision, String source)
+            implements TypedSessionEvent {}
+
     /** A serialized assistant tool call (the log's wire form of a ToolCall). */
     record ToolCallEntry(String id, String name, String arguments) {}
 
@@ -72,6 +80,15 @@ public sealed interface TypedSessionEvent {
                     text(fields, SessionEvent.FIELD_SYSTEM_PROMPT),
                     strings(fields, SessionEvent.FIELD_TOOL_NAMES));
             case CONTEXT_NOTE -> new ContextNote(text(fields, SessionEvent.FIELD_CONTENT));
+            case APPROVAL_REQUESTED -> new ApprovalRequested(
+                    text(fields, SessionEvent.FIELD_APPROVAL_ID),
+                    text(fields, SessionEvent.FIELD_SUMMARY),
+                    text(fields, SessionEvent.FIELD_DETAILS),
+                    text(fields, SessionEvent.FIELD_AGENT));
+            case APPROVAL_DECIDED -> new ApprovalDecided(
+                    text(fields, SessionEvent.FIELD_APPROVAL_ID),
+                    text(fields, SessionEvent.FIELD_DECISION),
+                    text(fields, SessionEvent.FIELD_SOURCE));
         };
     }
 

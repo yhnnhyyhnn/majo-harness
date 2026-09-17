@@ -35,6 +35,8 @@ public final class TurnSummary implements SessionProjection {
                     current.turnOpen(), current.turnCount(), current.assistantRounds(), current.toolCalls(),
                     message.content(), current.lastFinalText());
             case TypedSessionEvent.ContextNote ignored -> current;
+            case TypedSessionEvent.ApprovalRequested ignored -> current;
+            case TypedSessionEvent.ApprovalDecided ignored -> current;
             case TypedSessionEvent.RequestHeader ignored -> current;
             case TypedSessionEvent.AssistantMessage message -> new Summary(
                     current.turnOpen(), current.turnCount(), current.assistantRounds() + 1, current.toolCalls(),
