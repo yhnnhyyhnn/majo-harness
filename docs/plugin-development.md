@@ -25,7 +25,7 @@ with Maven.
 
 ```bash
 # web app: jar plugins (repeatable) + profile
-java -jar majo-web/target/majo-web-0.1.0-SNAPSHOT.jar \
+java -jar majo-web/target/majo-web-0.2.0.jar \
   --profile web-mock \
   --plugin web-demo=./examples/web-plugin-demo/web-demo.jar
 
@@ -188,7 +188,7 @@ plugin can be built the standard way instead of the javac recipe
 ```bash
 mvn -DskipTests install                    # once: install harness siblings locally
 mvn -f examples/<name>-plugin/pom.xml package
-# -> examples/<name>-plugin/target/<name>-plugin-0.1.0-SNAPSHOT.jar
+# -> examples/<name>-plugin/target/<name>-plugin-0.2.0.jar
 ```
 
 The pom declares jcordis (`io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.1`,

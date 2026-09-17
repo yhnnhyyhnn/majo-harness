@@ -28,10 +28,19 @@ jobs:
       - name: Install bubblewrap (Linux sandbox test)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
 
+      # repo invariants enforced locally by scripts/check.sh — the same gates,
+      # so a green local run predicts a green CI run
+      - name: Gate: service code logs via slf4j (no stdout)
+        run: bash scripts/verify-no-stdout.sh
+
+      - name: Gate: frontend lint (ESLint)
+        run: npx eslint src
+        working-directory: web-ui
+
       # jcordis (io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.1) now comes
       # straight from Maven Central — no vendoring step needed.
 
-      - name: Build and test (mvn clean verify incl. web-ui)
+      - name: Build and test (mvn clean verify incl. web-ui + ToolCatalog drift)
         run: mvn -B -ntp clean verify
 
       - name: Frontend unit tests (vitest)
