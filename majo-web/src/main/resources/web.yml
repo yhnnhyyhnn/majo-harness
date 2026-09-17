@@ -56,6 +56,10 @@
   name: plan
 - id: skills
   name: skills
+- id: jobs
+  name: jobs
+- id: schedule
+  name: schedule
 - id: skill-files
   name: skill-files
   config:

@@ -102,6 +102,16 @@
     </dependency>
     <dependency>
       <groupId>io.majo.harness</groupId>
+      <artifactId>majo-jobs</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-schedule</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
       <artifactId>majo-web-access</artifactId>
       <version>${project.version}</version>
     </dependency>

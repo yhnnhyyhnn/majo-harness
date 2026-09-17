@@ -59,6 +59,41 @@ public final class SessionHandlers {
         return new WebApiModels.PlanSnapshot(snapshot.active(), snapshot.plan());
     }
 
+    /** The session's background jobs (dsh jobs); empty when unmounted. */
+    public WebApiModels.JobsIndex jobs(String sessionId) {
+        SessionService sessions = ctx.boot.service(SessionService.NAME);
+        SessionSupport.requireKnownSession(sessions, sessionId);
+        io.majo.harness.jobs.JobsService jobs =
+                ctx.boot.ctx().get(io.majo.harness.jobs.JobsService.NAME);
+        if (jobs == null) {
+            return new WebApiModels.JobsIndex(List.of());
+        }
+        return new WebApiModels.JobsIndex(jobs.list(sessionId).stream()
+                .map(job -> new WebApiModels.JobInfo(job.id, job.kind, job.script,
+                        job.state.name().toLowerCase(), job.startedAtMs,
+                        job.finishedAtMs == 0 ? null : job.finishedAtMs,
+                        job.state == io.majo.harness.jobs.JobsService.State.RUNNING
+                                ? null : job.exitCode,
+                        job.output.isBlank() ? null : job.output))
+                .toList());
+    }
+
+    /** The session's scheduled reminders (dsh schedule); empty when unmounted. */
+    public WebApiModels.SchedulesIndex schedules(String sessionId) {
+        SessionService sessions = ctx.boot.service(SessionService.NAME);
+        SessionSupport.requireKnownSession(sessions, sessionId);
+        io.majo.harness.schedule.ScheduleService schedules =
+                ctx.boot.ctx().get(io.majo.harness.schedule.ScheduleService.NAME);
+        if (schedules == null) {
+            return new WebApiModels.SchedulesIndex(List.of());
+        }
+        return new WebApiModels.SchedulesIndex(schedules.list(sessionId).stream()
+                .map(schedule -> new WebApiModels.ScheduleInfo(schedule.id, schedule.prompt,
+                        schedule.dueAtMs,
+                        schedule.intervalSeconds > 0 ? schedule.intervalSeconds : null))
+                .toList());
+    }
+
     public WebApiModels.SessionsIndex sessionsIndex(Map<String, String> query) {
         SessionService sessions = ctx.boot.service(SessionService.NAME);
         String view = query.getOrDefault("view", "active"); // active | archived | all

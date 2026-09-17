@@ -112,6 +112,22 @@
         ]
       }
     },
+    "/api/sessions/{id}/jobs": {
+      "get": {
+        "summary": "The session's background jobs (dsh jobs)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/schedules": {
+      "get": {
+        "summary": "The session's scheduled reminders (dsh schedule)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/messages/{id}/{seq}/feedback": {
       "put": {
         "summary": "Rate a message up|down",

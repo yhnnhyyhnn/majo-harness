@@ -71,6 +71,10 @@ public sealed interface TypedSessionEvent {
     /** The session plan state changed. */
     record PlanSet(boolean active, String plan) implements TypedSessionEvent {}
 
+    /** A schedule record created or replaced (cancelled marks deletion). */
+    record ScheduleSet(String scheduleId, String prompt, long dueAtMs,
+            long intervalSeconds, boolean cancelled) implements TypedSessionEvent {}
+
     /** A serialized assistant tool call (the log's wire form of a ToolCall). */
     record ToolCallEntry(String id, String name, String arguments) {}
 
@@ -106,6 +110,12 @@ public sealed interface TypedSessionEvent {
             case PLAN_SET -> new PlanSet(
                     Boolean.parseBoolean(text(fields, SessionEvent.FIELD_ACTIVE)),
                     text(fields, SessionEvent.FIELD_PLAN));
+            case SCHEDULE_SET -> new ScheduleSet(
+                    text(fields, SessionEvent.FIELD_SCHEDULE_ID),
+                    text(fields, SessionEvent.FIELD_PROMPT),
+                    Long.parseLong(text(fields, SessionEvent.FIELD_DUE_AT)),
+                    Long.parseLong(text(fields, SessionEvent.FIELD_INTERVAL_SECONDS)),
+                    Boolean.parseBoolean(text(fields, SessionEvent.FIELD_CANCELLED)));
         };
     }
 

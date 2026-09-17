@@ -5,10 +5,12 @@ import type {
   EventsDelta,
   FeedbackIndex,
   Info,
+  JobsIndex,
   ModelState,
   Ok,
   PlanSnapshot,
   PluginsIndex,
+  SchedulesIndex,
   SearchIndex,
   SessionDetail,
   SessionsIndex,
@@ -174,6 +176,16 @@ export const api = {
   /** The session plan-mode snapshot (dsh plan-mode). */
   plan(sessionId: string): Promise<PlanSnapshot> {
     return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/plan");
+  },
+
+  /** The session's background jobs (dsh jobs). */
+  jobs(sessionId: string): Promise<JobsIndex> {
+    return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/jobs");
+  },
+
+  /** The session's scheduled reminders (dsh schedule). */
+  schedules(sessionId: string): Promise<SchedulesIndex> {
+    return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/schedules");
   },
 
   subagents(): Promise<SubagentsIndex> {

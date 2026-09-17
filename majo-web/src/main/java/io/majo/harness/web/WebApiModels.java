@@ -64,6 +64,19 @@ public final class WebApiModels {
     /** The session plan-mode snapshot (dsh plan-mode). */
     public record PlanSnapshot(boolean active, @OptionalWire String plan) {}
 
+    /** One background job (dsh jobs). */
+    public record JobInfo(String id, String kind, @OptionalWire String script,
+            String state, long startedAtMs, @OptionalWire Long finishedAtMs,
+            @OptionalWire Integer exitCode, @OptionalWire String output) {}
+
+    public record JobsIndex(List<JobInfo> jobs) {}
+
+    /** One scheduled reminder (dsh schedule). */
+    public record ScheduleInfo(String id, String prompt, long dueAtMs,
+            @OptionalWire Long intervalSeconds) {}
+
+    public record SchedulesIndex(List<ScheduleInfo> schedules) {}
+
     /** One full-text hit across sessions. */
     public record SearchHit(String id, String title,
             @OptionalWire String snippet, @OptionalWire Long seq,

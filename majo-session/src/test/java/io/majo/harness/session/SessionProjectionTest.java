@@ -161,6 +161,7 @@ class SessionProjectionTest {
                 case TypedSessionEvent.ApprovalDecided ignored -> SessionEventType.APPROVAL_DECIDED;
                 case TypedSessionEvent.TodoSet ignored -> SessionEventType.TODO_SET;
                 case TypedSessionEvent.PlanSet ignored -> SessionEventType.PLAN_SET;
+                case TypedSessionEvent.ScheduleSet ignored -> SessionEventType.SCHEDULE_SET;
             };
         }
 

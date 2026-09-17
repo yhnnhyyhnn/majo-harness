@@ -25,10 +25,11 @@ public final class MessageDeriver {
         for (SessionEvent event : events) {
             switch (event.type()) {
                 case TURN_START, TURN_END, REQUEST_HEADER, APPROVAL_REQUESTED, APPROVAL_DECIDED,
-                        TODO_SET, PLAN_SET -> {
+                        TODO_SET, PLAN_SET, SCHEDULE_SET -> {
                     // turn boundaries, request headers, the approval audit
-                    // pair, and todo/plan bookkeeping are not model messages
-                    // (tool results and spliced notes carry the model text)
+                    // pair, and todo/plan/schedule bookkeeping are not model
+                    // messages (tool results and spliced notes carry the
+                    // model text; schedules deliver their prompt as a turn)
                 }
                 case USER_MESSAGE, CONTEXT_NOTE -> messages.add(ChatMessage.user(event.content()));
                 case ASSISTANT_MESSAGE -> messages.add(ChatMessage.assistant(

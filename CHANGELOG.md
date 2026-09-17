@@ -199,6 +199,22 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   turns/approvalsDecided/questionsAnswered/pluginsReloaded counters;
   documented in openapi.json (drift-guarded).
 
+- **P2-B jobs** (dsh `packages/jobs`): new `majo-jobs` module — a per-session
+  background-job registry (`shell-N` ids, concurrency cap, bounded output
+  tails, live process handles) with `run_background` / `job_output` (optional
+  wait) / `job_list` / `job_kill` tools. Completion rides the Phase-1 inbox:
+  the plugin wires finished jobs to `followup`, so an idle harness wakes and
+  a busy one delivers on its next turn. `GET /api/sessions/{id}/jobs` + a
+  header jobs popover. In-process scope: jobs do not survive restarts.
+
+- **P2-B schedule** (dsh `packages/schedule`): new `majo-schedule` module —
+  `schedule_create` (`after_seconds` / `at` ISO / `every_seconds >= 300`),
+  `schedule_list`, `schedule_delete`; records persist as `SCHEDULE_SET`
+  events and the runtime re-arms timers from the session logs on mount
+  (restart-safe, repeat schedules advance to the next unmissed occurrence;
+  stale one-shots stay in the log unfired). Delivery is a follow-up turn to
+  the owning session. `GET /api/sessions/{id}/schedules` + a header catalog.
+
 - **P2-A todo** (dsh `packages/todo`): new `majo-todo` module — the
   `todo_write` tool replaces the session's whole task list durably
   (`TODO_SET` events), the `todo` projection folds the latest list,

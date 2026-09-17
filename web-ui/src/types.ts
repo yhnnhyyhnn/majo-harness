@@ -13,6 +13,7 @@ export type EventKind =
   | "APPROVAL_DECIDED"
   | "TODO_SET"
   | "PLAN_SET"
+  | "SCHEDULE_SET"
 
 export interface ApprovalDecision {
   decision?: string;
@@ -94,6 +95,21 @@ export interface Info {
   skills: number;
 }
 
+export interface JobInfo {
+  id: string;
+  kind: EventKind;
+  script?: string;
+  state: string;
+  startedAtMs: number;
+  finishedAtMs?: number;
+  exitCode?: number;
+  output?: string;
+}
+
+export interface JobsIndex {
+  jobs: JobInfo[];
+}
+
 export interface ModelState {
   model?: string;
   models: string[];
@@ -131,6 +147,17 @@ export interface QuestionFrame {
   id: string;
   text: string;
   agent?: string;
+}
+
+export interface ScheduleInfo {
+  id: string;
+  prompt: string;
+  dueAtMs: number;
+  intervalSeconds?: number;
+}
+
+export interface SchedulesIndex {
+  schedules: ScheduleInfo[];
 }
 
 export interface SearchHit {

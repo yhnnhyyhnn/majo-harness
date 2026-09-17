@@ -39,6 +39,7 @@ public final class TurnSummary implements SessionProjection {
             case TypedSessionEvent.ApprovalDecided ignored -> current;
             case TypedSessionEvent.TodoSet ignored -> current;
             case TypedSessionEvent.PlanSet ignored -> current;
+            case TypedSessionEvent.ScheduleSet ignored -> current;
             case TypedSessionEvent.RequestHeader ignored -> current;
             case TypedSessionEvent.AssistantMessage message -> new Summary(
                     current.turnOpen(), current.turnCount(), current.assistantRounds() + 1, current.toolCalls(),

@@ -36,6 +36,8 @@
     <module>majo-title</module>
     <module>majo-todo</module>
     <module>majo-plan</module>
+    <module>majo-jobs</module>
+    <module>majo-schedule</module>
     <module>web-ui</module>
     <module>majo-cli</module>
     <module>majo-web</module>

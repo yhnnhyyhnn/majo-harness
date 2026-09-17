@@ -33,5 +33,7 @@ public enum SessionEventType {
     /** The session todo list was replaced wholesale (todo_write). */
     TODO_SET,
     /** The session plan state changed: active flag plus the plan text. */
-    PLAN_SET
+    PLAN_SET,
+    /** A schedule record was created or replaced (schedule_create/delete). */
+    SCHEDULE_SET
 }

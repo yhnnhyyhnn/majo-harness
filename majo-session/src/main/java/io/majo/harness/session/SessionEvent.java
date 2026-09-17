@@ -49,6 +49,16 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_ACTIVE = "active";
     /** Plan text of a {@link SessionEventType#PLAN_SET}. */
     public static final String FIELD_PLAN = "plan";
+    /** Correlation id of a {@link SessionEventType#SCHEDULE_SET}. */
+    public static final String FIELD_SCHEDULE_ID = "scheduleId";
+    /** Delivered-as-turn prompt of a {@link SessionEventType#SCHEDULE_SET}. */
+    public static final String FIELD_PROMPT = "prompt";
+    /** Next due time (epoch millis) of a {@link SessionEventType#SCHEDULE_SET}. */
+    public static final String FIELD_DUE_AT = "dueAt";
+    /** Repeat interval seconds of a {@link SessionEventType#SCHEDULE_SET} ({@code 0} = one-shot). */
+    public static final String FIELD_INTERVAL_SECONDS = "intervalSeconds";
+    /** Deletion marker of a {@link SessionEventType#SCHEDULE_SET}. */
+    public static final String FIELD_CANCELLED = "cancelled";
 
     public SessionEvent {
         fields = fields == null ? Map.of() : Map.copyOf(fields);
