@@ -47,6 +47,9 @@ public sealed interface TypedSessionEvent {
         }
     }
 
+    /** Context spliced in without waking the loop (dsh "inject"). */
+    record ContextNote(String content) implements TypedSessionEvent {}
+
     /** A serialized assistant tool call (the log's wire form of a ToolCall). */
     record ToolCallEntry(String id, String name, String arguments) {}
 
@@ -68,6 +71,7 @@ public sealed interface TypedSessionEvent {
                     text(fields, SessionEvent.FIELD_MODEL),
                     text(fields, SessionEvent.FIELD_SYSTEM_PROMPT),
                     strings(fields, SessionEvent.FIELD_TOOL_NAMES));
+            case CONTEXT_NOTE -> new ContextNote(text(fields, SessionEvent.FIELD_CONTENT));
         };
     }
 

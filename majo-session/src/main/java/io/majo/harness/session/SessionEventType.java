@@ -20,5 +20,10 @@ public enum SessionEventType {
     /** The turn closed: nothing further is owed. */
     TURN_END,
     /** One model request as composed: model, system prompt, offered tool names. */
-    REQUEST_HEADER
+    REQUEST_HEADER,
+    /**
+     * Context spliced in without waking the loop (dsh "inject"): model-visible
+     * at the next step boundary or turn opening, but never starts a turn.
+     */
+    CONTEXT_NOTE
 }

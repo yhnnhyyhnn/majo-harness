@@ -17,6 +17,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The default turn driver ({@code ctx.agentLoop}), mirroring the dsh
@@ -29,12 +33,21 @@ import java.util.Map;
  * <p>Every step boundary is observable through {@code session/event} and the
  * {@code llm/*} events; nothing model-visible bypasses the log.
  *
+ * <p><b>Inbox (dsh next-turn / next-step analog).</b> Each session carries an
+ * {@link AgentInbox}: {@link #followup} queues a next turn (jobs/schedule
+ * notices), waking an idle loop through a virtual-thread driver; {@link
+ * #steer} splices input into the running turn at the next step boundary (or
+ * wakes its own turn when idle); {@link #inject} splices a {@link
+ * SessionEventType#CONTEXT_NOTE} without ever waking. Chained turns converge
+ * inside the caller's turn hold, so per-session serialization is preserved.
+ *
  * <p>Config: {@code {systemPrompt: <text>, maxSteps: <n>}}. A turn that fails
  * to converge within {@code maxSteps} fails loudly.
  */
 public final class AgentLoopService extends Service {
 
     public static final String NAME = "agentLoop";
+    private static final Logger LOG = LoggerFactory.getLogger(AgentLoopService.class);
 
     public static final String DEFAULT_SYSTEM_PROMPT = "You are a helpful agent harness.";
     public static final int DEFAULT_MAX_STEPS = 8;
@@ -47,6 +60,16 @@ public final class AgentLoopService extends Service {
     private final boolean parallelDelegates;
     private final io.majo.harness.credentials.CredentialsService credentials;
     private final java.util.concurrent.ExecutorService delegates = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+    /** Drives inbox wakes for turns nobody is blocking on. */
+    private final java.util.concurrent.ExecutorService turnDriver = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+
+    /** Serializes turns per session (web holds its own lock around runTurn). */
+    private final Map<String, Object> turnMutexes = new ConcurrentHashMap<>();
+    private final Map<String, AgentInbox> inboxes = new ConcurrentHashMap<>();
+    /** Latch: a driver thread is armed for this session (lost-wake guard). */
+    private final Map<String, AtomicBoolean> driving = new ConcurrentHashMap<>();
+    /** Whether a turn body is currently executing (steer routing decision). */
+    private final Map<String, AtomicBoolean> inTurn = new ConcurrentHashMap<>();
 
     public AgentLoopService(Context ctx, Object config) {
         super(ctx, NAME);
@@ -87,6 +110,48 @@ public final class AgentLoopService extends Service {
         return value;
     }
 
+    // ----- inbox API -----
+
+    /**
+     * Queues a next turn for {@code sessionId}: when the loop is idle a
+     * driver thread runs it; when a turn is executing it chains right after
+     * (inside the current turn hold). Returns immediately.
+     */
+    public void followup(String sessionId, String text) {
+        inbox(sessionId).offerTurnStart(text);
+        requestDrive(sessionId);
+    }
+
+    /**
+     * Steers the running turn: the text lands as a durable user message at the
+     * next step boundary. When no turn is executing it becomes a turn of its
+     * own (wake semantics).
+     */
+    public void steer(String sessionId, String text) {
+        if (inTurn(sessionId).get()) {
+            inbox(sessionId).offerNote(new AgentInbox.Note(AgentInbox.Kind.STEER, text));
+        } else {
+            followup(sessionId, text);
+        }
+    }
+
+    /**
+     * Splices context into {@code sessionId} without waking the loop: the note
+     * is model-visible from the next step boundary (or next turn opening) but
+     * never starts a turn; with no later turn it simply waits.
+     */
+    public void inject(String sessionId, String text) {
+        inbox(sessionId).offerNote(new AgentInbox.Note(AgentInbox.Kind.INJECT, text));
+    }
+
+    /** Inbox depth for the session (turn starters + undelivered notes). */
+    public int queuedCount(String sessionId) {
+        AgentInbox inbox = inboxes.get(sessionId);
+        return inbox == null ? 0 : inbox.size();
+    }
+
+    // ----- turn entry points -----
+
     /**
      * Runs one turn (see {@link #runTurn(String, String, java.util.function.Consumer)})
      * without a text sink.
@@ -119,7 +184,8 @@ public final class AgentLoopService extends Service {
     /**
      * Full per-agent configuration for one turn: explicit model name and a
      * system prompt override ({@code null} values fall back to the service
-     * defaults). Child delegations ride through these arguments.
+     * defaults). Child delegations ride through these arguments. Inbox entries
+     * queued while this turn ran converge before the lock is released.
      */
     public String runTurn(String sessionId, String userText,
             java.util.function.Consumer<String> textSink, String modelOverride,
@@ -127,35 +193,158 @@ public final class AgentLoopService extends Service {
         String prompt = systemPromptOverride == null || systemPromptOverride.isBlank()
                 ? systemPrompt
                 : systemPromptOverride;
-        sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
-        sessions.append(sessionId, SessionEventType.USER_MESSAGE,
-                Map.of(SessionEvent.FIELD_CONTENT, userText));
-        for (int step = 1; ; step++) {
-            if (step > maxSteps) {
-                throw new IllegalStateException("agent-loop: turn on session \"" + sessionId
-                        + "\" exceeded maxSteps=" + maxSteps + " without a final answer");
-            }
-            ChatRequest request = new ChatRequest(buildMessages(sessionId, prompt),
-                    tools.specs(), modelOverride);
-            // log the request composition before it reaches the model so the
-            // header (model, system prompt, offered tool names) is durable
-            // even when the completion itself fails
-            sessions.append(sessionId, SessionEventType.REQUEST_HEADER, Map.of(
-                    SessionEvent.FIELD_MODEL, llm.modelNameOf(request),
-                    SessionEvent.FIELD_SYSTEM_PROMPT, prompt,
-                    SessionEvent.FIELD_TOOL_NAMES,
-                    request.tools().stream().map(ToolSpec::name).toList()));
-            ChatResponse response = textSink == null
-                    ? llm.complete(request)
-                    : llm.completeStream(request, textSink);
-            appendAssistantRound(sessionId, response);
-            if (!response.isToolRound()) {
-                break;
-            }
-            executeTools(sessionId, response.toolCalls());
+        synchronized (turnMutex(sessionId)) {
+            String answer = runSingleTurn(sessionId, userText, textSink, modelOverride, prompt);
+            converge(sessionId);
+            return answer;
         }
-        sessions.append(sessionId, SessionEventType.TURN_END, Map.of());
-        return lastFinalText(sessions.events(sessionId));
+    }
+
+    // ----- turn mechanics -----
+
+    /** One durable turn: open, deliver opening notes, step to convergence, close. */
+    private String runSingleTurn(String sessionId, String userText,
+            java.util.function.Consumer<String> textSink, String modelOverride, String prompt) {
+        String effectivePrompt = prompt == null || prompt.isBlank() ? systemPrompt : prompt;
+        AtomicBoolean busy = inTurn(sessionId);
+        busy.set(true);
+        try {
+            sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
+            // notes queued while nobody was driving land before the user message
+            deliverQueuedNotes(sessionId);
+            sessions.append(sessionId, SessionEventType.USER_MESSAGE,
+                    Map.of(SessionEvent.FIELD_CONTENT, userText));
+            for (int step = 1; ; step++) {
+                if (step > maxSteps) {
+                    throw new IllegalStateException("agent-loop: turn on session \"" + sessionId
+                            + "\" exceeded maxSteps=" + maxSteps + " without a final answer");
+                }
+                if (step > 1) {
+                    // steering + notes splice in at step boundaries, never mid-request
+                    deliverQueuedNotes(sessionId);
+                }
+                ChatRequest request = new ChatRequest(buildMessages(sessionId, effectivePrompt),
+                        tools.specs(), modelOverride);
+                // log the request composition before it reaches the model so the
+                // header (model, system prompt, offered tool names) is durable
+                // even when the completion itself fails
+                sessions.append(sessionId, SessionEventType.REQUEST_HEADER, Map.of(
+                        SessionEvent.FIELD_MODEL, llm.modelNameOf(request),
+                        SessionEvent.FIELD_SYSTEM_PROMPT, effectivePrompt,
+                        SessionEvent.FIELD_TOOL_NAMES,
+                        request.tools().stream().map(ToolSpec::name).toList()));
+                ChatResponse response = textSink == null
+                        ? llm.complete(request)
+                        : llm.completeStream(request, textSink);
+                appendAssistantRound(sessionId, response);
+                if (!response.isToolRound()) {
+                    break;
+                }
+                executeTools(sessionId, response.toolCalls());
+            }
+            sessions.append(sessionId, SessionEventType.TURN_END, Map.of());
+            return lastFinalText(sessions.events(sessionId));
+        } finally {
+            busy.set(false);
+        }
+    }
+
+    /** Appends queued notes: steer as user input, inject as a context note. */
+    private void deliverQueuedNotes(String sessionId) {
+        for (AgentInbox.Note note : inbox(sessionId).drainNotes()) {
+            sessions.append(sessionId,
+                    note.kind() == AgentInbox.Kind.STEER
+                            ? SessionEventType.USER_MESSAGE
+                            : SessionEventType.CONTEXT_NOTE,
+                    Map.of(SessionEvent.FIELD_CONTENT, note.text()));
+        }
+    }
+
+    /**
+     * Drains turn-starting entries after a turn, inside the caller's lock:
+     * followups chain as turns; steer notes that raced in after the last step
+     * boundary wake their own turn; inject notes keep waiting (never wake).
+     */
+    private void converge(String sessionId) {
+        AgentInbox inbox = inbox(sessionId);
+        while (true) {
+            String next = inbox.pollTurnStart();
+            if (next != null) {
+                runSingleTurn(sessionId, next, null, null, null);
+                continue;
+            }
+            boolean wake = false;
+            for (AgentInbox.Note note : inbox.drainNotes()) {
+                if (note.kind() == AgentInbox.Kind.STEER) {
+                    inbox.offerTurnStart(note.text());
+                    wake = true;
+                } else {
+                    inbox.offerNote(note); // INJECT: stays queued without waking
+                }
+            }
+            if (!wake) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Arms (or piggybacks on) the virtual-thread driver for queued turns. The
+     * driver polls only while holding the session turn mutex, so it never
+     * steals entries from a caller's inline converge. On quiescence it drops
+     * the latch, re-scans once under the mutex (closing the offer/scan race),
+     * and re-arms itself when work appeared — a fresh offer's CAS may also
+     * have taken over, in which case this driver simply exits.
+     */
+    private void requestDrive(String sessionId) {
+        AtomicBoolean latch = driving.computeIfAbsent(sessionId, ignored -> new AtomicBoolean());
+        if (!latch.compareAndSet(false, true)) {
+            return; // a driver is armed; it re-scans before exiting
+        }
+        turnDriver.execute(() -> {
+            Object mutex = turnMutex(sessionId);
+            while (true) {
+                String next;
+                synchronized (mutex) {
+                    next = inbox(sessionId).pollTurnStart();
+                    if (next != null) {
+                        try {
+                            runSingleTurn(sessionId, next, null, null, null);
+                            converge(sessionId);
+                        } catch (RuntimeException failure) {
+                            // a driver turn has no caller to fail: log and
+                            // keep draining so one bad notice cannot wedge
+                            // the queue
+                            LOG.error("agent-loop: inbox-driven turn on session \"{}\" failed",
+                                    sessionId, failure);
+                        }
+                    }
+                }
+                if (next == null) {
+                    latch.set(false);
+                    synchronized (mutex) {
+                        if (!inbox(sessionId).hasTurnWork()) {
+                            return;
+                        }
+                    }
+                    if (!latch.compareAndSet(false, true)) {
+                        return; // a fresh offer armed another driver
+                    }
+                }
+            }
+        });
+    }
+
+    private AgentInbox inbox(String sessionId) {
+        return inboxes.computeIfAbsent(sessionId, ignored -> new AgentInbox());
+    }
+
+    private Object turnMutex(String sessionId) {
+        return turnMutexes.computeIfAbsent(sessionId, ignored -> new Object());
+    }
+
+    private AtomicBoolean inTurn(String sessionId) {
+        return inTurn.computeIfAbsent(sessionId, ignored -> new AtomicBoolean());
     }
 
     /** Executes one tool round: delegate_task calls run concurrently when

@@ -156,6 +156,7 @@ class SessionProjectionTest {
                 case TypedSessionEvent.AssistantMessage ignored -> SessionEventType.ASSISTANT_MESSAGE;
                 case TypedSessionEvent.ToolResult ignored -> SessionEventType.TOOL_RESULT;
                 case TypedSessionEvent.RequestHeader ignored -> SessionEventType.REQUEST_HEADER;
+                case TypedSessionEvent.ContextNote ignored -> SessionEventType.CONTEXT_NOTE;
             };
         }
 

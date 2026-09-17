@@ -8,6 +8,7 @@ export type EventKind =
   | "TOOL_RESULT"
   | "TURN_END"
   | "REQUEST_HEADER"
+  | "CONTEXT_NOTE"
 
 export interface ApprovalDecision {
   decision?: string;

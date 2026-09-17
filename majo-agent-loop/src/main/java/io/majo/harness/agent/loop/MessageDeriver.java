@@ -29,7 +29,7 @@ public final class MessageDeriver {
                     // model messages (the system prompt and offered tool names
                     // live in the header events of each step)
                 }
-                case USER_MESSAGE -> messages.add(ChatMessage.user(event.content()));
+                case USER_MESSAGE, CONTEXT_NOTE -> messages.add(ChatMessage.user(event.content()));
                 case ASSISTANT_MESSAGE -> messages.add(ChatMessage.assistant(
                         event.content(), toToolCalls(event.fields())));
                 case TOOL_RESULT -> messages.add(ChatMessage.toolResult(
