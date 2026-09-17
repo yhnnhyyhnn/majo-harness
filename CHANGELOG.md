@@ -324,7 +324,7 @@ the harness gets soak-grade verification plus network/health hardening. 系统
 
 ## [Unreleased]
 
-Working area for the next iteration (roadmap-0.4).
+Working area for the next iteration.
 
 - **MCP client** (roadmap-0.4 Phase 2, the dsh MCP analog): new `majo-mcp`
   module — profile rows declare stdio servers (`command`/`args`/`env`, env

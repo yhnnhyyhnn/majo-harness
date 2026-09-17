@@ -1,4 +1,4 @@
-# Roadmap 0.4 (hardening + MCP)
+# Roadmap 0.4 (hardening + MCP) — COMPLETE
 
 majo-harness is a Java 21 port of the deepseek-harness ("dsh") architecture.
 Roadmap 0.3 closed with v0.2.0 (all four phases shipped); this cycle first

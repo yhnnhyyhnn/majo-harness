@@ -1,4 +1,4 @@
-# Roadmap 0.4（加固 + MCP）
+# Roadmap 0.4（加固 + MCP）— 已全部完成
 
 majo-harness 是 deepseek-harness（"dsh"）架构的 Java 21 移植版。0.3 路线图
 随 v0.2.0 收官（四期全部交付）；本周期先加固既有面，再补上最缺的一块

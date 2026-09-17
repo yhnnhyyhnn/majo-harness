@@ -18,7 +18,12 @@ version=${1:-}
   echo "working tree not clean — commit or stash first"; exit 2;
 }
 current=$(sed -n 's|.*<version>\(.*-SNAPSHOT\)</version>.*|\1|p' pom.xml | head -1)
-[[ -n "$current" ]] || { echo "cannot detect the current -SNAPSHOT version from pom.xml"; exit 2; }
+if [[ -z "$current" ]]; then
+  # releasing from a tree still sitting at the previous release (no dev
+  # SNAPSHOT open): fall back to the parent pom's own version
+  current=$(sed -n 's|.*<version>\([0-9][0-9.]*\)</version>.*|\1|p' pom.xml | head -1)
+fi
+[[ -n "$current" ]] || { echo "cannot detect the current version from pom.xml"; exit 2; }
 today=$(date +%Y-%m-%d)
 
 echo "== release $current -> $version =="
