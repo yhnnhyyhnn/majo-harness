@@ -96,8 +96,9 @@ consumers + web API + UI section). dsh references are the behavior spec.
 
 ## Phase 3 — Ecosystem deepening
 
-Status: tool catalog, search indexing, and credentials-by-name are shipped
-(CHANGELOG `## [Unreleased]`); the release pipeline remains.
+Status: all four items shipped — tool catalog, search indexing,
+credentials-by-name (CHANGELOG `## [0.2.0]`), and the release pipeline
+(`scripts/release.sh`, used to cut v0.2.0).
 
 - **Tool catalog, generative** ✅ (ref `docs/tool-catalog.md` + verify scripts):
   generate a tool catalog from `ToolRegistry.specs()` at boot/test time and

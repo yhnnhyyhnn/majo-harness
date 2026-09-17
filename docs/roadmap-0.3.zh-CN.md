@@ -1,5 +1,3 @@
-# Roadmap 0.3（参照 dsh 的定制迭代）
-
 # Roadmap 0.3（参照 dsh 的定制迭代）— 已全部完成
 
 四个阶段全部交付；**v0.2.0 已用 `scripts/release.sh` 切出**（2026-09-17）。
@@ -89,14 +87,17 @@ UI 区块）。dsh 参照实现即行为规格。
 
 ## Phase 3 — 生态深化
 
-- **工具目录生成化**（参照 `docs/tool-catalog.md` + verify 脚本）：
+四项全部交付：工具目录、搜索索引化、凭证按名引用（CHANGELOG `## [0.2.0]`）、
+发布流水线（`scripts/release.sh`，v0.2.0 即由它切出）。
+
+- **工具目录生成化 ✅**（参照 `docs/tool-catalog.md` + verify 脚本）：
   启动/测试期从 `ToolRegistry.specs()` 生成工具目录，文档漂移即 CI 失败
   （"gen + verify" 成对模式）。
-- **凭证按名引用**（参照 `packages/credentials`）：profile 只引用环境变量
+- **凭证按名引用 ✅**（参照 `packages/credentials`）：profile 只引用环境变量
   名，永不落值；web 层只能看到"已设置 / 未设置 / 来源"。
-- **搜索索引化**：用按会话倒排索引（或 SQLite FTS）替换 `/api/search`
+- **搜索索引化 ✅**：用按会话倒排索引（或 SQLite FTS）替换 `/api/search`
   的 O(N) 全量扫描，端点不变。
-- **发布流水线**（参照 `scripts/release/*`）：lockstep 版本提升、按依赖
+- **发布流水线 ✅**（参照 `scripts/release/*`）：lockstep 版本提升、按依赖
   拓扑排序发布、打包产物校验。
 
 ## 0.3 明确不做

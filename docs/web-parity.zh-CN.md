@@ -45,10 +45,11 @@
 
 | dsh 功能 | majo 接缝状态 | UI |
 |---|---|---|
-| Plan 模式（`ui-plan`） | 后端未建 | ⬜ |
+| Plan 模式（`ui-plan`） | `majo-plan`（PLAN_SET，`GET /api/sessions/{id}/plan`） | ✅ `/plan` 命令 + `exit_plan_mode` 工具走交互接缝（批准 / 带反馈继续规划卡）；composer 计划 chip，状态跨 resume 存活 |
 | Goals（`ui-goal`） | 后端未建 | ⬜ |
-| Jobs（`ui-jobs`） | 后端未建 | ⬜ |
-| Schedule（`ui-schedule`） | 后端未建 | ⬜ |
+| Todo 清单（`packages/todo`） | `majo-todo`（TODO_SET，`GET /api/sessions/{id}/todos`） | ✅ `todo_write` 整表替换清单，对话区渲染 TodoPanel |
+| Jobs（`ui-jobs`） | `majo-jobs`（ctx.jobs 接缝，`GET /api/sessions/{id}/jobs`） | ✅ 头部 jobs popover（逐任务状态/退出码）+ `run_background` / `job_output` / `job_list` / `job_kill` 工具；完成以 follow-up 送达 |
+| Schedule（`ui-schedule`） | `majo-schedule`（SCHEDULE_SET，`GET /api/sessions/{id}/schedules`） | ✅ `schedule_create/list/delete`（`after_seconds` / 绝对 `at` / `every_seconds ≥ 300`，持久化，busy→下轮 / idle→唤醒）+ 头部目录 popover |
 | Workflow（`ui-workflow-run`） | 后端未建 | ⬜ |
 | Subagent 活动（`ui-subagent`） | 后端已有 subagent | ✅ 侧栏区（近期委派，轮询）+ delegate 卡的父→子转写链接；委派支持 scoped model/maxSteps/autoApprove/allowedTools + 宿主岛屿 + per-agent `settings` 覆盖 |
 | Skills 面板（`ui-skill`） | 后端已有 skills | ✅ 侧栏区（`/api/skills`，轮询） |

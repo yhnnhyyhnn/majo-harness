@@ -46,11 +46,12 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 
 | dsh feature | majo seam status | UI |
 |---|---|---|
-| Plan mode (`ui-plan`) | backend plan not built | ⬜ |
+| Plan mode (`ui-plan`) | `majo-plan` (PLAN_SET, `GET /api/sessions/{id}/plan`) | ✅ `/plan` command + `exit_plan_mode` tool riding the interaction seam (approve / keep-planning-with-feedback card); composer plan chip, state survives resume |
 | Goals (`ui-goal`) | backend goals not built | ⬜ |
-| Jobs (`ui-jobs`) | backend jobs not built | ⬜ |
-| Schedule (`ui-schedule`) | backend not built | ⬜ |
-| Workflow run (`ui-workflow-run`) | backend not built | ⬜ |
+| Todo list (`packages/todo`) | `majo-todo` (TODO_SET, `GET /api/sessions/{id}/todos`) | ✅ `todo_write` full-replace list rendered as a conversation TodoPanel |
+| Jobs (`ui-jobs`) | `majo-jobs` (ctx.jobs seam, `GET /api/sessions/{id}/jobs`) | ✅ header jobs popover (per-job state/exit) + `run_background` / `job_output` / `job_list` / `job_kill` tools; completion notices arrive as follow-ups |
+| Schedule (`ui-schedule`) | `majo-schedule` (SCHEDULE_SET, `GET /api/sessions/{id}/schedules`) | ✅ `schedule_create/list/delete` (`after_seconds` / absolute `at` / `every_seconds ≥ 300`, persisted, busy→next turn / idle→wake) + header catalog popover |
+| Workflow run (`ui-workflow-run`) | backend workflow not built | ⬜ |
 | Subagent activity (`ui-subagent`) | backend subagent exists | ✅ sidebar section (recent delegations, polls) + parent→child transcript link from delegate cards; delegation supports scoped model/maxSteps/autoApprove/allowedTools + host islands + per-agent `settings` overrides |
 | Skills panel (`ui-skill`) | backend skills exists | ✅ sidebar section (`/api/skills`, polls) |
 | Plugins management | three-tier plugin model + jar hot reload | ✅ sidebar section: hosted pages + native `plugin.mjs` mount/reload/unload, jar mtime auto-reload, version/slots chips, duplicate-id & unversioned warnings |
