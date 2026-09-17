@@ -164,7 +164,7 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   forbids unprivileged user namespaces (real confinement still verified where
   allowed).
 
-## [Unreleased]
+## [0.2.0] - 2026-09-17
 
 - **Runtime plugin mount + Maven builds**: `POST /api/plugins` mounts a jar
   (name+path) on a running server — it then hot-reloads and unloads through
@@ -321,5 +321,7 @@ the harness gets soak-grade verification plus network/health hardening. 系统
   LLM tests, plan/todo/jobs/schedule/compaction/trajectory parity); the
   web-parity markdown-table row is corrected to ✅ (GFM tables + language
   captions shipped with tests).
+
+## [Unreleased]
 
 Working area for the next iteration.

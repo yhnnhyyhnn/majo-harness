@@ -1,7 +1,7 @@
 {
   "name": "majo-web-ui",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "TypeScript React/Vite chat UI for majo-harness (dsh web parity); built output is copied into majo-web/src/main/resources/static so the Java jar serves it.",
   "scripts": {

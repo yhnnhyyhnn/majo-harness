@@ -60,7 +60,8 @@ echo "== step 3/5: full gates at the release version =="
 bash scripts/check.sh
 
 echo "== step 4/5: jar version assertion =="
-mvn -q -pl majo-web package -DskipTests -Dskip.webui=true
+# -am: sibling modules at the release version exist only in this reactor
+mvn -q -pl majo-web -am package -DskipTests -Dskip.webui=true
 jar_path=$(ls majo-web/target/majo-web-*.jar | head -1)
 tmp=$(mktemp -d)
 if command -v unzip >/dev/null 2>&1; then
