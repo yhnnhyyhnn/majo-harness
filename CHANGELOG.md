@@ -379,7 +379,19 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration.
+Working area for the next iteration (roadmap-0.5).
+
+- **Hot-path hardening**: session-append sequence numbers are memoized per
+  session (one derivation parse per session per process; remove forgets the
+  memo, imports extend it) — appends no longer re-parse the whole log;
+  derived session titles memoize once (the sidebar poll previously
+  re-parsed every untitled session's full log each cycle) and a
+  re-registered title provider forgets the memo. 热路径加固：seq 推导与
+  标题派生各只解析一次，侧栏轮询零全量解析。
+
+- **Composer font-size control** (dsh ui-theme stretch): header toggle
+  cycles small → medium → large, persisted in localStorage, applied via a
+  `data-composer-size` attribute the stylesheet keys on.
 
 - **MCP live probe**: `McpFilesystemLiveProbeTest` runs the client against
   the real ecosystem's `@modelcontextprotocol/server-filesystem` (handshake,

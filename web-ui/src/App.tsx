@@ -6,6 +6,7 @@ import { PluginFrame } from "./components/PluginFrame";
 import { JobsButton, ScheduleCatalog, ContextMeter } from "./components/SessionPanels";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { FontSizeToggle } from "./components/FontSizeToggle";
 import { Trajectory } from "./components/Trajectory";
 import { TodoPanel } from "./components/TodoPanel";
 import { FEATURES } from "./features";
@@ -196,6 +197,7 @@ function AppShell() {
           <ScheduleCatalog state={state} />
           <ContextMeter state={state} />
           <ThemeToggle />
+          <FontSizeToggle />
           <label className="model-picker">
             model
             <select

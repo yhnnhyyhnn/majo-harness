@@ -656,6 +656,10 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
 }
 #input::placeholder { color: var(--text-caption); }
 #input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(86, 134, 254, 0.14); }
+/* composer font-size control (data-composer-size on <html>, medium = default) */
+[data-composer-size="small"] #input { font-size: 12.5px; }
+[data-composer-size="large"] #input { font-size: 16px; }
+#composer-size { min-width: 30px; font-weight: 600; }
 #send { padding: 9px 22px; font-size: 13.5px; }
 
 #busy {
