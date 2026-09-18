@@ -108,6 +108,11 @@ final class ReconnectingConnection implements McpConnection {
     }
 
     @Override
+    public String instructions() {
+        return withConnection(McpConnection::instructions);
+    }
+
+    @Override
     public JsonNode request(String method, JsonNode params) {
         return withConnection(connection -> connection.request(method, params));
     }

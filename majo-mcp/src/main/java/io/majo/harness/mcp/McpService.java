@@ -1,6 +1,7 @@
 package io.majo.harness.mcp;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jcordis.core.context.Context;
 import io.jcordis.core.service.Service;
 import java.util.List;
@@ -63,6 +64,32 @@ public final class McpService extends Service {
             throw new McpException("unknown MCP server \"" + serverName + "\"");
         }
         return connection.request(method, params);
+    }
+
+    /** The server's usage instructions from the initialize handshake, or {@code null}. */
+    public String instructions(String serverName) {
+        McpConnection connection = connections.get(serverName);
+        if (connection == null) {
+            throw new McpException("unknown MCP server \"" + serverName + "\"");
+        }
+        return connection.instructions();
+    }
+
+    /** {@code resources/list} of one server. */
+    public JsonNode listResources(String serverName) {
+        return request(serverName, "resources/list", new ObjectMapper().createObjectNode());
+    }
+
+    /** {@code resources/templates/list} of one server. */
+    public JsonNode listTemplates(String serverName) {
+        return request(serverName, "resources/templates/list",
+                new ObjectMapper().createObjectNode());
+    }
+
+    /** {@code resources/read} of one server. */
+    public JsonNode readResource(String serverName, String uri) {
+        return request(serverName, "resources/read",
+                new ObjectMapper().createObjectNode().put("uri", uri));
     }
 
     void closeAll() {

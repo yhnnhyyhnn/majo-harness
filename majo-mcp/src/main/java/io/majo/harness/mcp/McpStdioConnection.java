@@ -37,6 +37,7 @@ final class McpStdioConnection implements McpConnection {
     private final Map<Long, CompletableFuture<JsonNode>> pending = new ConcurrentHashMap<>();
     private final AtomicLong nextId = new AtomicLong();
     private volatile JsonNode capabilities = MAPPER.createObjectNode();
+    private volatile String instructions;
     private volatile boolean closed;
 
     private McpStdioConnection(String serverName, Process process, long timeoutMillis) {
@@ -76,6 +77,9 @@ final class McpStdioConnection implements McpConnection {
                         + "\" did not answer the initialize handshake");
             }
             connection.capabilities = result.path("capabilities");
+            if (result.hasNonNull("instructions")) {
+                connection.instructions = result.get("instructions").asText();
+            }
             connection.sendNotification("notifications/initialized");
         } catch (RuntimeException e) {
             connection.close();
@@ -154,6 +158,11 @@ final class McpStdioConnection implements McpConnection {
     @Override
     public JsonNode capabilities() {
         return capabilities;
+    }
+
+    @Override
+    public String instructions() {
+        return instructions;
     }
 
     @Override

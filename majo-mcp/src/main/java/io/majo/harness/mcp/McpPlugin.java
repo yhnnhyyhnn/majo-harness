@@ -101,7 +101,7 @@ public final class McpPlugin implements Plugin {
                 for (McpConnection.ToolInfo info : connection.listTools()) {
                     registrations.add(tools.register(bridgedTool(service, serverName, info)));
                 }
-                registrations.addAll(capabilityTools(service, tools, serverName, connection));
+                registrations.addAll(promptTools(service, tools, serverName, connection));
                 LOG.info("mcp: mounted server \"{}\" with {} tool(s)", serverName,
                         service.tools(serverName).size());
             } catch (RuntimeException | IOException e) {
@@ -115,6 +115,20 @@ public final class McpPlugin implements Plugin {
                 LOG.error("mcp: server \"{}\" failed to mount: {}", serverName, e.getMessage(), e);
             }
         }
+        // dsh mcp-resources shape: shared tools with a server argument
+        // (aligned 2026-09; replaces the earlier per-server read-only tool)
+        if (!service.servers().isEmpty()) {
+            registrations.add(tools.register(sharedResourcesTool(service)));
+            registrations.add(tools.register(templatesTool(service)));
+            registrations.add(tools.register(readResourceTool(service)));
+        }
+        // dsh server-context shape: each server's instructions (plus the
+        // usable-server list) contribute a system-prompt section
+        io.majo.harness.agent.loop.AgentLoopService loop =
+                ctx.get(io.majo.harness.agent.loop.AgentLoopService.NAME);
+        if (loop != null) {
+            registrations.add(loop.registerSystemSection("mcp", () -> sectionText(service)));
+        }
         registrations.add(new Disposable() {
             @Override
             public void dispose() {
@@ -124,74 +138,163 @@ public final class McpPlugin implements Plugin {
         return Disposables.composite(registrations);
     }
 
-    /**
-     * Capability-gated extras (roadmap-0.5): when the server declares the
-     * resources/prompts capability, one namespaced read-only tool each
-     * exposes them — the tool descriptions enumerate what the server offered
-     * at mount time. Failures here are loud but non-fatal (tools stay).
-     */
-    private static List<Disposable> capabilityTools(McpService service, ToolRegistry tools,
-            String serverName, McpConnection connection) {
-        List<Disposable> registrations = new ArrayList<>();
-        JsonNode capabilities = connection.capabilities();
-        if (capabilities.path("resources").isObject()) {
-            try {
-                JsonNode result = connection.request("resources/list",
-                        MAPPER.createObjectNode());
-                StringBuilder description = new StringBuilder(
-                        "Read an MCP resource from server \"" + serverName
-                                + "\" by uri. Available at mount time:");
-                int count = 0;
-                for (JsonNode resource : result.path("resources")) {
-                    description.append("\n- ").append(resource.path("uri").asText());
-                    if (resource.hasNonNull("description")) {
-                        description.append(" — ").append(resource.get("description").asText());
-                    } else if (resource.hasNonNull("name")) {
-                        description.append(" — ").append(resource.get("name").asText());
-                    }
-                    count++;
-                }
-                if (count > 0) {
-                    ObjectNode schema = MAPPER.createObjectNode();
-                    schema.put("type", "object");
-                    schema.putObject("properties").putObject("uri").put("type", "string");
-                    schema.putArray("required").add("uri");
-                    registrations.add(tools.register(new Tool() {
-                        @Override
-                        public ToolSpec spec() {
-                            return new ToolSpec("mcp__" + serverName + "__read_resource",
-                                    description.toString(), schema);
-                        }
-
-                        @Override
-                        public ToolResult execute(ToolCall call) {
-                            try {
-                                JsonNode args = call.arguments() == null || call.arguments().isBlank()
-                                        ? MAPPER.createObjectNode()
-                                        : MAPPER.readTree(call.arguments());
-                                String uri = args.path("uri").asText("");
-                                if (uri.isBlank()) {
-                                    return ToolResult.error("read_resource: pass a resource uri");
-                                }
-                                return ToolResult.ok(service.request(serverName, "resources/read",
-                                        MAPPER.createObjectNode().put("uri", uri))
-                                        .path("contents").path(0).path("text").asText(""), Map.of());
-                            } catch (McpException e) {
-                                return ToolResult.error(e.getMessage());
-                            } catch (IOException e) {
-                                return ToolResult.error("mcp: cannot parse arguments: "
-                                        + e.getMessage());
-                            }
-                        }
-                    }));
-                }
-            } catch (RuntimeException e) {
-                LOG.error("mcp: resources of server \"{}\" failed to mount: {}",
-                        serverName, e.getMessage(), e);
+    /** The system section: usable servers plus per-server instructions. */
+    private static String sectionText(McpService service) {
+        List<String> servers = service.servers();
+        if (servers.isEmpty()) {
+            return null;
+        }
+        StringBuilder section = new StringBuilder("Connected MCP servers: ")
+                .append(String.join(", ", servers))
+                .append(". Their tools are the mcp__<server>__<tool> entries; "
+                        + "resources are readable via read_mcp_resource.");
+        for (String server : servers) {
+            String instructions = service.instructions(server);
+            if (instructions != null && !instructions.isBlank()) {
+                section.append("\n\n## mcp:").append(server).append("\n")
+                        .append(instructions);
             }
         }
-        if (capabilities.path("prompts").isObject()) {
-            try {
+        return section.toString();
+    }
+
+    /** Aggregates one node-list method ({@code resources/list} etc.) across servers. */
+    private static String aggregate(McpService service, String specifiedServer,
+            String arrayName, java.util.function.Function<String, JsonNode> call) {
+        List<String> servers = specifiedServer == null || specifiedServer.isBlank()
+                ? service.servers()
+                : List.of(specifiedServer);
+        StringBuilder text = new StringBuilder();
+        for (String server : servers) {
+            JsonNode result = call.apply(server);
+            for (JsonNode entry : result.path(arrayName)) {
+                if (text.length() > 0) {
+                    text.append('\n');
+                }
+                text.append('[').append(server).append("] ").append(entry);
+            }
+        }
+        return text.length() == 0 ? "(none)" : text.toString();
+    }
+
+    /** Shared {@code list_mcp_resources}: every server's resources (server arg optional). */
+    private static Tool sharedResourcesTool(McpService service) {
+        return new Tool() {
+            @Override
+            public ToolSpec spec() {
+                ObjectNode schema = MAPPER.createObjectNode();
+                schema.put("type", "object");
+                schema.putObject("properties").putObject("server").put("type", "string");
+                return new ToolSpec("list_mcp_resources",
+                        "Lists the resources exposed by connected MCP servers "
+                                + "(optional server filter).",
+                        schema);
+            }
+
+            @Override
+            public ToolResult execute(ToolCall call) {
+                try {
+                    JsonNode args = parseArgs(call);
+                    return ToolResult.ok(aggregate(service, args.path("server").asText(null),
+                            "resources", service::listResources), Map.of());
+                } catch (McpException e) {
+                    return ToolResult.error(e.getMessage());
+                } catch (IOException e) {
+                    return ToolResult.error("mcp: cannot parse arguments: " + e.getMessage());
+                }
+            }
+        };
+    }
+
+    /** Shared {@code list_mcp_resource_templates}: URI templates across servers. */
+    private static Tool templatesTool(McpService service) {
+        return new Tool() {
+            @Override
+            public ToolSpec spec() {
+                ObjectNode schema = MAPPER.createObjectNode();
+                schema.put("type", "object");
+                schema.putObject("properties").putObject("server").put("type", "string");
+                return new ToolSpec("list_mcp_resource_templates",
+                        "Lists the resource templates (parameterized URIs) exposed by "
+                                + "connected MCP servers (optional server filter).",
+                        schema);
+            }
+
+            @Override
+            public ToolResult execute(ToolCall call) {
+                try {
+                    JsonNode args = parseArgs(call);
+                    return ToolResult.ok(aggregate(service, args.path("server").asText(null),
+                            "resourceTemplates", service::listTemplates), Map.of());
+                } catch (McpException e) {
+                    return ToolResult.error(e.getMessage());
+                } catch (IOException e) {
+                    return ToolResult.error("mcp: cannot parse arguments: " + e.getMessage());
+                }
+            }
+        };
+    }
+
+    /** Shared {@code read_mcp_resource}: reads one resource by server + uri. */
+    private static Tool readResourceTool(McpService service) {
+        return new Tool() {
+            @Override
+            public ToolSpec spec() {
+                ObjectNode schema = MAPPER.createObjectNode();
+                schema.put("type", "object");
+                ObjectNode properties = schema.putObject("properties");
+                properties.putObject("server").put("type", "string");
+                properties.putObject("uri").put("type", "string");
+                schema.putArray("required").add("server").add("uri");
+                return new ToolSpec("read_mcp_resource",
+                        "Reads one MCP resource by server and uri; returns the resource "
+                                + "contents.",
+                        schema);
+            }
+
+            @Override
+            public ToolResult execute(ToolCall call) {
+                try {
+                    JsonNode args = parseArgs(call);
+                    String server = args.path("server").asText("");
+                    String uri = args.path("uri").asText("");
+                    if (server.isBlank() || uri.isBlank()) {
+                        return ToolResult.error("read_mcp_resource: pass server and uri");
+                    }
+                    JsonNode contents = service.readResource(server, uri).path("contents");
+                    if (!contents.isArray() || contents.isEmpty()) {
+                        return ToolResult.error("read_mcp_resource: empty contents for "
+                                + uri);
+                    }
+                    return ToolResult.ok(
+                            contents.path(0).path("text").asText(""), Map.of());
+                } catch (McpException e) {
+                    return ToolResult.error(e.getMessage());
+                } catch (IOException e) {
+                    return ToolResult.error("mcp: cannot parse arguments: " + e.getMessage());
+                }
+            }
+        };
+    }
+
+    private static JsonNode parseArgs(ToolCall call) throws IOException {
+        return call.arguments() == null || call.arguments().isBlank()
+                ? MAPPER.createObjectNode()
+                : MAPPER.readTree(call.arguments());
+    }
+
+    /**
+     * Per-server prompt tool (majo keeps prompts as namespaced read-only
+     * tools — a documented divergence: dsh does not bridge prompts at all).
+     * Failures here are loud but non-fatal (tools stay).
+     */
+    private static List<Disposable> promptTools(McpService service, ToolRegistry tools,
+            String serverName, McpConnection connection) {
+        List<Disposable> registrations = new ArrayList<>();
+        if (!connection.capabilities().path("prompts").isObject()) {
+            return registrations;
+        }
+        try {
                 JsonNode result = connection.request("prompts/list", MAPPER.createObjectNode());
                 StringBuilder description = new StringBuilder(
                         "Fetch an MCP prompt template from server \"" + serverName
@@ -255,7 +358,6 @@ public final class McpPlugin implements Plugin {
                 LOG.error("mcp: prompts of server \"{}\" failed to mount: {}",
                         serverName, e.getMessage(), e);
             }
-        }
         return registrations;
     }
 
@@ -300,6 +402,7 @@ public final class McpPlugin implements Plugin {
     public Map<String, Object> inject() {
         Map<String, Object> inject = new HashMap<>();
         inject.put(ToolRegistry.NAME, null);
+        inject.put(io.majo.harness.agent.loop.AgentLoopService.NAME, null);
         return inject;
     }
 

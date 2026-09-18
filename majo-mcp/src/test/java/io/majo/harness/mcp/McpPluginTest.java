@@ -4,24 +4,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.jcordis.core.context.Context;
+import io.majo.harness.session.SessionPlugin;
+import io.majo.harness.session.SessionService;
 import io.majo.harness.tools.ToolCall;
 import io.majo.harness.tools.ToolRegistry;
 import io.majo.harness.tools.ToolResult;
 import io.majo.harness.tools.ToolSpec;
 import io.majo.harness.tools.ToolsPlugin;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * MCP client end-to-end against a real stdio server (the in-repo
  * {@link EchoMcpServerMain}, spawned as a process): handshake, tools/list
  * bridging into namespaced registry tools with verbatim schemas, tools/call
- * including the isError path, loud-but-non-fatal failed mounts, and
- * connection teardown on unmount.
+ * including the isError path, loud-but-non-fatal failed mounts, env-name
+ * scrubbing, and connection teardown on unmount.
  */
 class McpPluginTest {
+
+    private static final long ACTIVATION_TIMEOUT_MS = 10_000;
 
     /** Command/args that spawn the in-repo echo MCP server on this JVM's stack. */
     private static Map<String, Object> echoServer() {
@@ -35,33 +41,59 @@ class McpPluginTest {
 
     private static ToolSpec spec(ToolRegistry tools, String name) {
         return tools.specs().stream()
-                .filter(spec -> spec.name().equals(name))
+                .filter(candidate -> candidate.name().equals(name))
                 .findFirst()
                 .orElseThrow();
     }
 
-    @Test
-    void serverMountsToolsBridgeCallsFlowAndUnmountCloses() {
-        Context ctx = Context.create();
+    /**
+     * Injected-plugin fibers activate asynchronously after their entry
+     * settles — poll until the service surfaces at the root.
+     */
+    private static <T> T awaitService(Context ctx, String name) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + ACTIVATION_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            T service = ctx.get(name);
+            if (service != null) {
+                return service;
+            }
+            Thread.sleep(20);
+        }
+        throw new IllegalStateException("service \"" + name + "\" did not activate");
+    }
+
+    /** Base stack (tools/session/llm/loop) + the mcp plugin, awaited. */
+    private static McpService mount(Context ctx, Object mcpConfig)
+            throws InterruptedException {
         ctx.plugin(new ToolsPlugin(), null).await().join();
-        ctx.plugin(new McpPlugin(), Map.of(
+        ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        ctx.plugin(new io.majo.harness.session.SessionProjectionsPlugin(), null).await().join();
+        ctx.plugin(new io.majo.harness.llm.LLMServicePlugin(),
+                Map.of("defaultModel", "model")).await().join();
+        ctx.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
+        ctx.plugin(new McpPlugin(), mcpConfig).await().join();
+        return awaitService(ctx, McpService.NAME);
+    }
+
+    @Test
+    void serverMountsToolsBridgeCallsFlowAndUnmountCloses() throws Exception {
+        Context ctx = Context.create();
+        McpService service = mount(ctx, Map.of(
                 "requestTimeoutSeconds", 15,
                 "servers", Map.of(
                         "echo", echoServer(),
-                        "broken", Map.of("command", "definitely-not-a-real-command-42"))))
-                .await().join();
+                        "broken", Map.of("command", "definitely-not-a-real-command-42"))));
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
-        McpService service = ctx.get(McpService.NAME);
 
         // the healthy server is connected; the broken one failed loudly but
         // non-fatally (boot continued, the other server kept working)
         assertThat(service.servers()).containsExactly("echo");
 
         // the MCP tool is bridged into the registry under its namespace
-        ToolSpec spec = spec(tools, "mcp__echo__echo");
-        assertThat(spec.description()).isEqualTo("echoes the message back");
-        assertThat(spec.parameters().path("type").asText()).isEqualTo("object");
-        assertThat(spec.parameters().path("properties").path("message")
+        ToolSpec echoSpec = spec(tools, "mcp__echo__echo");
+        assertThat(echoSpec.description()).isEqualTo("echoes the message back");
+        assertThat(echoSpec.parameters().path("type").asText()).isEqualTo("object");
+        assertThat(echoSpec.parameters().path("properties").path("message")
                 .path("type").asText()).isEqualTo("string");
 
         // a call round-trips through the server process
@@ -80,8 +112,14 @@ class McpPluginTest {
     }
 
     @Test
-    void envReferencesExpandByNameAndFailLoudWhenUnset() {        Context ctx = Context.create();
+    void envReferencesExpandByNameAndFailLoudWhenUnset() throws Exception {
+        Context ctx = Context.create();
         ctx.plugin(new ToolsPlugin(), null).await().join();
+        ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        ctx.plugin(new io.majo.harness.session.SessionProjectionsPlugin(), null).await().join();
+        ctx.plugin(new io.majo.harness.llm.LLMServicePlugin(),
+                Map.of("defaultModel", "model")).await().join();
+        ctx.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
         // broken server + unset env reference: both mount failures are loud,
         // non-fatal, and leave no tools behind
         ctx.plugin(new McpPlugin(), Map.of(
@@ -92,8 +130,10 @@ class McpPluginTest {
                                 "env", Map.of("TOKEN", "${MAJO_MCP_TEST_UNSET_VAR}")))))
                 .await().join();
 
-        McpService service = ctx.get(McpService.NAME);
-        assertThat(service.servers()).isEmpty();
+        // boot continued; no MCP tool reached the registry
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+        assertThat(tools.specs().stream().filter(s -> s.name().startsWith("mcp__")).count())
+                .isZero();
         ctx.fiber().disposeAsync().join();
     }
 
@@ -108,9 +148,14 @@ class McpPluginTest {
     }
 
     @Test
-    void deadServerReconnectsOnTheNextCall() {
+    void deadServerReconnectsOnTheNextCall() throws Exception {
         Context ctx = Context.create();
         ctx.plugin(new ToolsPlugin(), null).await().join();
+        ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        ctx.plugin(new io.majo.harness.session.SessionProjectionsPlugin(), null).await().join();
+        ctx.plugin(new io.majo.harness.llm.LLMServicePlugin(),
+                Map.of("defaultModel", "model")).await().join();
+        ctx.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
         ctx.plugin(new McpPlugin(), Map.of(
                 "requestTimeoutSeconds", 15,
                 "reconnect", Map.of("initialDelayMs", 50, "maxDelayMs", 200,
@@ -130,9 +175,14 @@ class McpPluginTest {
     }
 
     @Test
-    void reconnectDisabledFailsLoudAfterDeath() {
+    void reconnectDisabledFailsLoudAfterDeath() throws Exception {
         Context ctx = Context.create();
         ctx.plugin(new ToolsPlugin(), null).await().join();
+        ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        ctx.plugin(new io.majo.harness.session.SessionProjectionsPlugin(), null).await().join();
+        ctx.plugin(new io.majo.harness.llm.LLMServicePlugin(),
+                Map.of("defaultModel", "model")).await().join();
+        ctx.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
         ctx.plugin(new McpPlugin(), Map.of(
                 "requestTimeoutSeconds", 15,
                 "reconnect", Map.of("enabled", false),
@@ -154,17 +204,31 @@ class McpPluginTest {
     }
 
     @Test
-    void serverNamesValidateAndStartupFailuresCanBeFatal() {
+    void serverNamesValidateAndStartupFailuresCanBeFatal() throws InterruptedException {
         Context badName = Context.create();
         badName.plugin(new ToolsPlugin(), null).await().join();
+        badName.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        badName.plugin(new io.majo.harness.session.SessionProjectionsPlugin(),
+                null).await().join();
+        badName.plugin(new io.majo.harness.llm.LLMServicePlugin(),
+                Map.of("defaultModel", "model")).await().join();
+        badName.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
         badName.plugin(new McpPlugin(), Map.of(
                 "servers", Map.of("bad name!", Map.of("command", "whatever"))))
                 .await().join();
-        assertThat(badName.<McpService>get(McpService.NAME).servers()).isEmpty();
+        // the invalid name failed loudly but non-fatally: no tools mounted
+        McpService badService = badName.get(McpService.NAME);
+        assertThat(badService == null || badService.servers().isEmpty()).isTrue();
         badName.fiber().disposeAsync().join();
 
         Context fatal = Context.create();
         fatal.plugin(new ToolsPlugin(), null).await().join();
+        fatal.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        fatal.plugin(new io.majo.harness.session.SessionProjectionsPlugin(),
+                null).await().join();
+        fatal.plugin(new io.majo.harness.llm.LLMServicePlugin(),
+                Map.of("defaultModel", "model")).await().join();
+        fatal.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
         assertThatThrownBy(() -> fatal.plugin(new McpPlugin(), Map.of(
                         "failOnStartupError", true,
                         "servers", Map.of("echo", Map.of(

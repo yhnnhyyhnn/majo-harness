@@ -2,6 +2,7 @@ package io.majo.harness.agent.loop;
 
 import io.jcordis.core.context.Context;
 import io.jcordis.core.service.Service;
+import io.jcordis.core.util.Disposable;
 import io.majo.harness.interaction.InteractionContext;
 import io.majo.harness.llm.ChatMessage;
 import io.majo.harness.llm.ChatRequest;
@@ -71,6 +72,37 @@ public final class AgentLoopService extends Service {
     private final Map<String, AtomicBoolean> driving = new ConcurrentHashMap<>();
     /** Whether a turn body is currently executing (steer routing decision). */
     private final Map<String, AtomicBoolean> inTurn = new ConcurrentHashMap<>();
+    /**
+     * Lazily-evaluated system-prompt sections contributed by plugins (dsh
+     * server-context analog), assembled in id order after the configured
+     * prompt — and recorded verbatim in every REQUEST_HEADER, so the
+     * "model-visible means logged" invariant is unaffected.
+     */
+    private final java.util.concurrent.ConcurrentSkipListMap<String, java.util.function.Supplier<String>> systemSections =
+            new java.util.concurrent.ConcurrentSkipListMap<>();
+
+    /**
+     * Registers a lazily-evaluated system-prompt section under {@code id}
+     * (assembled after the configured prompt, in id order, as
+     * {@code # <id>} blocks); null/blank evaluations are skipped. The
+     * disposer removes the section.
+     */
+    public Disposable registerSystemSection(String id, java.util.function.Supplier<String> section) {
+        systemSections.put(id, section);
+        return () -> systemSections.remove(id);
+    }
+
+    /** The configured prompt plus every non-blank registered section, in id order. */
+    private String assembledPrompt(String prompt) {
+        StringBuilder assembled = new StringBuilder(prompt);
+        for (Map.Entry<String, java.util.function.Supplier<String>> section : systemSections.entrySet()) {
+            String text = section.getValue().get();
+            if (text != null && !text.isBlank()) {
+                assembled.append("\n\n# ").append(section.getKey()).append("\n").append(text);
+            }
+        }
+        return assembled.toString();
+    }
 
     public AgentLoopService(Context ctx, Object config) {
         super(ctx, NAME);
@@ -235,14 +267,17 @@ public final class AgentLoopService extends Service {
                 // steering + notes splice in at step boundaries, never mid-request
                 deliverQueuedNotes(sessionId);
             }
-                ChatRequest request = new ChatRequest(beforeRequest(sessionId, effectivePrompt),
-                        tools.specs(), modelOverride);
+            // sections assemble once per request; the header records exactly
+            // the assembled prompt so the log rebuild equals what was sent
+            String assembledPrompt = assembledPrompt(effectivePrompt);
+            ChatRequest request = new ChatRequest(beforeRequest(sessionId, assembledPrompt),
+                    tools.specs(), modelOverride);
             // log the request composition before it reaches the model so the
             // header (model, system prompt, offered tool names) is durable
             // even when the completion itself fails
             sessions.append(sessionId, SessionEventType.REQUEST_HEADER, Map.of(
                     SessionEvent.FIELD_MODEL, llm.modelNameOf(request),
-                    SessionEvent.FIELD_SYSTEM_PROMPT, effectivePrompt,
+                    SessionEvent.FIELD_SYSTEM_PROMPT, assembledPrompt,
                     SessionEvent.FIELD_TOOL_NAMES,
                     request.tools().stream().map(ToolSpec::name).toList()));
             ChatResponse response = textSink == null

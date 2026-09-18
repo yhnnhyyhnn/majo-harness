@@ -32,6 +32,9 @@ interface McpConnection extends AutoCloseable {
     /** The server's declared capabilities from the initialize result. */
     JsonNode capabilities();
 
+    /** The server's usage instructions from the initialize result, or {@code null}. */
+    String instructions();
+
     /** Generic JSON-RPC request (resources/prompts lifecycle). */
     JsonNode request(String method, JsonNode params);
 

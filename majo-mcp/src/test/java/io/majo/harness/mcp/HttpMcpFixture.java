@@ -90,6 +90,7 @@ final class HttpMcpFixture implements AutoCloseable {
         switch (method) {
             case "initialize" -> {
                 result.put("protocolVersion", "2025-06-18");
+                result.put("instructions", "Fixture usage: call upper with text.");
                 ObjectNode capabilities = result.putObject("capabilities");
                 capabilities.set("tools", MAPPER.createObjectNode());
                 capabilities.set("resources", MAPPER.createObjectNode());
@@ -118,6 +119,11 @@ final class HttpMcpFixture implements AutoCloseable {
                 resource.put("uri", "file:///probe.txt");
                 resource.put("name", "probe");
                 resource.put("description", "the probe resource");
+            }
+            case "resources/templates/list" -> {
+                ObjectNode template = result.putArray("resourceTemplates").addObject();
+                template.put("uriTemplate", "file:///{key}");
+                template.put("name", "keyed");
             }
             case "resources/read" -> {
                 ObjectNode content = result.putArray("contents").addObject();

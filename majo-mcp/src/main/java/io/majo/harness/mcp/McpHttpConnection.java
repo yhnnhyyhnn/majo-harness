@@ -39,6 +39,7 @@ final class McpHttpConnection implements McpConnection {
     private final AtomicLong nextId = new AtomicLong();
     private volatile JsonNode capabilities = MAPPER.createObjectNode();
     private volatile String sessionId;
+    private volatile String instructions;
     private volatile boolean closed;
 
     private McpHttpConnection(String serverName, URI endpoint, Map<String, String> headers,
@@ -81,6 +82,9 @@ final class McpHttpConnection implements McpConnection {
                         + "\" did not answer the initialize handshake");
             }
             connection.capabilities = result.path("capabilities");
+            if (result.hasNonNull("instructions")) {
+                connection.instructions = result.get("instructions").asText();
+            }
             connection.notify("notifications/initialized");
         } catch (RuntimeException e) {
             connection.close();
@@ -105,6 +109,11 @@ final class McpHttpConnection implements McpConnection {
     @Override
     public JsonNode capabilities() {
         return capabilities;
+    }
+
+    @Override
+    public String instructions() {
+        return instructions;
     }
 
     @Override
