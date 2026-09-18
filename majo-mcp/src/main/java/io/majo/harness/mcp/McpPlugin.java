@@ -22,18 +22,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Mounts the MCP client (roadmap-0.4 Phase 2, the dsh MCP analog): every
- * configured server is spawned over stdio, handshaken, and its
- * {@code tools/list} result is bridged into the {@code ToolRegistry} as
- * namespaced {@code mcp__<server>__<tool>} tools — they appear in
- * {@code /api/tools} and the generated tool catalog for free, and every call
- * rides the ordinary approval seam. Calls are bounded by the request
- * timeout; a server that fails to mount is logged loudly but does not break
- * the boot or the other servers.
+ * Mounts the MCP client (roadmap-0.4/0.5, the dsh MCP analog): every
+ * configured server row opens a connection — {@code command} spawns a stdio
+ * process, {@code url} speaks Streamable HTTP — and its {@code tools/list}
+ * result is bridged into the {@code ToolRegistry} as namespaced
+ * {@code mcp__<server>__<tool>} tools with verbatim JSON schemas; they
+ * appear in {@code /api/tools} and the generated tool catalog for free, and
+ * every call rides the ordinary approval seam. Servers declaring the
+ * resources/prompts capability get one namespaced read-only tool each.
+ * Calls are bounded by the request timeout; a server that fails to mount is
+ * logged loudly but does not break the boot or the other servers.
  *
  * <p>Config: {@code {requestTimeoutSeconds: <n>, servers: {<name>: {command,
- * args: [...], env: {VAR_NAME: "${ENV_VAR}"}}}}} — env values reference
- * environment variables by name (credentials never live in the profile).
+ * args, env} | {url, headers}}}} — env/header values reference environment
+ * variables by name (credentials never live in the profile); HTTP auth is
+ * explicit headers only, no OAuth.
  */
 public final class McpPlugin implements Plugin {
 
@@ -59,23 +62,12 @@ public final class McpPlugin implements Plugin {
             String serverName = String.valueOf(entry.getKey());
             Map<?, ?> row = entry.getValue() instanceof Map<?, ?> r ? r : Map.of();
             try {
-                if (row.get("command") == null) {
-                    throw new IllegalArgumentException("mcp: server \"" + serverName
-                            + "\" requires \"command\"");
-                }
-                String command = String.valueOf(row.get("command"));
-                List<String> args = new ArrayList<>();
-                if (row.get("args") instanceof List<?> list) {
-                    for (Object item : list) {
-                        args.add(String.valueOf(item));
-                    }
-                }
-                McpConnection connection = McpConnection.connect(
-                        serverName, command, args, envByName(row.get("env")), timeoutMillis);
+                McpConnection connection = McpConnection.open(serverName, row, timeoutMillis);
                 service.register(serverName, connection);
                 for (McpConnection.ToolInfo info : connection.listTools()) {
                     registrations.add(tools.register(bridgedTool(service, serverName, info)));
                 }
+                registrations.addAll(capabilityTools(service, tools, serverName, connection));
                 LOG.info("mcp: mounted server \"{}\" with {} tool(s)", serverName,
                         service.tools(serverName).size());
             } catch (RuntimeException | IOException e) {
@@ -89,6 +81,141 @@ public final class McpPlugin implements Plugin {
             }
         });
         return Disposables.composite(registrations);
+    }
+
+    /**
+     * Capability-gated extras (roadmap-0.5): when the server declares the
+     * resources/prompts capability, one namespaced read-only tool each
+     * exposes them — the tool descriptions enumerate what the server offered
+     * at mount time. Failures here are loud but non-fatal (tools stay).
+     */
+    private static List<Disposable> capabilityTools(McpService service, ToolRegistry tools,
+            String serverName, McpConnection connection) {
+        List<Disposable> registrations = new ArrayList<>();
+        JsonNode capabilities = connection.capabilities();
+        if (capabilities.path("resources").isObject()) {
+            try {
+                JsonNode result = connection.request("resources/list",
+                        MAPPER.createObjectNode());
+                StringBuilder description = new StringBuilder(
+                        "Read an MCP resource from server \"" + serverName
+                                + "\" by uri. Available at mount time:");
+                int count = 0;
+                for (JsonNode resource : result.path("resources")) {
+                    description.append("\n- ").append(resource.path("uri").asText());
+                    if (resource.hasNonNull("description")) {
+                        description.append(" — ").append(resource.get("description").asText());
+                    } else if (resource.hasNonNull("name")) {
+                        description.append(" — ").append(resource.get("name").asText());
+                    }
+                    count++;
+                }
+                if (count > 0) {
+                    ObjectNode schema = MAPPER.createObjectNode();
+                    schema.put("type", "object");
+                    schema.putObject("properties").putObject("uri").put("type", "string");
+                    schema.putArray("required").add("uri");
+                    registrations.add(tools.register(new Tool() {
+                        @Override
+                        public ToolSpec spec() {
+                            return new ToolSpec("mcp__" + serverName + "__read_resource",
+                                    description.toString(), schema);
+                        }
+
+                        @Override
+                        public ToolResult execute(ToolCall call) {
+                            try {
+                                JsonNode args = call.arguments() == null || call.arguments().isBlank()
+                                        ? MAPPER.createObjectNode()
+                                        : MAPPER.readTree(call.arguments());
+                                String uri = args.path("uri").asText("");
+                                if (uri.isBlank()) {
+                                    return ToolResult.error("read_resource: pass a resource uri");
+                                }
+                                return ToolResult.ok(service.request(serverName, "resources/read",
+                                        MAPPER.createObjectNode().put("uri", uri))
+                                        .path("contents").path(0).path("text").asText(""), Map.of());
+                            } catch (McpException e) {
+                                return ToolResult.error(e.getMessage());
+                            } catch (IOException e) {
+                                return ToolResult.error("mcp: cannot parse arguments: "
+                                        + e.getMessage());
+                            }
+                        }
+                    }));
+                }
+            } catch (RuntimeException e) {
+                LOG.error("mcp: resources of server \"{}\" failed to mount: {}",
+                        serverName, e.getMessage(), e);
+            }
+        }
+        if (capabilities.path("prompts").isObject()) {
+            try {
+                JsonNode result = connection.request("prompts/list", MAPPER.createObjectNode());
+                StringBuilder description = new StringBuilder(
+                        "Fetch an MCP prompt template from server \"" + serverName
+                                + "\" by name. Available at mount time:");
+                int count = 0;
+                for (JsonNode prompt : result.path("prompts")) {
+                    description.append("\n- ").append(prompt.path("name").asText());
+                    if (prompt.hasNonNull("description")) {
+                        description.append(" — ").append(prompt.get("description").asText());
+                    }
+                    count++;
+                }
+                if (count > 0) {
+                    ObjectNode schema = MAPPER.createObjectNode();
+                    schema.put("type", "object");
+                    ObjectNode properties = schema.putObject("properties");
+                    properties.putObject("name").put("type", "string");
+                    properties.putObject("arguments").put("type", "object");
+                    schema.putArray("required").add("name");
+                    registrations.add(tools.register(new Tool() {
+                        @Override
+                        public ToolSpec spec() {
+                            return new ToolSpec("mcp__" + serverName + "__get_prompt",
+                                    description.toString(), schema);
+                        }
+
+                        @Override
+                        public ToolResult execute(ToolCall call) {
+                            try {
+                                JsonNode args = call.arguments() == null || call.arguments().isBlank()
+                                        ? MAPPER.createObjectNode()
+                                        : MAPPER.readTree(call.arguments());
+                                String name = args.path("name").asText("");
+                                if (name.isBlank()) {
+                                    return ToolResult.error("get_prompt: pass a prompt name");
+                                }
+                                ObjectNode params = MAPPER.createObjectNode().put("name", name);
+                                if (args.path("arguments").isObject()) {
+                                    params.set("arguments", args.get("arguments"));
+                                }
+                                JsonNode result = service.request(serverName, "prompts/get", params);
+                                StringBuilder text = new StringBuilder();
+                                for (JsonNode message : result.path("messages")) {
+                                    if (text.length() > 0) {
+                                        text.append('\n');
+                                    }
+                                    text.append(message.path("role").asText("user")).append(": ")
+                                            .append(message.path("content").path("text").asText());
+                                }
+                                return ToolResult.ok(text.toString(), Map.of());
+                            } catch (McpException e) {
+                                return ToolResult.error(e.getMessage());
+                            } catch (IOException e) {
+                                return ToolResult.error("mcp: cannot parse arguments: "
+                                        + e.getMessage());
+                            }
+                        }
+                    }));
+                }
+            } catch (RuntimeException e) {
+                LOG.error("mcp: prompts of server \"{}\" failed to mount: {}",
+                        serverName, e.getMessage(), e);
+            }
+        }
+        return registrations;
     }
 
     /**
@@ -126,30 +253,6 @@ public final class McpPlugin implements Plugin {
                 }
             }
         };
-    }
-
-    /**
-     * Env entries reference environment variables by name — {@code ${VAR}}
-     * expands at mount time and an unset variable fails loudly (credentials
-     * by name, never by value).
-     */
-    private static Map<String, String> envByName(Object value) {
-        Map<String, String> env = new LinkedHashMap<>();
-        if (!(value instanceof Map<?, ?> map)) {
-            return env;
-        }
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            String raw = String.valueOf(entry.getValue());
-            String resolved = raw.startsWith("${") && raw.endsWith("}")
-                    ? System.getenv(raw.substring(2, raw.length() - 1))
-                    : raw;
-            if (resolved == null) {
-                throw new IllegalArgumentException("mcp: env \"" + entry.getKey()
-                        + "\" references variable " + raw + " which is not set");
-            }
-            env.put(String.valueOf(entry.getKey()), resolved);
-        }
-        return env;
     }
 
     @Override

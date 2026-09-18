@@ -381,6 +381,24 @@ Working area for the next iteration.
 
 Working area for the next iteration (roadmap-0.5).
 
+- **MCP Streamable HTTP transport** (roadmap-0.5 Phase 1): server rows
+  accept a `url` + `headers` form alongside `command` stdio — remote MCP
+  servers over Streamable HTTP, answering either single JSON bodies or
+  SSE streams; the `Mcp-Session-Id` from initialize is captured and echoed,
+  and `DELETE` ends the session on unmount. Header values reference
+  environment variables by name (bearer/custom headers only — no OAuth, a
+  documented limitation). A row must carry exactly one of `command`/`url`.
+  The transport seam split into `McpStdioConnection`/`McpHttpConnection`
+  behind the `McpConnection` interface; tested in-process for both wire
+  shapes. MCP 远程传输：url + headers 形式挂载远程 server，JSON/SSE 双响应，
+  会话头贯穿。
+- **MCP prompts & resources**: servers declaring the capability get one
+  namespaced read-only tool each — `mcp__<server>__read_resource`
+  (resources enumerated in the description, `resources/read` behind it) and
+  `mcp__<server>__get_prompt` (`prompts/get` rendering `role: text`
+  lines). Prompts land as a tool rather than the commands seam because the
+  command registry lives in `majo-boot`, which already depends on
+  `majo-mcp` — the reverse edge would be circular.
 - **Hot-path hardening**: session-append sequence numbers are memoized per
   session (one derivation parse per session per process; remove forgets the
   memo, imports extend it) — appends no longer re-parse the whole log;

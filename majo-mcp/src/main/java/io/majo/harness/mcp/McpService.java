@@ -56,6 +56,15 @@ public final class McpService extends Service {
         return connection.callTool(toolName, arguments);
     }
 
+    /** Generic JSON-RPC request against a connected server (resources/prompts). */
+    public JsonNode request(String serverName, String method, JsonNode params) {
+        McpConnection connection = connections.get(serverName);
+        if (connection == null) {
+            throw new McpException("unknown MCP server \"" + serverName + "\"");
+        }
+        return connection.request(method, params);
+    }
+
     void closeAll() {
         connections.values().forEach(McpConnection::close);
         connections.clear();
