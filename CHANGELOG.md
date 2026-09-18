@@ -503,8 +503,6 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration.
-
 - **Workflow v1** (new `majo-workflow` module, dsh workflow analog — design
   finalized in `docs/workflow-design.md` after review): named YAML step
   lists under `workflows/` (sample `review-doc.yml`); steps run **in order
