@@ -25,7 +25,7 @@ store 锁）；10 个同会话 turn 突发安全执行，同时另一会话被�
 
 ```bash
 bash scripts/build-plugin-demo.sh                 # 构建 examples/web-plugin-demo/web-demo.jar
-java -jar majo-web/target/majo-web-0.5.1.jar \
+java -jar majo-web/target/majo-web-0.6.0.jar \
   --port 8899 --profile web-mock \
   --plugin web-demo=./examples/web-plugin-demo/web-demo.jar
 ```
@@ -72,7 +72,7 @@ java -jar majo-web/target/majo-web-0.5.1.jar \
 ## 4. 真模型（可选，需网络）
 
 ```bash
-java -jar majo-web/target/majo-web-0.5.1.jar --profile web --port 8900
+java -jar majo-web/target/majo-web-0.6.0.jar --profile web --port 8900
 curl -X POST -H 'Content-Type: application/json' \
   -d '{"task":"What is 33 times 4?","model":"kilo-free"}' \
   http://127.0.0.1:8900/api/subagents/delegate
