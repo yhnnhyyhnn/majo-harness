@@ -519,7 +519,7 @@ Working area for the next iteration.
   allow-tag honored by the approval gate). `onFailure: abort|continue`.
   Workflow v1 按评审结论落地：YAML 定义、子会话执行、默认审批 + 定义级豁免。
 
-## [Unreleased]
+## [0.6.1] - 2026-09-18
 
 - **Workflow Phase B**: consecutive steps marked `parallel: true` fan out
   concurrently (virtual threads; barrier-tested), `/workflow status` lists
@@ -528,3 +528,7 @@ Working area for the next iteration.
   first non-ok step — recorded outputs and args are replayed, succeeded
   steps skipped (durable/crash-resume remains future work).
   Workflow Phase B：并行步骤组、运行记录 status、进程内 resume。
+
+## [Unreleased]
+
+Working area for the next iteration.

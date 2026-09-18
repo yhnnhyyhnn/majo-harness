@@ -7,7 +7,7 @@
   <parent>
     <groupId>io.majo.harness</groupId>
     <artifactId>majo-harness-parent</artifactId>
-    <version>0.6.0</version>
+    <version>0.6.1</version>
   </parent>
 
   <artifactId>majo-tools</artifactId>
