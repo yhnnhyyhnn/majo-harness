@@ -136,6 +136,22 @@
         ]
       }
     },
+    "/api/mentions": {
+      "get": {
+        "summary": "@file mention suggestions under the workspace (dsh file-reference; ?q= filter)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/sessions/{id}/mentions": {
+      "post": {
+        "summary": "Inject a referenced file as a durable context note ({path})",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/messages/{id}/{seq}/feedback": {
       "put": {
         "summary": "Rate a message up|down",

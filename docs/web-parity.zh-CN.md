@@ -25,6 +25,7 @@
 | 回答的 Markdown/代码渲染 | ✅ | 等价 `ui-renderer`：带语言标签的代码块、链接、列表、GFM 管道表格（有单测） |
 | ask-user 行内问题气泡 | ✅ | approval/ask 特性 rail（`ctx.interactions` 队列 → SSE） |
 | 审批提示 UI | ✅ | rail 提供 allow/reject（`ctx.interactions`+`tool-approval`） |
+| @file 提及（`file-reference`） | ✅ | composer `@` 对工作区补全（`GET /api/mentions`）；选中即把文件注入为持久 `CONTEXT_NOTE`（`POST /api/sessions/{id}/mentions`）——纯文本、64k 截断、二进制拒绝 |
 
 ## 会话与配置
 

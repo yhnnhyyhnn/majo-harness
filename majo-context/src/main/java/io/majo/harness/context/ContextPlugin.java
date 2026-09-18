@@ -69,6 +69,7 @@ public final class ContextPlugin implements Plugin {
 
         String instructions = readInstructions(dir, files);
         SessionService sessions = ctx.get(SessionService.NAME);
+        new FileReferencesService(ctx, sessions, dir);
         Disposable listener = ctx.on(SessionService.EVENT, (thisArg, args) -> {
             SessionEvent event = (SessionEvent) args[1];
             if (event.type() != SessionEventType.TURN_START) {

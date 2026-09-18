@@ -469,6 +469,13 @@ Working area for the next iteration.
 
 Working area for the next iteration.
 
+- **@file mentions** (dsh `file-reference` analog, extending the context
+  family): the composer's `@` completion lists workspace files
+  (`GET /api/mentions?q=`, walk skipping VCS/build noise); selecting one
+  injects the file as a durable `CONTEXT_NOTE`
+  (`POST /api/sessions/{id}/mentions`) — text-only (binary rejected at a
+  NUL-byte probe), 64k-char truncation. The model reads referenced files
+  without a tool round-trip. `@file` 提及：composer 补全 + 内容持久注入。
 - **MCP reconnect & startup policy** (dsh `reconnect`/`failOnStartupError`
   analog): dead server connections lazily reopen with exponential backoff
   (500ms→30s, 10 attempts, 60s stability-window budget reset; config

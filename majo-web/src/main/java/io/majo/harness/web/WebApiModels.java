@@ -124,6 +124,11 @@ public final class WebApiModels {
 
     public record Ok(boolean ok) {}
 
+    /** {@code @file} mention plumbing (dsh file-reference). */
+    public record MentionFile(String path, long size) {}
+
+    public record MentionSuggestions(List<MentionFile> files) {}
+
     /** Streamed text delta. */
     public record StreamChunk(String text) {}
 

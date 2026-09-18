@@ -212,6 +212,8 @@ public final class WebMain {
                 .get("/api/sessions/*/schedules", (exchange, id) -> Http.json(exchange, 200, sessions.schedules(id)))
                 .get("/api/sessions/*/context", (exchange, id) -> Http.json(exchange, 200, sessions.context(id)))
                 .get("/api/sessions/*/events", (exchange, id) -> Http.json(exchange, 200, sessions.eventsSince(id, Http.query(exchange))))
+                .get("/api/mentions", (exchange, rest) -> Http.json(exchange, 200, sessions.mentionSuggestions(Http.query(exchange))))
+                .post("/api/sessions/*/mentions", (exchange, id) -> Http.json(exchange, 200, sessions.injectMention(exchange, id)))
                 .get("/api/sessions/*", (exchange, id) -> Http.json(exchange, 200, sessions.sessionDetail(id)))
                 .post("/api/turn", (exchange, rest) -> Http.json(exchange, 200, turns.turn(exchange)))
                 .get("/plugins/*", (exchange, rest) -> plugins.asset(exchange, "/plugins/" + rest))

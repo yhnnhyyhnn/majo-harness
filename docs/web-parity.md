@@ -26,6 +26,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Markdown/code rendering in answers | ✅ | `ui-renderer` equivalent: code blocks with language caption, links, lists, GFM pipe tables (unit-tested) |
 | Ask-user inline question bubble | ✅ | rail in approval/ask features (`ctx.interactions` queue → SSE) |
 | Approval prompt UI | ✅ | rail with allow/reject (`ctx.interactions` + `tool-approval`) |
+| @file mentions (`file-reference`) | ✅ | composer `@` completion over the workspace (`GET /api/mentions`); selecting injects the file as a durable `CONTEXT_NOTE` (`POST /api/sessions/{id}/mentions`) — text-only, 64k truncation, binary rejected |
 
 ## Session & configuration
 

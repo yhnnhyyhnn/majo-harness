@@ -7,6 +7,7 @@ import type {
   ContextSnapshot,
   Info,
   JobsIndex,
+  MentionSuggestions,
   ModelState,
   Ok,
   PlanSnapshot,
@@ -192,6 +193,19 @@ export const api = {
   /** Estimated context pressure (dsh token-meter). */
   context(sessionId: string): Promise<ContextSnapshot> {
     return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/context");
+  },
+
+  /** @file mention suggestions (dsh file-reference). */
+  mentionSuggest(q: string): Promise<MentionSuggestions> {
+    return rpc("/api/mentions?q=" + encodeURIComponent(q));
+  },
+
+  /** Injects a referenced file as a durable context note. */
+  mentionInject(sessionId: string, path: string): Promise<Ok> {
+    return postJson(
+      "/api/sessions/" + encodeURIComponent(sessionId) + "/mentions",
+      { path }
+    );
   },
 
   subagents(): Promise<SubagentsIndex> {

@@ -94,8 +94,43 @@ public final class SessionHandlers {
                 .toList());
     }
 
-    /** Estimated context pressure (dsh Context Meter); unavailable when the module is unmounted. */
-    public WebApiModels.ContextSnapshot context(String sessionId) {
+    /**
+     * {@code @file} mention suggestions (dsh file-reference analog); empty
+     * when the context module is unmounted.
+     */
+    public WebApiModels.MentionSuggestions mentionSuggestions(Map<String, String> query) {
+        io.majo.harness.context.FileReferencesService references =
+                ctx.boot.ctx().get(io.majo.harness.context.FileReferencesService.NAME);
+        if (references == null) {
+            return new WebApiModels.MentionSuggestions(List.of());
+        }
+        return new WebApiModels.MentionSuggestions(references
+                .suggest(query.getOrDefault("q", ""))
+                .stream()
+                .map(suggestion -> new WebApiModels.MentionFile(suggestion.path(),
+                        suggestion.size()))
+                .toList());
+    }
+
+    /** Injects a referenced file as a durable context note (loud on bad paths). */
+    public WebApiModels.Ok injectMention(HttpExchange exchange, String sessionId)
+            throws IOException {
+        SessionService sessions = ctx.boot.service(SessionService.NAME);
+        SessionSupport.requireKnownSession(sessions, sessionId);
+        io.majo.harness.context.FileReferencesService references =
+                ctx.boot.ctx().get(io.majo.harness.context.FileReferencesService.NAME);
+        if (references == null) {
+            throw new IllegalArgumentException(
+                    "mentions: the context module is not mounted in this profile");
+        }
+        Map<?, ?> request = Http.JSON.readValue(exchange.getRequestBody(), Map.class);
+        Object path = request.get("path");
+        int injected = references.inject(sessionId,
+                path == null ? null : String.valueOf(path));
+        return new WebApiModels.Ok(true);
+    }
+
+    /** Estimated context pressure (dsh Context Meter); unavailable when the module is unmounted. */    public WebApiModels.ContextSnapshot context(String sessionId) {
         SessionService sessions = ctx.boot.service(SessionService.NAME);
         SessionSupport.requireKnownSession(sessions, sessionId);
         io.majo.harness.compaction.CompactionService compaction =

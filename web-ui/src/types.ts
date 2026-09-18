@@ -118,6 +118,15 @@ export interface JobsIndex {
   jobs: JobInfo[];
 }
 
+export interface MentionFile {
+  path: string;
+  size: number;
+}
+
+export interface MentionSuggestions {
+  files: MentionFile[];
+}
+
 export interface ModelState {
   model?: string;
   models: string[];
