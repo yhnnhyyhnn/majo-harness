@@ -501,7 +501,7 @@ Working area for the next iteration.
   pruner: spill handles the *current* oversized result, pruning handles
   old ones. 溢出外置：超大工具结果落盘为文件，模型只见预览 + 取回指引。
 
-## [Unreleased]
+## [0.6.0] - 2026-09-18
 
 - **Workflow v1** (new `majo-workflow` module, dsh workflow analog — design
   finalized in `docs/workflow-design.md` after review): named YAML step
@@ -518,3 +518,7 @@ Working area for the next iteration.
   `allowModelTrigger: true` opts out via the new spec-description
   allow-tag honored by the approval gate). `onFailure: abort|continue`.
   Workflow v1 按评审结论落地：YAML 定义、子会话执行、默认审批 + 定义级豁免。
+
+## [Unreleased]
+
+Working area for the next iteration.

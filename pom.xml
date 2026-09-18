@@ -6,7 +6,7 @@
 
   <groupId>io.majo.harness</groupId>
   <artifactId>majo-harness-parent</artifactId>
-  <version>0.5.1</version>
+  <version>0.6.0</version>
   <packaging>pom</packaging>
 
   <name>majo-harness</name>
