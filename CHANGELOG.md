@@ -439,3 +439,20 @@ Working area for the next iteration.
   templates) running in a dedicated child session, `WORKFLOW_*` durable
   events, `/workflow` command + `workflow_run` tool. Design only —
   implementation follows after review.
+
+- **dsh reference audit 2026-09-18** (`docs/audit-dsh-2026-09(.zh-CN).md`):
+  incremental audit after the reference moved ~1,700 commits. Core
+  mechanisms (agent-loop/inbox, approval audit, jobs/schedule, llm-replay)
+  unchanged — majo's ports stay aligned. Three adjustments adopted:
+  (1) **tool-call timeout** (`tools` plugin `toolTimeoutSeconds`; web
+  profiles enable 600s — hung calls return a clear timed-out error, dsh
+  guard timeout-policy analog); (2) **tool-result pruning keeps
+  head+tail** (defaults 4096/1024 behind a marker line, dsh
+  compaction-tool-result-pruner shape; `pruneChars` default aligned
+  4000 → 8192); (3) **MCP stdio env scrubbing** (spawned servers see only
+  an allowlisted subset of the ambient env plus explicit `env` — ambient
+  credentials cannot leak, dsh scrubbedParentEnv analog). Deliberate
+  divergences documented (prompts bridged, per-server resource tools,
+  `auto` policy value, session format v1); future candidates listed
+  (context injection, spill, ssh, ptc-runtime, MCP reconnect).
+  参考项目增量审计：核心机制无变化；采纳三处调整；分歧与候选成文。

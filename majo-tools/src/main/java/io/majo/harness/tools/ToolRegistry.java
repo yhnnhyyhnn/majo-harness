@@ -23,9 +23,25 @@ public final class ToolRegistry extends Service {
     public static final String NAME = "tools";
 
     private final Map<String, Tool> tools = new ConcurrentHashMap<>();
+    /**
+     * Per-call deadline in millis (dsh guard timeout-policy analog); 0
+     * disables. Hosts enable it in their profile — hung tool calls must
+     * return a clear timed-out error instead of stalling the turn forever.
+     */
+    private final long timeoutMillis;
+    private final java.util.concurrent.ExecutorService toolExecutor =
+            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
 
     public ToolRegistry(Context ctx) {
+        this(ctx, Map.of());
+    }
+
+    public ToolRegistry(Context ctx, Object config) {
         super(ctx, NAME);
+        long seconds = config instanceof Map<?, ?> map
+                && map.get("toolTimeoutSeconds") instanceof Number number
+                && number.longValue() > 0 ? number.longValue() : 0;
+        this.timeoutMillis = seconds * 1000L;
     }
 
     /**
@@ -54,9 +70,31 @@ public final class ToolRegistry extends Service {
             return ToolResult.error("unknown tool \"" + call.name() + "\"");
         }
         Object result = ctx.waterfall(null, ToolEvents.PRE_EXECUTE, new Object[] {call, tool},
-                args -> runTool(tool, (ToolCall) args[0]));
+                args -> runToolBounded(tool, (ToolCall) args[0]));
         return (ToolResult) ctx.waterfall(null, ToolEvents.POST_EXECUTE, new Object[] {call, result},
                 args -> args[1]);
+    }
+
+    /** Runs the tool under the configured deadline; the task is interrupted on expiry. */
+    private ToolResult runToolBounded(Tool tool, ToolCall call) {
+        if (timeoutMillis <= 0) {
+            return runTool(tool, call);
+        }
+        java.util.concurrent.Future<ToolResult> future =
+                toolExecutor.submit(() -> runTool(tool, call));
+        try {
+            return future.get(timeoutMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException e) {
+            future.cancel(true);
+            return ToolResult.error("tool \"" + call.name() + "\" timed out after "
+                    + (timeoutMillis / 1000) + "s (toolTimeoutSeconds)");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            future.cancel(true);
+            return ToolResult.error("tool \"" + call.name() + "\" was interrupted");
+        } catch (java.util.concurrent.ExecutionException e) {
+            return ToolResult.error("tool \"" + call.name() + "\" threw " + e.getCause());
+        }
     }
 
     private static ToolResult runTool(Tool tool, ToolCall call) {

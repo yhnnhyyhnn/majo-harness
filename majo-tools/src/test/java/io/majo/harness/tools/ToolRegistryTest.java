@@ -137,4 +137,26 @@ class ToolRegistryTest {
         policy.dispose();
         root.fiber().disposeAsync().join();
     }
+
+    @Test
+    void toolTimeoutReturnsAClearErrorAndStopsTheCall() {
+        Context root = Context.create();
+        root.plugin(new ToolsPlugin(), Map.of("toolTimeoutSeconds", 1)).await().join();
+        ToolRegistry tools = root.get(ToolRegistry.NAME);
+        tools.register(new Tool() {
+            @Override public ToolSpec spec() { return SPEC; }
+            @Override public ToolResult execute(ToolCall call) {
+                try {
+                    Thread.sleep(10_000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return ToolResult.ok("finished", Map.of());
+            }
+        });
+        ToolResult result = tools.execute(ToolCall.of("demo", "x"));
+        assertThat(result.ok()).isFalse();
+        assertThat(result.visibleText()).contains("timed out after 1s");
+        root.fiber().disposeAsync().join();
+    }
 }

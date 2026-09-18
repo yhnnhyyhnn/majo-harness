@@ -30,8 +30,11 @@ public final class CompactionService extends io.jcordis.core.service.Service {
 
     public static final String NAME = "compaction";
     public static final int DEFAULT_MAX_TOKENS = 32_000;
-    /** Tool results older than the final assistant round collapse to a placeholder past this many characters. */
-    public static final int DEFAULT_PRUNE_CHARS = 4_000;
+    /** Tool results older than the final assistant round collapse past this many characters (dsh compaction-tool-result-pruner: thresholdChars). */
+    public static final int DEFAULT_PRUNE_CHARS = 8_192;
+    /** Kept head/tail of a pruned result (dsh: head 4096 / tail 1024). */
+    public static final int DEFAULT_PRUNE_HEAD_CHARS = 4_096;
+    public static final int DEFAULT_PRUNE_TAIL_CHARS = 1_024;
     public static final String SUMMARIZE_INSTRUCTION =
             "Summarize the conversation so far for a replacement context: keep key facts, "
                     + "decisions, user preferences, and open threads. Be concise but complete. "
@@ -42,6 +45,8 @@ public final class CompactionService extends io.jcordis.core.service.Service {
     private final LLMService llm;
     private final int maxTokens;
     private final int pruneChars;
+    private final int pruneHeadChars;
+    private final int pruneTailChars;
 
     public CompactionService(io.jcordis.core.context.Context ctx, SessionService sessions,
             LLMService llm, Object config) {
@@ -66,6 +71,16 @@ public final class CompactionService extends io.jcordis.core.service.Service {
                     "compaction: pruneChars must be >= 0, got " + prune);
         }
         this.pruneChars = prune;
+        this.pruneHeadChars = intConfig(config, "headChars", DEFAULT_PRUNE_HEAD_CHARS);
+        this.pruneTailChars = intConfig(config, "tailChars", DEFAULT_PRUNE_TAIL_CHARS);
+    }
+
+    private static int intConfig(Object config, String key, int fallback) {
+        if (config instanceof Map<?, ?> map && map.get(key) instanceof Number number
+                && number.intValue() >= 0) {
+            return number.intValue();
+        }
+        return fallback;
     }
 
     /** The configured pressure budget in (estimated) tokens. */
@@ -93,12 +108,13 @@ public final class CompactionService extends io.jcordis.core.service.Service {
     }
 
     /**
-     * Tool-result pruning (roadmap-0.4): in <em>derived</em> history, tool
-     * results older than the final assistant round collapse to a
-     * {@code [pruned tool result: N chars]} placeholder once they exceed the
-     * prune threshold; the newest round stays intact (the model usually needs
-     * it verbatim). The durable log is untouched — pruning is a deterministic
-     * function of the log, so "model-visible means logged" still holds.
+     * Tool-result pruning (dsh compaction-tool-result-pruner shape): in
+     * <em>derived</em> history, tool results older than the final assistant
+     * round collapse past the prune threshold to a marker line plus the
+     * result's kept head and tail (defaults 4096/1024); the newest round
+     * stays intact. The durable log is untouched — pruning is a
+     * deterministic function of the log, so "model-visible means logged"
+     * still holds.
      */
     public List<ChatMessage> pruneToolResults(List<ChatMessage> history) {
         int lastAssistant = -1;
@@ -123,9 +139,23 @@ public final class CompactionService extends io.jcordis.core.service.Service {
                 pruned = new ArrayList<>(history.subList(0, index));
             }
             pruned.add(ChatMessage.toolResult(message.toolCallId(),
-                    "[pruned tool result: " + message.content().length() + " chars]"));
+                    prunePlaceholder(message.content())));
         }
         return pruned == null ? history : List.copyOf(pruned);
+    }
+
+    /** Marker line plus kept head/tail; results the window covers stay whole. */
+    private String prunePlaceholder(String content) {
+        int length = content.length();
+        int head = Math.min(pruneHeadChars, length);
+        int tail = Math.min(pruneTailChars, Math.max(0, length - head));
+        if (head + tail >= length) {
+            return content; // the kept window covers everything: pruning saves nothing
+        }
+        return "[pruned tool result: " + length + " chars]\n"
+                + content.substring(0, head)
+                + "\n[...pruned " + (length - head - tail) + " chars...]\n"
+                + content.substring(length - tail);
     }
 
     /** The estimated token pressure of the session's current derived history. */

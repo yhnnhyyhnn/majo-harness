@@ -12,6 +12,8 @@
   name: session-projections
 - id: tools
   name: tools
+  config:
+    toolTimeoutSeconds: 600
 - id: settings
   name: settings
   config:

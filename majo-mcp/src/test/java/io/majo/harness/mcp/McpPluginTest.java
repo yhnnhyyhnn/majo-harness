@@ -79,8 +79,7 @@ class McpPluginTest {
     }
 
     @Test
-    void envReferencesExpandByNameAndFailLoudWhenUnset() {
-        Context ctx = Context.create();
+    void envReferencesExpandByNameAndFailLoudWhenUnset() {        Context ctx = Context.create();
         ctx.plugin(new ToolsPlugin(), null).await().join();
         // broken server + unset env reference: both mount failures are loud,
         // non-fatal, and leave no tools behind
@@ -95,5 +94,15 @@ class McpPluginTest {
         McpService service = ctx.get(McpService.NAME);
         assertThat(service.servers()).isEmpty();
         ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void stdioChildEnvIsScrubbedToAnAllowlist() {
+        // dsh scrubbedParentEnv analog: ambient secrets never reach servers
+        Map<String, String> scrubbed = McpStdioConnection.scrub(Map.of(
+                "PATH", "/usr/bin", "HOME", "/home/x",
+                "SECRET_TOKEN", "s3cr3t", "AWS_SECRET_ACCESS_KEY", "nope",
+                "ANTHROPIC_API_KEY", "nope"));
+        assertThat(scrubbed).containsOnlyKeys("PATH", "HOME");
     }
 }

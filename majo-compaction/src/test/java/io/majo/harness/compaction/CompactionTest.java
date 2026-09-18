@@ -201,14 +201,15 @@ class CompactionTest {
      */
     @Test
     void oversizedOlderToolResultsPruneInTheRequestAndMatchThePipeline() {
-        Context ctx = harness(Map.of("maxTokens", 1_000_000, "pruneChars", 200));
+        Context ctx = harness(Map.of("maxTokens", 1_000_000,
+                "pruneChars", 200, "headChars", 10, "tailChars", 5));
         SessionService sessions = ctx.get(SessionService.NAME);
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
         LLMService llm = ctx.get(LLMService.NAME);
         io.majo.harness.agent.loop.AgentLoopService loop =
                 ctx.get(io.majo.harness.agent.loop.AgentLoopService.NAME);
         String sessionId = sessions.createSession();
-        String bigResult = "BIGRESULT " + "x".repeat(500);
+        String bigResult = "HEAD-" + "m".repeat(500) + "-TAIL";
         tools.register(new io.majo.harness.tools.Tool() {
             @Override
             public ToolSpec spec() {
@@ -267,12 +268,16 @@ class CompactionTest {
         assertThat(finalRequests).hasSize(1);
         assertThat(violations).isEmpty();
 
-        // the older oversized result is a placeholder; the newest stays intact
+        // the older oversized result keeps its head/tail behind a marker; the
+        // newest round stays intact
         String joined = finalRequests.get(0).messages().stream()
                 .map(message -> message.content() == null ? "" : message.content())
                 .reduce("", String::concat);
         assertThat(joined).contains("[pruned tool result: " + bigResult.length() + " chars]");
-        assertThat(joined).doesNotContain("BIGRESULT");
+        assertThat(joined).contains("[...pruned " + (bigResult.length() - 15) + " chars...]");
+        assertThat(joined).contains("HEAD-mmmmm");      // head retained
+        assertThat(joined).contains("-TAIL");          // tail retained
+        assertThat(joined).doesNotContain("m".repeat(20)); // middle gone
         assertThat(joined).contains("tiny-result");
     }
 }

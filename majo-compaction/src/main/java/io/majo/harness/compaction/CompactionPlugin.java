@@ -16,9 +16,10 @@ import java.util.Map;
  * event) and returns the fresh derivation — the request the model finally
  * sees is exactly what the log rebuilds.
  *
- * <p>Config: {@code {maxTokens: <n>, pruneChars: <n>}} — estimated-token
- * budget (default 32000) and the per-tool-result prune threshold applied to
- * derived history older than the final assistant round (default 4000).
+ * <p>Config: {@code {maxTokens: <n>, pruneChars: <n>, headChars: <n>,
+ * tailChars: <n>}}} — estimated-token budget (default 32000) and the
+ * tool-result pruning knobs applied to derived history older than the final
+ * assistant round: threshold (default 8192, kept head 4096 / tail 1024).
  */
 public final class CompactionPlugin implements Plugin {
 

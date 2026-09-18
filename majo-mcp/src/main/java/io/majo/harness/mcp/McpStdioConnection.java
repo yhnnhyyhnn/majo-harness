@@ -53,6 +53,11 @@ final class McpStdioConnection implements McpConnection {
         argv.add(command);
         argv.addAll(args);
         ProcessBuilder builder = new ProcessBuilder(argv);
+        // dsh scrubbedParentEnv analog: the ambient environment is scrubbed to
+        // an allowlist before the explicit config merges — credentials that
+        // live in the parent env must not leak to server processes
+        builder.environment().clear();
+        builder.environment().putAll(scrub(System.getenv()));
         builder.environment().putAll(env);
         builder.redirectError(ProcessBuilder.Redirect.INHERIT);
         Process process = builder.start();
@@ -77,6 +82,30 @@ final class McpStdioConnection implements McpConnection {
             throw e;
         }
         return connection;
+    }
+
+    /** Ambient keys a spawned server may see; everything else is scrubbed. */
+    private static final List<String> ENV_ALLOWLIST = List.of(
+            "PATH", "HOME", "USER", "USERNAME", "LANG", "LC_ALL",
+            "TMPDIR", "TEMP", "TMP",
+            // Windows process basics
+            "SystemRoot", "SystemDrive", "COMSPEC", "PATHEXT",
+            "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA",
+            "PROGRAMFILES", "PROGRAMW6432");
+
+    /**
+     * Filters an environment down to the allowlist — the dsh
+     * {@code scrubbedParentEnv} analog.
+     */
+    static Map<String, String> scrub(Map<String, String> ambient) {
+        Map<String, String> scrubbed = new java.util.LinkedHashMap<>();
+        for (String key : ENV_ALLOWLIST) {
+            String value = ambient.get(key);
+            if (value != null) {
+                scrubbed.put(key, value);
+            }
+        }
+        return scrubbed;
     }
 
     @Override
