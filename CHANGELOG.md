@@ -377,7 +377,7 @@ Working area for the next iteration.
   poll. 会话文件代际化：`<id>.v1.jsonl` + 格式头 + 一步迁移 + 降级保护；
   会话列表不再全量解析。
 
-## [Unreleased]
+## [0.4.0] - 2026-09-18
 
 Working area for the next iteration (roadmap-0.5).
 
@@ -423,3 +423,7 @@ Working area for the next iteration (roadmap-0.5).
   unmount teardown). Gated by `MAJO_MCP_PROBE=1` and run best-effort in CI,
   like the DuckDuckGo probe; verification docs gained the manual command.
   MCP 实测探针：对官方 filesystem server 验证握手/工具清单/读取往返。
+
+## [Unreleased]
+
+Working area for the next iteration.
