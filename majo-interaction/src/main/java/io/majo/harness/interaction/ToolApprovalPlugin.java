@@ -52,11 +52,21 @@ public final class ToolApprovalPlugin implements Plugin {
         String defaultPolicy = defaultPolicy(config);
         ctx.on(ToolEvents.PRE_EXECUTE, (thisArg, args) -> {
             ToolCall call = (ToolCall) args[0];
+            io.majo.harness.tools.Tool tool = (io.majo.harness.tools.Tool) args[1];
             @SuppressWarnings("unchecked")
             java.util.function.Supplier<Object> next =
                     (java.util.function.Supplier<Object>) args[args.length - 1];
             if (!gated.isEmpty() && !gated.contains(call.name())) {
                 return next.get(); // not gated: delegate
+            }
+            // definition-declared exemption: a tool whose spec carries the
+            // allow-tag bypasses gating (dsh allowModelTrigger analog — the
+            // tool author takes responsibility, e.g. a workflow_run for a
+            // workflow marked allowModelTrigger: true)
+            if (tool.spec().description() != null
+                    && tool.spec().description()
+                            .contains(io.majo.harness.tools.Tool.ALLOW_MODEL_TRIGGER_TAG)) {
+                return next.get();
             }
             String sessionId = InteractionContext.sessionId();
             ApprovalRequest request = ApprovalRequest.of(

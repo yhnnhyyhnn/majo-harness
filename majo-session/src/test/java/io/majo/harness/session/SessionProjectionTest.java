@@ -163,6 +163,9 @@ class SessionProjectionTest {
                 case TypedSessionEvent.PlanSet ignored -> SessionEventType.PLAN_SET;
                 case TypedSessionEvent.ScheduleSet ignored -> SessionEventType.SCHEDULE_SET;
                 case TypedSessionEvent.ContextCompaction ignored -> SessionEventType.CONTEXT_COMPACTION;
+                case TypedSessionEvent.WorkflowStart ignored -> SessionEventType.WORKFLOW_START;
+                case TypedSessionEvent.WorkflowStep ignored -> SessionEventType.WORKFLOW_STEP;
+                case TypedSessionEvent.WorkflowEnd ignored -> SessionEventType.WORKFLOW_END;
             };
         }
 

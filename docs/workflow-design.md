@@ -1,8 +1,12 @@
-# Workflow v1 — design proposal (not yet implemented)
+# Workflow v1 — design + Phase A SHIPPED (2026-09-18)
 
 dsh's workflow package (`packages/workflow`) is the largest deferred
-feature. This document proposes a pragmatic v1 so the design can be
-reviewed before any code lands. Nothing here is built yet.
+feature. This document proposed a pragmatic v1; the three open questions
+were reviewed and decided (YAML; child-session execution; `workflow_run`
+gated by default with a definition-level `allowModelTrigger` opt-out), and
+**Phase A is implemented** (`majo-workflow`: parser + runner + `/workflow`
+command + `workflow_run` tool + trajectory labels; sample
+`workflows/review-doc.yml`). Phase B remains future work.
 
 ## Motivation & non-goals
 

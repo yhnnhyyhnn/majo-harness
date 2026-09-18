@@ -175,6 +175,18 @@ function summarize(event: EventFrame): string {
     const data = event.data as Record<string, unknown>;
     return `schedule ${data.scheduleId ?? "?"}: ${data.prompt ?? ""}`;
   }
+  if (event.kind.startsWith("WORKFLOW_") && event.data) {
+    const data = event.data as Record<string, unknown>;
+    const run = String(data.runId ?? "?");
+    if (event.kind === "WORKFLOW_START") {
+      return `workflow ${String(data.content ?? "?")} [${run}] started`;
+    }
+    if (event.kind === "WORKFLOW_STEP") {
+      return `workflow [${run}] step ${data.stepId ?? "?"}: ${data.status ?? "?"} (${
+        data.durationMs ?? "?"}ms)`;
+    }
+    return `workflow [${run}] ${data.content ?? "?"} (${data.durationMs ?? "?"}ms)`;
+  }
   if (event.data) return clip(oneLine(JSON.stringify(event.data)), 220);
   return "";
 }

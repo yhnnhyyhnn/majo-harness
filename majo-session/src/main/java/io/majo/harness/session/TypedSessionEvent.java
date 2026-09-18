@@ -78,6 +78,16 @@ public sealed interface TypedSessionEvent {
     /** Context compaction: the summary of everything logged before it. */
     record ContextCompaction(String summary, long upToSeq) implements TypedSessionEvent {}
 
+    /** A workflow run opened. */
+    record WorkflowStart(String name, String runId) implements TypedSessionEvent {}
+
+    /** One workflow step finished. */
+    record WorkflowStep(String stepId, String status, long durationMs, String runId)
+            implements TypedSessionEvent {}
+
+    /** A workflow run closed. */
+    record WorkflowEnd(String status, String runId) implements TypedSessionEvent {}
+
     /** A serialized assistant tool call (the log's wire form of a ToolCall). */
     record ToolCallEntry(String id, String name, String arguments) {}
 
@@ -123,6 +133,18 @@ public sealed interface TypedSessionEvent {
                     text(fields, SessionEvent.FIELD_CONTENT),
                     Long.parseLong(String.valueOf(fields.getOrDefault(
                             SessionEvent.FIELD_UP_TO_SEQ, 0))));
+            case WORKFLOW_START -> new WorkflowStart(
+                    text(fields, SessionEvent.FIELD_CONTENT),
+                    text(fields, SessionEvent.FIELD_RUN_ID));
+            case WORKFLOW_STEP -> new WorkflowStep(
+                    text(fields, SessionEvent.FIELD_STEP_ID),
+                    text(fields, SessionEvent.FIELD_STATUS),
+                    Long.parseLong(String.valueOf(fields.getOrDefault(
+                            SessionEvent.FIELD_DURATION_MS, 0))),
+                    text(fields, SessionEvent.FIELD_RUN_ID));
+            case WORKFLOW_END -> new WorkflowEnd(
+                    text(fields, SessionEvent.FIELD_CONTENT),
+                    text(fields, SessionEvent.FIELD_RUN_ID));
         };
     }
 

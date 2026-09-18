@@ -42,6 +42,7 @@
     <module>majo-mcp</module>
     <module>majo-context</module>
     <module>majo-spill</module>
+    <module>majo-workflow</module>
     <module>web-ui</module>
     <module>majo-cli</module>
     <module>majo-web</module>

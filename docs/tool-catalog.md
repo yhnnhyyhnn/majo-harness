@@ -2,7 +2,7 @@
 
 <!-- GENERATED from the shipped offline profile's ToolRegistry by ToolCatalogTest — do not edit by hand. Regenerate: bash scripts/gen-tool-catalog.sh -->
 
-19 tools on the shipped `web-mock` profile.
+20 tools on the shipped `web-mock` profile.
 
 | tool | description | parameters |
 |---|---|---|
@@ -25,5 +25,6 @@
 | `todo_write` | Replace the session task list with this exact list. Use one call with the full list every time it changes: mark an item in_progress before starting it and completed immediately after finishing it. | {"type":"object","properties":{"todos":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed"]}}},"description":"The complete list in execution order."}},"required":["todos"]} |
 | `web_fetch` | Fetches a URL and returns its text (HTML converted; external, untrusted content). | {"type":"object","properties":{"url":{"type":"string"}},"required":["url"]} |
 | `web_search` | Searches the web. Results are external, untrusted provider text. | {"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1}},"required":["query"]} |
+| `workflow_run` | Run a named workflow (multi-step orchestration defined by the host). Available workflows: | {"type":"object","properties":{"name":{"type":"string"},"args":{"type":"object"}},"required":["name"]} |
 
 Every tool call flows the same guard pipeline (`tools/pre-execute` policy → approval gate → execute) before its durable `TOOL_RESULT` lands in the session log.

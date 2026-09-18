@@ -467,8 +467,6 @@ Working area for the next iteration.
 
 ## [0.5.1] - 2026-09-18
 
-Working area for the next iteration.
-
 - **Repeat-call advisory** (dsh guard repeat-tool-reminder analog): the
   `tools` plugin gains `repeatReminder` — consecutive identical calls (same
   tool and arguments) get an advisory line appended to the result, nudging
@@ -506,3 +504,19 @@ Working area for the next iteration.
 ## [Unreleased]
 
 Working area for the next iteration.
+
+- **Workflow v1** (new `majo-workflow` module, dsh workflow analog — design
+  finalized in `docs/workflow-design.md` after review): named YAML step
+  lists under `workflows/` (sample `review-doc.yml`); steps run **in order
+  in scoped child sessions** via the delegation seam (`turn` inherits
+  defaults, `delegate` honors per-step model/systemPrompt/maxSteps/
+  autoApprove/allowedTools), data flowing only through explicit
+  `{{args.*}}` / `{{steps.<id>.output}}` templates (no expression language;
+  missing keys fail the step loudly). `WORKFLOW_START`/`STEP`/`END` durable
+  bookkeeping events land in the requesting session (Trajectory renders
+  them; derivation skips them). Triggers: `/workflow [name [json-args]]`
+  host command and the `workflow_run` tool (description enumerates the
+  definitions; shipped profiles gate it behind approval, and a definition's
+  `allowModelTrigger: true` opts out via the new spec-description
+  allow-tag honored by the approval gate). `onFailure: abort|continue`.
+  Workflow v1 按评审结论落地：YAML 定义、子会话执行、默认审批 + 定义级豁免。

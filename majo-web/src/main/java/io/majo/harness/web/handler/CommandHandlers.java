@@ -34,6 +34,53 @@ public final class CommandHandlers {
         }
         commands.register("status", "harness counters (sessions/plugins/tools/models)",
                 (commandCtx, args) -> statusText());
+        commands.register("workflow", "run a named workflow: /workflow [name [json-args]]; bare /workflow lists",
+                (commandCtx, args) -> {
+                    io.majo.harness.workflow.WorkflowService workflow =
+                            ctx.boot.ctx().get(io.majo.harness.workflow.WorkflowService.NAME);
+                    if (workflow == null) {
+                        throw new IllegalArgumentException(
+                                "workflow: the workflow module is not mounted in this profile");
+                    }
+                    List<String> argv = new java.util.ArrayList<>();
+                    if (args.get("args") instanceof List<?> raw) {
+                        for (Object item : raw) {
+                            argv.add(String.valueOf(item));
+                        }
+                    }
+                    if (argv.isEmpty()) {
+                        StringBuilder list = new StringBuilder("workflows:");
+                        for (String name : workflow.names()) {
+                            io.majo.harness.workflow.WorkflowDefinition definition =
+                                    workflow.definition(name);
+                            list.append("\n- ").append(name);
+                            if (definition != null && definition.description() != null) {
+                                list.append(" — ").append(definition.description());
+                            }
+                        }
+                        return workflow.names().isEmpty()
+                                ? "no workflows found in the workflows/ directory"
+                                : list.toString();
+                    }
+                    String sessionId = String.valueOf(args.get("session"));
+                    if (sessionId.isBlank() || "null".equals(sessionId)) {
+                        throw new IllegalArgumentException("workflow: pass the current session id");
+                    }
+                    String name = argv.get(0);
+                    Map<String, String> runArgs = new java.util.LinkedHashMap<>();
+                    if (argv.size() > 1) {
+                        try {
+                            Map<?, ?> parsed = Http.JSON.readValue(argv.get(1), Map.class);
+                            parsed.forEach((key, value) -> runArgs.put(String.valueOf(key),
+                                    String.valueOf(value)));
+                        } catch (com.fasterxml.jackson.core.JacksonException e) {
+                            throw new IllegalArgumentException(
+                                    "workflow: args must be a JSON object: " + e.getMessage());
+                        }
+                    }
+                    String summary = workflow.run(sessionId, name, runArgs);
+                    return "workflow \"" + name + "\" completed:\n" + summary;
+                });
         commands.register("delegate", "run a scoped child delegation (task, model?)", (commandCtx, args) -> {
             Object taskValue = args.get("task");
             if (taskValue == null || String.valueOf(taskValue).isBlank()) {

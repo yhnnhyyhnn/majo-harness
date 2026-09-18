@@ -40,5 +40,11 @@ public enum SessionEventType {
      * Context compaction (dsh compaction): the content carries the summary of
      * everything logged before it; derived history restarts from the summary.
      */
-    CONTEXT_COMPACTION
+    CONTEXT_COMPACTION,
+    /** A workflow run opened (content: workflow name; run id in fields). */
+    WORKFLOW_START,
+    /** One workflow step finished (content: step id + status; duration in fields). */
+    WORKFLOW_STEP,
+    /** A workflow run closed (content: final status; summary in fields). */
+    WORKFLOW_END
 }

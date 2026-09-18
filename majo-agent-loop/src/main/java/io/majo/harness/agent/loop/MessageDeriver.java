@@ -25,11 +25,13 @@ public final class MessageDeriver {
         for (SessionEvent event : events) {
             switch (event.type()) {
                 case TURN_START, TURN_END, REQUEST_HEADER, APPROVAL_REQUESTED, APPROVAL_DECIDED,
-                        TODO_SET, PLAN_SET, SCHEDULE_SET -> {
+                        TODO_SET, PLAN_SET, SCHEDULE_SET,
+                        WORKFLOW_START, WORKFLOW_STEP, WORKFLOW_END -> {
                     // turn boundaries, request headers, the approval audit
-                    // pair, and todo/plan/schedule bookkeeping are not model
-                    // messages (tool results and spliced notes carry the
-                    // model text; schedules deliver their prompt as a turn)
+                    // pair, todo/plan/schedule bookkeeping, and workflow
+                    // progress are not model messages (tool results and
+                    // spliced notes carry the model text; schedules deliver
+                    // their prompt as a turn)
                 }
                 case CONTEXT_COMPACTION -> {
                     // dsh compaction: everything logged before this event is

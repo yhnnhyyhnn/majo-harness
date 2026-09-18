@@ -7,6 +7,13 @@ package io.majo.harness.tools;
  */
 public interface Tool {
 
+    /**
+     * Spec-description marker that exempts a gated tool from approval (the
+     * tool author takes responsibility — e.g. a trigger for a workflow whose
+     * definition declares {@code allowModelTrigger: true}).
+     */
+    String ALLOW_MODEL_TRIGGER_TAG = "[allow-model-trigger]";
+
     ToolSpec spec();
 
     ToolResult execute(ToolCall call);

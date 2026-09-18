@@ -61,6 +61,12 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_CANCELLED = "cancelled";
     /** Log cursor covered by a {@link SessionEventType#CONTEXT_COMPACTION}. */
     public static final String FIELD_UP_TO_SEQ = "upToSeq";
+    /** Correlation id of a workflow run (WORKFLOW_* events). */
+    public static final String FIELD_RUN_ID = "runId";
+    /** Step id of a {@link SessionEventType#WORKFLOW_STEP}. */
+    public static final String FIELD_STEP_ID = "stepId";
+    /** Step duration (millis) of a {@link SessionEventType#WORKFLOW_STEP}. */
+    public static final String FIELD_DURATION_MS = "durationMs";
 
     public SessionEvent {
         fields = fields == null ? Map.of() : Map.copyOf(fields);

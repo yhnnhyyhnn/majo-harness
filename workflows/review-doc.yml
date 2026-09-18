@@ -1,0 +1,20 @@
+# Sample workflow (design: docs/workflow-design.md). Steps run in order, each
+# in a scoped child session; data flows only through explicit templates.
+name: review-doc
+description: Extract the key claims of a document and review them
+steps:
+  - id: fetch
+    kind: delegate
+    prompt: |
+      Read the file {{args.path}} and list the document's key claims,
+      one per line. If the file does not exist, say so.
+    allowedTools: [read_file]
+  - id: review
+    kind: turn
+    prompt: |
+      Review these claims for factual errors and rate overall quality
+      in one short paragraph:
+
+      {{steps.fetch.output}}
+onFailure: abort
+allowModelTrigger: false

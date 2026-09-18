@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.majo.harness</groupId>
+    <artifactId>majo-harness-parent</artifactId>
+    <version>0.5.1</version>
+  </parent>
+
+  <artifactId>majo-workflow</artifactId>
+  <name>majo-workflow</name>
+  <description>Workflow v1 (dsh workflow analog, design docs/workflow-design.md): named YAML step lists (turn/delegate) run in scoped child sessions, WORKFLOW_* durable events, workflow_run tool</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-session</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-subagent</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-interaction</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.majo.harness</groupId>
+      <artifactId>majo-util</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.yhnnhyyhnn</groupId>
+      <artifactId>jcordis-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>2.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

@@ -32,6 +32,7 @@ import io.majo.harness.compaction.CompactionPlugin;
 import io.majo.harness.context.ContextPlugin;
 import io.majo.harness.mcp.McpPlugin;
 import io.majo.harness.spill.SpillPlugin;
+import io.majo.harness.workflow.WorkflowPlugin;
 import io.majo.harness.plan.PlanPlugin;
 import io.majo.harness.sandbox.SandboxPlugin;
 import io.majo.harness.schedule.SchedulePlugin;
@@ -104,6 +105,7 @@ public final class HarnessBoot {
     public static final String PLUGIN_MCP = McpPlugin.NAME;
     public static final String PLUGIN_CONTEXT = ContextPlugin.NAME;
     public static final String PLUGIN_SPILL = SpillPlugin.NAME;
+    public static final String PLUGIN_WORKFLOW = WorkflowPlugin.NAME;
     public static final String PLUGIN_COMMANDS = io.majo.harness.boot.commands.CommandRegistryPlugin.NAME;
 
     private final Context ctx;
@@ -157,6 +159,7 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_MCP, new McpPlugin());
         loader.builtin(PLUGIN_CONTEXT, new ContextPlugin());
         loader.builtin(PLUGIN_SPILL, new SpillPlugin());
+        loader.builtin(PLUGIN_WORKFLOW, new WorkflowPlugin());
         loader.builtin(PLUGIN_COMMANDS, new io.majo.harness.boot.commands.CommandRegistryPlugin());
     }
 

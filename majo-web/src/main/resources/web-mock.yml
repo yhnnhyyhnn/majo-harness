@@ -41,7 +41,7 @@
 - id: tool-approval
   name: tool-approval
   config:
-    tools: [calc, read_file, run_shell, run_command, web_fetch, web_search]
+    tools: [calc, read_file, run_shell, run_command, web_fetch, web_search, workflow_run]
 - id: todo
   name: todo
 - id: plan
@@ -64,6 +64,10 @@
   name: spill
   config:
     maxInlineBytes: 16384
+- id: workflow
+  name: workflow
+  config:
+    dir: workflows
 - id: skill-files
   name: skill-files
   config:

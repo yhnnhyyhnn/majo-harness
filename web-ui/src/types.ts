@@ -15,6 +15,9 @@ export type EventKind =
   | "PLAN_SET"
   | "SCHEDULE_SET"
   | "CONTEXT_COMPACTION"
+  | "WORKFLOW_START"
+  | "WORKFLOW_STEP"
+  | "WORKFLOW_END"
 
 export interface ApprovalDecision {
   decision?: string;
