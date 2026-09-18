@@ -44,6 +44,7 @@
     <module>majo-spill</module>
     <module>majo-workflow</module>
     <module>majo-ssh</module>
+    <module>majo-ptc</module>
     <module>web-ui</module>
     <module>majo-cli</module>
     <module>majo-web</module>

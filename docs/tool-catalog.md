@@ -2,7 +2,7 @@
 
 <!-- GENERATED from the shipped offline profile's ToolRegistry by ToolCatalogTest — do not edit by hand. Regenerate: bash scripts/gen-tool-catalog.sh -->
 
-20 tools on the shipped `web-mock` profile.
+21 tools on the shipped `web-mock` profile.
 
 | tool | description | parameters |
 |---|---|---|
@@ -16,6 +16,7 @@
 | `load_skill` | Loads the full instructions of a named skill (see list_skills for names). | {"type":"object","properties":{"skill":{"type":"string"}},"required":["skill"]} |
 | `read_file` | Reads the UTF-8 text content of a file at an absolute path. | {"type":"object","properties":{"path":{"type":"string"}},"required":["path"]} |
 | `run_background` | Run a command-line script in the background and return immediately. The result arrives as a message when the script finishes; inspect it earlier with job_output, list jobs with job_list, stop one with job_kill. | {"type":"object","properties":{"script":{"type":"string"}},"required":["script"]} |
+| `run_code` | Executes a JavaScript program and returns its stdout output. Use this for multi-step computation, JSON transformation, math, string processing, or any logic that would otherwise require multiple tool calls. Write self-contained code; print or console.log the final result. | {"type":"object","properties":{"code":{"type":"string"}},"required":["code"]} |
 | `run_command` | Runs a command as an argv list (executable plus arguments; no shell interpolation) and returns its stdout, or the exit code and stderr on failure. | {"type":"object","properties":{"argv":{"type":"array","items":[{"type":"string"}]}},"required":["argv"]} |
 | `run_shell` | Runs a command-line script in the configured shell family and returns its stdout, or the exit code and stderr on failure. | {"type":"object","properties":{"script":{"type":"string"}},"required":["script"]} |
 | `schedule_create` | Schedule a reminder for this session: the prompt is sent back to you as a new turn at the due time. Pass exactly one of after_seconds (one-shot delay), every_seconds (repeat, minimum 300), or at (ISO local date-time, yyyy-MM-ddTHH:mm:ss). | {"type":"object","properties":{"prompt":{"type":"string"},"after_seconds":{"type":"number"},"every_seconds":{"type":"number"},"at":{"type":"string"}},"required":["prompt"]} |

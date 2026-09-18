@@ -68,6 +68,10 @@
   name: workflow
   config:
     dir: workflows
+- id: ptc
+  name: ptc
+  config:
+    timeoutSeconds: 30
 - id: skill-files
   name: skill-files
   config:
