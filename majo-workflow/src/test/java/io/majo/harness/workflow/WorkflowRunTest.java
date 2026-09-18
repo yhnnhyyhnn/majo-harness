@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -102,18 +103,139 @@ class WorkflowRunTest {
         assertThat(end.content()).contains("failed");
     }
 
+    /**
+     * Phase B: consecutive {@code parallel: true} steps run concurrently —
+     * the barrier calc only clears when all three children arrive, so a
+     * sequential runner would blow the duration budget.
+     */
+    @Test
+    void parallelStepsRunConcurrently(@TempDir Path dir) throws Exception {
+        CountDownLatch barrier = new CountDownLatch(3);
+        Tool barrierCalc = new Tool() {
+            @Override
+            public ToolSpec spec() {
+                return ToolSpec.of("calc", "demo arithmetic");
+            }
+
+            @Override
+            public ToolResult execute(ToolCall call) {
+                barrier.countDown();
+                try {
+                    barrier.await(20, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return ToolResult.ok("barrier-ok", Map.of());
+            }
+        };
+        Files.writeString(dir.resolve("fan.yml"), """
+                name: fan
+                steps:
+                  - id: p1
+                    kind: turn
+                    prompt: "fan one"
+                    parallel: true
+                  - id: p2
+                    kind: turn
+                    prompt: "fan two"
+                    parallel: true
+                  - id: p3
+                    kind: turn
+                    prompt: "fan three"
+                    parallel: true
+                  - id: join
+                    kind: turn
+                    prompt: "joined"
+                """);
+        Context ctx = harness(dir, barrierCalc, request -> {
+            // every child must pass through the barrier calc before finishing
+            boolean sawTool = request.messages().stream()
+                    .anyMatch(message -> message.role() == io.majo.harness.llm.ChatRole.TOOL);
+            if (sawTool) {
+                return io.majo.harness.llm.ChatResponse.text("done");
+            }
+            return io.majo.harness.llm.ChatResponse.toolCalls(
+                    List.of(ToolCall.of("calc", "{}")));
+        });
+        SessionService sessions = awaitService(ctx, SessionService.NAME);
+        WorkflowService workflow = awaitService(ctx, WorkflowService.NAME);
+
+        String sessionId = sessions.createSession();
+        String summary = workflow.run(sessionId, "fan", Map.of());
+
+        assertThat(summary).isEqualTo("done");
+        assertThat(barrier.getCount()).as("all three children reached the barrier")
+                .isZero();
+        WorkflowService.RunRecord record = workflow.records().get(0);
+        assertThat(record.status).isEqualTo("completed");
+        assertThat(record.durationMs)
+                .as("parallel fan-out must clear a 3-way barrier in bounded time")
+                .isLessThan(20_000);
+        long okSteps = sessions.events(sessionId).stream()
+                .filter(event -> event.type() == SessionEventType.WORKFLOW_STEP)
+                .count();
+        assertThat(okSteps).isEqualTo(4); // three parallel + the join step
+        ctx.fiber().disposeAsync().join();
+    }
+
+    /** Phase B: a failed run is resumable in-process from its failed step. */
+    @Test
+    void failedRunsResumeInProcess(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("once.yml"), """
+                name: once
+                steps:
+                  - id: only
+                    kind: turn
+                    prompt: "say something"
+                """);
+        java.util.concurrent.atomic.AtomicInteger modelCalls =
+                new java.util.concurrent.atomic.AtomicInteger();
+        Context ctx = harness(dir, null, request -> {
+            if (modelCalls.incrementAndGet() == 1) {
+                throw new io.majo.harness.llm.ModelException("transient outage");
+            }
+            String expression = lastUserText(request.messages());
+            return io.majo.harness.llm.ChatResponse.text("answer(" + expression + ")");
+        });
+        SessionService sessions = awaitService(ctx, SessionService.NAME);
+        WorkflowService workflow = awaitService(ctx, WorkflowService.NAME);
+
+        String sessionId = sessions.createSession();
+        assertThatThrownBy(() -> workflow.run(sessionId, "once", Map.of()))
+                .hasMessageContaining("transient outage");
+        WorkflowService.RunRecord failed = workflow.records().get(0);
+        assertThat(failed.status).isEqualTo("failed");
+
+        // resume replays recorded args, skips nothing (the step never succeeded)
+        String summary = workflow.resume(failed.runId);
+        assertThat(summary).contains("answer(say something)");
+        assertThat(failed.status).isEqualTo("completed");
+        assertThat(modelCalls.get()).as("exactly one failed + one replayed call")
+                .isEqualTo(2);
+
+        // resuming a non-failed run is rejected
+        assertThatThrownBy(() -> workflow.resume(failed.runId))
+                .hasMessageContaining("nothing to resume");
+        ctx.fiber().disposeAsync().join();
+    }
+
     /** Loop + subagent + mock model: the child answers are deterministic. */
     private static Context harness(Path workflowDir) throws Exception {
+        return harness(workflowDir, null, request -> {
+            String expression = lastUserText(request.messages());
+            return io.majo.harness.llm.ChatResponse.text("answer(" + expression + ")");
+        });
+    }
+
+    private static Context harness(Path workflowDir, Tool extraCalc,
+            io.majo.harness.llm.ChatModel model) throws Exception {
         Context ctx = Context.create();
         ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
         ctx.plugin(new io.majo.harness.session.SessionProjectionsPlugin(), null).await().join();
         ctx.plugin(new ToolsPlugin(), null).await().join();
         ctx.plugin(new LLMServicePlugin(), Map.of("defaultModel", "model")).await().join();
         LLMService llm = ctx.get(LLMService.NAME);
-        llm.registerModel("model", request -> {
-            String expression = lastUserText(request.messages());
-            return io.majo.harness.llm.ChatResponse.text("answer(" + expression + ")");
-        });
+        llm.registerModel("model", model);
         // mirror the proven SubagentSeamTest stack: loop before subagent,
         // projections and the subagent tool consumer mounted alongside
         ctx.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
@@ -122,7 +244,7 @@ class WorkflowRunTest {
         // the child offers a marker tool so the mock produces a two-round
         // conversation ending in a deterministic final answer
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
-        tools.register(new Tool() {
+        tools.register(extraCalc != null ? extraCalc : new Tool() {
             @Override
             public ToolSpec spec() {
                 return ToolSpec.of("calc", "demo arithmetic");

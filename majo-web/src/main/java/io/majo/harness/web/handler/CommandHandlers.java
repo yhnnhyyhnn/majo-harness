@@ -34,7 +34,8 @@ public final class CommandHandlers {
         }
         commands.register("status", "harness counters (sessions/plugins/tools/models)",
                 (commandCtx, args) -> statusText());
-        commands.register("workflow", "run a named workflow: /workflow [name [json-args]]; bare /workflow lists",
+        commands.register("workflow",
+                "run a named workflow: /workflow [name [json-args]] | status | resume <runId>",
                 (commandCtx, args) -> {
                     io.majo.harness.workflow.WorkflowService workflow =
                             ctx.boot.ctx().get(io.majo.harness.workflow.WorkflowService.NAME);
@@ -47,6 +48,30 @@ public final class CommandHandlers {
                         for (Object item : raw) {
                             argv.add(String.valueOf(item));
                         }
+                    }
+                    if (!argv.isEmpty() && argv.get(0).equalsIgnoreCase("status")) {
+                        StringBuilder runs = new StringBuilder("recent runs:");
+                        for (io.majo.harness.workflow.WorkflowService.RunRecord record
+                                : workflow.records()) {
+                            runs.append("\n- ").append(record.runId).append("  ")
+                                    .append(record.name).append("  [")
+                                    .append(record.status).append("] ")
+                                    .append(record.durationMs).append("ms");
+                            if ("failed".equals(record.status)) {
+                                runs.append("  (resume: /workflow resume ")
+                                        .append(record.runId).append(")");
+                            }
+                        }
+                        return workflow.records().isEmpty()
+                                ? "no workflow runs recorded"
+                                : runs.toString();
+                    }
+                    if (!argv.isEmpty() && argv.get(0).equalsIgnoreCase("resume")) {
+                        if (argv.size() < 2) {
+                            throw new IllegalArgumentException("workflow: pass a run id");
+                        }
+                        String summary = workflow.resume(argv.get(1));
+                        return "workflow resumed, completed:\n" + summary;
                     }
                     if (argv.isEmpty()) {
                         StringBuilder list = new StringBuilder("workflows:");

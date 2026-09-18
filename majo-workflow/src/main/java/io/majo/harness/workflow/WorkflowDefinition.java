@@ -30,7 +30,14 @@ public record WorkflowDefinition(String name, String description, String onFailu
     /** One step: kind {@code turn}|{@code delegate} plus optional scope overrides. */
     public record Step(String id, String kind, String prompt, String model,
             String systemPrompt, Integer maxSteps, Boolean autoApprove,
-            List<String> allowedTools) {
+            List<String> allowedTools, boolean parallel) {
+
+        public Step(String id, String kind, String prompt, String model,
+                String systemPrompt, Integer maxSteps, Boolean autoApprove,
+                List<String> allowedTools) {
+            this(id, kind, prompt, model, systemPrompt, maxSteps, autoApprove,
+                    allowedTools, false);
+        }
     }
 
     private static final Pattern TEMPLATE = Pattern.compile("\\{\\{([^}]+)}}");
@@ -87,7 +94,8 @@ public record WorkflowDefinition(String name, String description, String onFailu
                     text(rawStep, "model"), text(rawStep, "systemPrompt"),
                     maxSteps,
                     rawStep.get("autoApprove") instanceof Boolean b ? b : null,
-                    allowedTools));
+                    allowedTools,
+                    Boolean.TRUE.equals(rawStep.get("parallel"))));
         }
         return new WorkflowDefinition(name, description, onFailure, allowModelTrigger,
                 List.copyOf(steps));

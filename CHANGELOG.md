@@ -522,3 +522,11 @@ Working area for the next iteration.
 ## [Unreleased]
 
 Working area for the next iteration.
+
+- **Workflow Phase B**: consecutive steps marked `parallel: true` fan out
+  concurrently (virtual threads; barrier-tested), `/workflow status` lists
+  recent runs (bounded in-memory records with per-step statuses), and
+  `/workflow resume <runId>` restarts a failed run in-process from its
+  first non-ok step — recorded outputs and args are replayed, succeeded
+  steps skipped (durable/crash-resume remains future work).
+  Workflow Phase B：并行步骤组、运行记录 status、进程内 resume。
