@@ -424,8 +424,6 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration (roadmap-0.5).
-
 - **Request-context injection** (new `majo-context` module, dsh `context`
   family / roadmap-0.5 candidate adopted): once per session, at the first
   turn start, the `context` plugin durably appends a `CONTEXT_NOTE`
