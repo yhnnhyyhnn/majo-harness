@@ -531,8 +531,6 @@ Working area for the next iteration.
 
 ## [0.6.2] - 2026-09-18
 
-Working area for the next iteration.
-
 - **SSH remote-execution family** (dsh `ssh`/`fs-ssh`/`subprocess-ssh`
   analog): `majo-ssh` connection layer (`SshTarget` + `SshExec` over the
   OpenSSH CLI — BatchMode, accept-new, POSIX quote helper); `SshFsProvider`
@@ -545,4 +543,7 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration.
+- **PTC runtime** (new `majo-ptc` module, dsh `ptc-runtime` analog):
+  `run_code` tool executes model-written JavaScript in a fresh Node.js
+  process, reducing round-trips for multi-step computation; tool catalog
+  regenerated (20 tools). Config: `{nodePath, timeoutSeconds}`.
