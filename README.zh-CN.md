@@ -74,7 +74,7 @@
 
 ```bash
 mvn -DskipTests install                       # 构建并安装反应堆
-java -jar majo-cli/target/majo-cli-0.5.0.jar "1+2"
+java -jar majo-cli/target/majo-cli-0.5.1.jar "1+2"
 ```
 
 多模块内单模块构建/测试请始终用 `bash scripts/test-module.sh <module>`（或
@@ -112,14 +112,14 @@ majo "task"                                   # = --profile headless
 
 ```bash
 mvn -DskipTests install
-java -jar majo-web/target/majo-web-0.5.0.jar          # http://localhost:8787（web.yml；默认绑 127.0.0.1）
-java -jar majo-web/target/majo-web-0.5.0.jar --profile web-mock   # 离线（mock llm）
+java -jar majo-web/target/majo-web-0.5.1.jar          # http://localhost:8787（web.yml；默认绑 127.0.0.1）
+java -jar majo-web/target/majo-web-0.5.1.jar --profile web-mock   # 离线（mock llm）
 ```
 
 **前端 dev 服务器（全栈）**：`web-ui` 会把 `/api`、`/plugins` 代理到正在运行的后端，改 UI 即热更新且直连真实 API：
 
 ```bash
-java -jar majo-web/target/majo-web-0.5.0.jar --port 8899 --profile web-mock
+java -jar majo-web/target/majo-web-0.5.1.jar --port 8899 --profile web-mock
 # PowerShell: $env:MAJO_API_TARGET="http://127.0.0.1:8899"
 MAJO_API_TARGET=http://127.0.0.1:8899 npx vite --port 5173    # http://localhost:5173
 ```

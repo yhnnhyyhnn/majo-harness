@@ -74,7 +74,7 @@ The shipped plugins are already registered as loader builtins by `majo-boot.Harn
 
 ```bash
 mvn -DskipTests install                       # build & install the reactor
-java -jar majo-cli/target/majo-cli-0.5.0.jar "1+2"
+java -jar majo-cli/target/majo-cli-0.5.1.jar "1+2"
 ```
 
 Building/testing a single module inside this multi-module tree: always use
@@ -113,15 +113,15 @@ External plugin jars follow the jcordis contract: an SPI manifest `META-INF/serv
 
 ```bash
 mvn -DskipTests install
-java -jar majo-web/target/majo-web-0.5.0.jar          # http://localhost:8787 (web.yml, binds 127.0.0.1)
-java -jar majo-web/target/majo-web-0.5.0.jar --profile web-mock   # offline (mock llm)
+java -jar majo-web/target/majo-web-0.5.1.jar          # http://localhost:8787 (web.yml, binds 127.0.0.1)
+java -jar majo-web/target/majo-web-0.5.1.jar --profile web-mock   # offline (mock llm)
 ```
 
 **Frontend dev server (full stack):** `web-ui` proxies `/api` and `/plugins` to a
 running backend, so editing the UI is hot-reload with the real API:
 
 ```bash
-java -jar majo-web/target/majo-web-0.5.0.jar --port 8899 --profile web-mock
+java -jar majo-web/target/majo-web-0.5.1.jar --port 8899 --profile web-mock
 # PowerShell: $env:MAJO_API_TARGET="http://127.0.0.1:8899"
 MAJO_API_TARGET=http://127.0.0.1:8899 npx vite --port 5173    # http://localhost:5173
 ```
