@@ -521,8 +521,6 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration.
-
 - **Workflow Phase B**: consecutive steps marked `parallel: true` fan out
   concurrently (virtual threads; barrier-tested), `/workflow status` lists
   recent runs (bounded in-memory records with per-step statuses), and
