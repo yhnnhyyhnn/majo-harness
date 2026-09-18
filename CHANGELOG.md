@@ -465,7 +465,7 @@ Working area for the next iteration.
   (context injection, spill, ssh, ptc-runtime, MCP reconnect).
   参考项目增量审计：核心机制无变化；采纳三处调整；分歧与候选成文。
 
-## [Unreleased]
+## [0.5.1] - 2026-09-18
 
 Working area for the next iteration.
 
@@ -502,3 +502,7 @@ Working area for the next iteration.
   log carries the preview (invariant intact). Complements the compaction
   pruner: spill handles the *current* oversized result, pruning handles
   old ones. 溢出外置：超大工具结果落盘为文件，模型只见预览 + 取回指引。
+
+## [Unreleased]
+
+Working area for the next iteration.
