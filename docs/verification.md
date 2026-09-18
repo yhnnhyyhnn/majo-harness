@@ -31,7 +31,7 @@ failures — dropped SSE connections and 4xx user errors are never counted.
 
 ```bash
 bash scripts/build-plugin-demo.sh                 # builds examples/web-plugin-demo/web-demo.jar
-java -jar majo-web/target/majo-web-0.3.0.jar \
+java -jar majo-web/target/majo-web-0.4.0.jar \
   --port 8899 --profile web-mock \
   --plugin web-demo=./examples/web-plugin-demo/web-demo.jar
 ```
@@ -91,7 +91,7 @@ Serve `--profile web-mock --port 8899`, open http://localhost:8899:
 ## 4. Real-model (optional, network)
 
 ```bash
-java -jar majo-web/target/majo-web-0.3.0.jar --profile web --port 8900
+java -jar majo-web/target/majo-web-0.4.0.jar --profile web --port 8900
 curl -X POST -H 'Content-Type: application/json' \
   -d '{"task":"What is 33 times 4?","model":"kilo-free"}' \
   http://127.0.0.1:8900/api/subagents/delegate
