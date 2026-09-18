@@ -541,9 +541,13 @@ Working area for the next iteration.
   string" holds: file reads and command execution see the same remote
   world. SSH 远程执行族：fs/subprocess 可整体指向远程主机。
 
-## [Unreleased]
+## [0.7.0] - 2026-09-19
 
 - **PTC runtime** (new `majo-ptc` module, dsh `ptc-runtime` analog):
   `run_code` tool executes model-written JavaScript in a fresh Node.js
   process, reducing round-trips for multi-step computation; tool catalog
   regenerated (20 tools). Config: `{nodePath, timeoutSeconds}`.
+
+## [Unreleased]
+
+Working area for the next iteration.
