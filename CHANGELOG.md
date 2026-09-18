@@ -381,6 +381,12 @@ Working area for the next iteration.
 
 Working area for the next iteration (roadmap-0.5).
 
+- **MCP remote live probe**: `McpRemoteLiveProbeTest` exercises the HTTP
+  transport against a real hosted server (`mcp.deepwiki.com/mcp`, no auth)
+  — handshake, tool list, and a `read_wiki_contents` round-trip. Same
+  `MAJO_MCP_PROBE=1` gate and best-effort CI step as the filesystem probe.
+  远程实测：对公网托管 server 验证 Streamable HTTP 传输全链路。
+
 - **MCP Streamable HTTP transport** (roadmap-0.5 Phase 1): server rows
   accept a `url` + `headers` form alongside `command` stdio — remote MCP
   servers over Streamable HTTP, answering either single JSON bodies or

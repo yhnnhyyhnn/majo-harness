@@ -53,11 +53,11 @@ jobs:
           MAJO_NET_PROBE: "1"
         run: mvn -B -ntp -pl majo-web-access -am test -Dtest=DdgLiveProbeTest -Dsurefire.failIfNoSpecifiedTests=false
 
-      - name: Live MCP filesystem probe (best effort, needs outbound network + node)
+      - name: Live MCP probes (best effort, needs outbound network + node)
         continue-on-error: true
         env:
           MAJO_MCP_PROBE: "1"
-        run: mvn -B -ntp -pl majo-mcp -am test -Dtest=McpFilesystemLiveProbeTest -Dsurefire.failIfNoSpecifiedTests=false
+        run: mvn -B -ntp -pl majo-mcp -am test -Dtest='McpFilesystemLiveProbeTest,McpRemoteLiveProbeTest' -Dsurefire.failIfNoSpecifiedTests=false
 
       - name: Build the plugin demo jar (best effort)
         run: |

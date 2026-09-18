@@ -95,6 +95,14 @@ MAJO_MCP_PROBE=1 mvn -pl majo-mcp -am test \
 
 CI 以 best-effort（continue-on-error）运行，与 DuckDuckGo 探针一致。
 
+远程 HTTP 传输对真实托管 server 有同样的实测（无需鉴权、无需 node）：
+
+```bash
+MAJO_MCP_PROBE=1 mvn -pl majo-mcp -am test \
+  -Dtest=McpRemoteLiveProbeTest -Dsurefire.failIfNoSpecifiedTests=false
+# 预期：deepwiki 握手成功、列出其工具、read_wiki_contents 往返真实内容
+```
+
 ## 6. Git 卫生
 
 - `git status` 干净；`git push origin main` 与远端一致。

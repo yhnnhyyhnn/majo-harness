@@ -116,6 +116,16 @@ MAJO_MCP_PROBE=1 mvn -pl majo-mcp -am test \
 
 CI runs it best-effort (continue-on-error), like the DuckDuckGo probe.
 
+The remote-HTTP transport gets the same treatment against a real hosted
+server (no auth, no node needed):
+
+```bash
+MAJO_MCP_PROBE=1 mvn -pl majo-mcp -am test \
+  -Dtest=McpRemoteLiveProbeTest -Dsurefire.failIfNoSpecifiedTests=false
+# expect: deepwiki handshake ok, its tools listed, read_wiki_contents
+# round-trips real content
+```
+
 ## 6. Git hygiene
 
 - `git status` clean; `git push origin main` up to date.
