@@ -532,3 +532,13 @@ Working area for the next iteration.
 ## [Unreleased]
 
 Working area for the next iteration.
+
+- **SSH remote-execution family** (dsh `ssh`/`fs-ssh`/`subprocess-ssh`
+  analog): `majo-ssh` connection layer (`SshTarget` + `SshExec` over the
+  OpenSSH CLI — BatchMode, accept-new, POSIX quote helper); `SshFsProvider`
+  in majo-fs (cat/tee/find) and `SshSubprocessProvider` in majo-subprocess
+  (quoted argv + cd + env); `fs` and `subprocess` plugins gain optional
+  `ssh: {host, user, port?, identityFile?}` config for provider swap.
+  The invariant "local path access is never inferred from a remote path
+  string" holds: file reads and command execution see the same remote
+  world. SSH 远程执行族：fs/subprocess 可整体指向远程主机。
