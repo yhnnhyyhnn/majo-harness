@@ -18,7 +18,7 @@
 
 ```bash
 # web 应用：jar 插件（可重复）+ profile
-java -jar majo-web/target/majo-web-0.6.2.jar \
+java -jar majo-web/target/majo-web-0.7.0.jar \
   --profile web-mock \
   --plugin web-demo=./examples/web-plugin-demo/web-demo.jar
 
