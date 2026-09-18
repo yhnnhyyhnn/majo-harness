@@ -529,7 +529,7 @@ Working area for the next iteration.
   steps skipped (durable/crash-resume remains future work).
   Workflow Phase B：并行步骤组、运行记录 status、进程内 resume。
 
-## [Unreleased]
+## [0.6.2] - 2026-09-18
 
 Working area for the next iteration.
 
@@ -542,3 +542,7 @@ Working area for the next iteration.
   The invariant "local path access is never inferred from a remote path
   string" holds: file reads and command execution see the same remote
   world. SSH 远程执行族：fs/subprocess 可整体指向远程主机。
+
+## [Unreleased]
+
+Working area for the next iteration.
