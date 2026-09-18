@@ -50,9 +50,10 @@
 
 - **MCP 加固**：带尝试预算的 reconnect 策略、server `instructions` 作为
   system-prompt 段、共享 resource 工具（见上）、服务器名校验。
-- **`context` 族**：请求上下文注入插件——`agent-instructions`
-  （AGENTS.md/CLAUDE.md 加载）、`@file` 提及、跨会话只读快照、时间
-  上下文。以 user-role 消息入日志故持久。
+- **`context` 族 ✅ 已于 2026-09-18 采纳（`majo-context`）**：请求上下文
+  注入插件——工作区指令（AGENTS.md / CLAUDE.md 加载）与时间上下文，以
+  一次性持久 `CONTEXT_NOTE` 事件落地；`@file` 提及与跨会话快照仍是
+  候选。
 - **`spill` 族**：超长工具文本带定位器外置存储，替换内联副本（与裁剪
   互补）。
 - **`ssh` 族**：`fs`/`subprocess`/`sandbox` 提供者经一条 OpenSSH 连接

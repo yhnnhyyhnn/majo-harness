@@ -424,8 +424,18 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration.
+Working area for the next iteration (roadmap-0.5).
 
+- **Request-context injection** (new `majo-context` module, dsh `context`
+  family / roadmap-0.5 candidate adopted): once per session, at the first
+  turn start, the `context` plugin durably appends a `CONTEXT_NOTE`
+  carrying workspace instructions (AGENTS.md / CLAUDE.md, read at mount)
+  and the current time. The note is model-visible user-role content — it
+  replays, survives resume, and compacts like any other context.
+  Dedupe is two-layer (in-process set + log-marker scan), so restarted
+  hosts never re-inject. Config: `{dir, files, timeContext, maxChars}`;
+  mounted by default in the web profiles.
+  上下文注入：工作区指令 + 时间上下文每会话一次性持久注入。
 - **LLM-backed session titles** (`session-title-llm` plugin row, dsh
   parity): the model proposes a short title from the session's first user
   message — mount it *instead of* `session-title-heuristic` (sole-provider

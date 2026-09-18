@@ -1,4 +1,4 @@
-# Roadmap 0.5 (MCP transport + scale) — Phase 1 SHIPPED
+# Roadmap 0.5 (MCP transport + scale) — Phase 1 SHIPPED; context-injection family adopted early (post-audit 2026-09-18)
 
 0.4 shipped durability hardening (session file generations, LLM fault
 injection, tool-result pruning) and the stdio MCP client, verified against

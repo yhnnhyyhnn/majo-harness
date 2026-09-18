@@ -61,10 +61,10 @@ one of **adopted** (code landed), **divergence** (deliberate, keep), or
 - **MCP hardening**: reconnect policy with attempt budget, server
   `instructions` as system-prompt sections, shared resource tools
   (above), server-name validation.
-- **`context` family**: request-context injection plugins —
-  `agent-instructions` (AGENTS.md/CLAUDE.md loading), `@file` mentions,
-  cross-session read-only snapshots, time context. Durable because logged
-  as user-role messages.
+- **`context` family** ✅ adopted 2026-09-18 (`majo-context`): request-
+  context injection plugins — workspace instructions (AGENTS.md /
+  CLAUDE.md loading) and time context as durable one-shot `CONTEXT_NOTE`
+  events; `@file` mentions and cross-session snapshots remain candidates.
 - **`spill` family**: oversized tool text stored out-of-band with a
   locator, replacing the inline copy (complements pruning).
 - **`ssh` family**: `fs`/`subprocess`/`sandbox` providers re-pointed at a

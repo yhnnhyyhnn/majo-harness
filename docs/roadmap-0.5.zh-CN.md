@@ -1,4 +1,4 @@
-# Roadmap 0.5（MCP 传输 + 规模化）— Phase 1 已交付
+# Roadmap 0.5（MCP 传输 + 规模化）— Phase 1 已交付；context 注入族已提前采纳（2026-09-18 审计后）
 
 0.4 交付了持久性加固（会话文件代际、LLM 故障注入、工具结果裁剪）与 stdio
 MCP 客户端，并已对真实生态 filesystem server 完成实测。本周期补全远程

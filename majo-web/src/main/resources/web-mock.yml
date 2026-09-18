@@ -58,6 +58,8 @@
   name: mcp
   config:
     servers: {}
+- id: context
+  name: context
 - id: skill-files
   name: skill-files
   config:
