@@ -379,8 +379,6 @@ Working area for the next iteration.
 
 ## [0.4.0] - 2026-09-18
 
-Working area for the next iteration (roadmap-0.5).
-
 - **MCP remote live probe**: `McpRemoteLiveProbeTest` exercises the HTTP
   transport against a real hosted server (`mcp.deepwiki.com/mcp`, no auth)
   — handshake, tool list, and a `read_wiki_contents` round-trip. Same
@@ -427,3 +425,17 @@ Working area for the next iteration (roadmap-0.5).
 ## [Unreleased]
 
 Working area for the next iteration.
+
+- **LLM-backed session titles** (`session-title-llm` plugin row, dsh
+  parity): the model proposes a short title from the session's first user
+  message — mount it *instead of* `session-title-heuristic` (sole-provider
+  semantics fail loudly when both mount). Successful derivations memoize
+  (one call per session); failures and empty answers back off per prompt so
+  sidebar polling never hammers the model. LLM 标题：模型从首条用户消息
+  起题，成功一次备忘，失败按输入退避。
+
+- **Workflow v1 design proposal** (`docs/workflow-design(.zh-CN).md`):
+  named YAML step lists (turn / delegate steps, `{{args}}`/`{{steps}}`
+  templates) running in a dedicated child session, `WORKFLOW_*` durable
+  events, `/workflow` command + `workflow_run` tool. Design only —
+  implementation follows after review.

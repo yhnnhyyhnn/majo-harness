@@ -16,6 +16,7 @@ import io.majo.harness.session.SessionPlugin;
 import io.majo.harness.session.SessionProjectionsPlugin;
 import io.majo.harness.settings.SettingsPlugin;
 import io.majo.harness.title.HeuristicTitlePlugin;
+import io.majo.harness.title.LlmTitlePlugin;
 import io.majo.harness.title.SessionTitlePlugin;
 import io.majo.harness.webaccess.FetchHttpPlugin;
 import io.majo.harness.webaccess.DdgSearchPlugin;
@@ -84,6 +85,7 @@ public final class HarnessBoot {
     public static final String PLUGIN_CREDENTIALS = CredentialsPlugin.NAME;
     public static final String PLUGIN_SESSION_TITLE = SessionTitlePlugin.NAME;
     public static final String PLUGIN_SESSION_TITLE_HEURISTIC = HeuristicTitlePlugin.NAME;
+    public static final String PLUGIN_SESSION_TITLE_LLM = LlmTitlePlugin.NAME;
     public static final String PLUGIN_WEB = WebPlugin.NAME;
     public static final String PLUGIN_WEB_TOOLS = WebToolsPlugin.NAME;
     public static final String PLUGIN_WEB_FETCH_HTTP = FetchHttpPlugin.NAME;
@@ -134,6 +136,7 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_CREDENTIALS, new CredentialsPlugin());
         loader.builtin(PLUGIN_SESSION_TITLE, new SessionTitlePlugin());
         loader.builtin(PLUGIN_SESSION_TITLE_HEURISTIC, new HeuristicTitlePlugin());
+        loader.builtin(PLUGIN_SESSION_TITLE_LLM, new LlmTitlePlugin());
         loader.builtin(PLUGIN_WEB, new WebPlugin());
         loader.builtin(PLUGIN_WEB_TOOLS, new WebToolsPlugin());
         loader.builtin(PLUGIN_WEB_FETCH_HTTP, new FetchHttpPlugin());

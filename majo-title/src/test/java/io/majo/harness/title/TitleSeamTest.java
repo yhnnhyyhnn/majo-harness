@@ -125,4 +125,67 @@ class TitleSeamTest {
         assertThat(derivations.get()).isEqualTo(3); // the old provider ran no more
         ctx.fiber().disposeAsync().join();
     }
+
+    /**
+     * The LLM-backed provider: titles trim, memoize after success, and
+     * failures (transport errors and empty answers alike) back off so sidebar
+     * polling never hammers the model.
+     */
+    @Test
+    void llmProviderTitlesMemoizesAndBacksOffOnFailure() {
+        Context ctx = Context.create();
+        ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
+        ctx.plugin(new io.majo.harness.llm.LLMServicePlugin(),
+                Map.of("defaultModel", "model")).await().join();
+        ctx.plugin(new SessionTitlePlugin(), null).await().join();
+        java.util.concurrent.atomic.AtomicInteger calls =
+                new java.util.concurrent.atomic.AtomicInteger();
+        io.majo.harness.llm.LLMService llm = ctx.get(io.majo.harness.llm.LLMService.NAME);
+        llm.registerModel("model", request -> {
+            calls.incrementAndGet();
+            String message = request.messages().get(0).content();
+            if (message.contains("boom")) {
+                throw new io.majo.harness.llm.ModelException("provider down");
+            }
+            if (message.contains("empty")) {
+                return io.majo.harness.llm.ChatResponse.text("   ");
+            }
+            if (message.contains("verbose")) {
+                return io.majo.harness.llm.ChatResponse.text("t".repeat(100));
+            }
+            return io.majo.harness.llm.ChatResponse.text("  A Great Conversation Title  ");
+        });
+        ctx.plugin(new LlmTitlePlugin(), Map.of("backoffSeconds", 60)).await().join();
+        SessionService sessions = ctx.get(SessionService.NAME);
+        SessionTitleService titles = ctx.get(SessionTitleService.NAME);
+
+        String id = sessions.createSession();
+        sessions.append(id, SessionEventType.USER_MESSAGE,
+                Map.of(SessionEvent.FIELD_CONTENT, "help me refactor"));
+        assertThat(titles.title(id)).isEqualTo("A Great Conversation Title");
+        assertThat(titles.title(id)).isEqualTo("A Great Conversation Title"); // memoized
+        assertThat(calls.get()).isEqualTo(1);
+
+        // truncation honors maxChars
+        String verbose = sessions.createSession();
+        sessions.append(verbose, SessionEventType.USER_MESSAGE,
+                Map.of(SessionEvent.FIELD_CONTENT, "verbose session please"));
+        assertThat(titles.title(verbose)).isEqualTo("t".repeat(57) + "...");
+
+        // failures back off: repeated polls do not hammer the model
+        String failing = sessions.createSession();
+        sessions.append(failing, SessionEventType.USER_MESSAGE,
+                Map.of(SessionEvent.FIELD_CONTENT, "boom please"));
+        assertThat(titles.title(failing)).isNull();
+        assertThat(titles.title(failing)).isNull();
+        assertThat(calls.get()).isEqualTo(3); // 2 successes + exactly 1 failure
+
+        String empties = sessions.createSession();
+        sessions.append(empties, SessionEventType.USER_MESSAGE,
+                Map.of(SessionEvent.FIELD_CONTENT, "empty answer here"));
+        assertThat(titles.title(empties)).isNull();
+        assertThat(titles.title(empties)).isNull();
+        assertThat(calls.get()).isEqualTo(4);
+        ctx.fiber().disposeAsync().join();
+    }
 }

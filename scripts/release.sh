@@ -36,7 +36,7 @@ sed -i "s|^## \[Unreleased\]|## [$version] - $today|" CHANGELOG.md
 # retire the trailing working-area line under the release heading and reopen
 # a fresh [Unreleased] at the end
 awk 'BEGIN{blank=""} {lines[NR]=$0} END{
-  n=NR; while (n>0 && (lines[n]=="" || lines[n]=="Working area for the next iteration.")) n--;
+  n=NR; while (n>0 && (lines[n]=="" || lines[n] ~ /^Working area for the next iteration/)) n--;
   for (i=1;i<=n;i++) print lines[i];
   print ""; print "## [Unreleased]"; print ""; print "Working area for the next iteration.";
 }' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
