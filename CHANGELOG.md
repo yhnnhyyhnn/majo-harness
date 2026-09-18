@@ -422,7 +422,7 @@ Working area for the next iteration.
   like the DuckDuckGo probe; verification docs gained the manual command.
   MCP 实测探针：对官方 filesystem server 验证握手/工具清单/读取往返。
 
-## [Unreleased]
+## [0.5.0] - 2026-09-18
 
 - **Request-context injection** (new `majo-context` module, dsh `context`
   family / roadmap-0.5 candidate adopted): once per session, at the first
@@ -464,3 +464,7 @@ Working area for the next iteration.
   `auto` policy value, session format v1); future candidates listed
   (context injection, spill, ssh, ptc-runtime, MCP reconnect).
   参考项目增量审计：核心机制无变化；采纳三处调整；分歧与候选成文。
+
+## [Unreleased]
+
+Working area for the next iteration.
