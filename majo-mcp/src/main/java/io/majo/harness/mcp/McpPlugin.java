@@ -33,10 +33,13 @@ import org.slf4j.LoggerFactory;
  * Calls are bounded by the request timeout; a server that fails to mount is
  * logged loudly but does not break the boot or the other servers.
  *
- * <p>Config: {@code {requestTimeoutSeconds: <n>, servers: {<name>: {command,
- * args, env} | {url, headers}}}} — env/header values reference environment
- * variables by name (credentials never live in the profile); HTTP auth is
- * explicit headers only, no OAuth.
+ * <p>Config: {@code {requestTimeoutSeconds: <n>, failOnStartupError: <bool>,
+ * reconnect: {enabled, initialDelayMs, maxDelayMs, maxAttempts}, servers:
+ * {<name>: {command, args, env} | {url, headers}}}} — env/header values
+ * reference environment variables by name (credentials never live in the
+ * profile); HTTP auth is explicit headers only, no OAuth. Reconnect defaults
+ * on (500ms→30s backoff, 10 attempts, 60s stability reset); startup failures
+ * are logged loudly but non-fatal unless {@code failOnStartupError}.
  */
 public final class McpPlugin implements Plugin {
 
@@ -49,9 +52,28 @@ public final class McpPlugin implements Plugin {
     @Override
     public Object apply(Context ctx, Object config) {
         Map<?, ?> map = config instanceof Map<?, ?> m ? m : Map.of();
-        long timeoutMillis = DEFAULT_REQUEST_TIMEOUT_SECONDS * 1000L;
-        if (map.get("requestTimeoutSeconds") instanceof Number number && number.longValue() > 0) {
-            timeoutMillis = number.longValue() * 1000L;
+        long timeoutMillis = map.get("requestTimeoutSeconds") instanceof Number number
+                && number.longValue() > 0
+                ? number.longValue() * 1000L
+                : DEFAULT_REQUEST_TIMEOUT_SECONDS * 1000L;
+        boolean failOnStartupError = Boolean.TRUE.equals(map.get("failOnStartupError"));
+        boolean reconnectEnabled = true;
+        long reconnectInitial = 500;
+        long reconnectMax = 30_000;
+        int reconnectAttempts = 10;
+        if (map.get("reconnect") instanceof Map<?, ?> reconnect) {
+            if (reconnect.get("enabled") instanceof Boolean enabled) {
+                reconnectEnabled = enabled;
+            }
+            if (reconnect.get("initialDelayMs") instanceof Number number && number.longValue() > 0) {
+                reconnectInitial = number.longValue();
+            }
+            if (reconnect.get("maxDelayMs") instanceof Number number && number.longValue() > 0) {
+                reconnectMax = number.longValue();
+            }
+            if (reconnect.get("maxAttempts") instanceof Number number && number.intValue() > 0) {
+                reconnectAttempts = number.intValue();
+            }
         }
         Map<?, ?> servers = map.get("servers") instanceof Map<?, ?> s ? s : Map.of();
 
@@ -62,7 +84,19 @@ public final class McpPlugin implements Plugin {
             String serverName = String.valueOf(entry.getKey());
             Map<?, ?> row = entry.getValue() instanceof Map<?, ?> r ? r : Map.of();
             try {
-                McpConnection connection = McpConnection.open(serverName, row, timeoutMillis);
+                if (!serverName.matches("[A-Za-z0-9_-]{1,32}")) {
+                    throw new IllegalArgumentException("mcp: server name \"" + serverName
+                            + "\" must match [A-Za-z0-9_-]{1,32}");
+                }
+                McpConnection.Factory factory =
+                        () -> McpConnection.open(serverName, row, timeoutMillis);
+                // startup failure is handled by failOnStartupError, NOT the
+                // reconnect budget: open once directly, then wrap
+                McpConnection initial = factory.open();
+                McpConnection connection = reconnectEnabled
+                        ? new ReconnectingConnection(serverName, factory, initial,
+                                reconnectInitial, reconnectMax, reconnectAttempts)
+                        : initial;
                 service.register(serverName, connection);
                 for (McpConnection.ToolInfo info : connection.listTools()) {
                     registrations.add(tools.register(bridgedTool(service, serverName, info)));
@@ -71,6 +105,13 @@ public final class McpPlugin implements Plugin {
                 LOG.info("mcp: mounted server \"{}\" with {} tool(s)", serverName,
                         service.tools(serverName).size());
             } catch (RuntimeException | IOException e) {
+                if (failOnStartupError) {
+                    if (e instanceof RuntimeException runtime) {
+                        throw runtime;
+                    }
+                    throw new IllegalStateException("mcp: server \"" + serverName
+                            + "\" failed to mount", e);
+                }
                 LOG.error("mcp: server \"{}\" failed to mount: {}", serverName, e.getMessage(), e);
             }
         }

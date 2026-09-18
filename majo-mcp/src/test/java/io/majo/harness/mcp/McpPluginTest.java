@@ -1,6 +1,7 @@
 package io.majo.harness.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.jcordis.core.context.Context;
 import io.majo.harness.tools.ToolCall;
@@ -104,5 +105,72 @@ class McpPluginTest {
                 "SECRET_TOKEN", "s3cr3t", "AWS_SECRET_ACCESS_KEY", "nope",
                 "ANTHROPIC_API_KEY", "nope"));
         assertThat(scrubbed).containsOnlyKeys("PATH", "HOME");
+    }
+
+    @Test
+    void deadServerReconnectsOnTheNextCall() {
+        Context ctx = Context.create();
+        ctx.plugin(new ToolsPlugin(), null).await().join();
+        ctx.plugin(new McpPlugin(), Map.of(
+                "requestTimeoutSeconds", 15,
+                "reconnect", Map.of("initialDelayMs", 50, "maxDelayMs", 200,
+                        "maxAttempts", 5),
+                "servers", Map.of("echo", echoServer())))
+                .await().join();
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+
+        assertThat(tools.execute(ToolCall.of("mcp__echo__echo", "{\"message\":\"hi\"}"))
+                .content()).isEqualTo("echo: hi");
+        // the server answers and then exits; the next call reconnects lazily
+        assertThat(tools.execute(ToolCall.of("mcp__echo__echo", "{\"message\":\"exit\"}"))
+                .content()).isEqualTo("echo: exit");
+        assertThat(tools.execute(ToolCall.of("mcp__echo__echo", "{\"message\":\"after\"}"))
+                .content()).isEqualTo("echo: after");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void reconnectDisabledFailsLoudAfterDeath() {
+        Context ctx = Context.create();
+        ctx.plugin(new ToolsPlugin(), null).await().join();
+        ctx.plugin(new McpPlugin(), Map.of(
+                "requestTimeoutSeconds", 15,
+                "reconnect", Map.of("enabled", false),
+                "servers", Map.of("echo", echoServer())))
+                .await().join();
+        ToolRegistry tools = ctx.get(ToolRegistry.NAME);
+
+        assertThat(tools.execute(ToolCall.of("mcp__echo__echo", "{\"message\":\"exit\"}"))
+                .content()).isEqualTo("echo: exit");
+        try {
+            Thread.sleep(300); // let the process death surface
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        ToolResult after = tools.execute(ToolCall.of("mcp__echo__echo", "{\"message\":\"gone\"}"));
+        assertThat(after.ok()).as("no reconnect when disabled: %s", after.visibleText())
+                .isFalse();
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void serverNamesValidateAndStartupFailuresCanBeFatal() {
+        Context badName = Context.create();
+        badName.plugin(new ToolsPlugin(), null).await().join();
+        badName.plugin(new McpPlugin(), Map.of(
+                "servers", Map.of("bad name!", Map.of("command", "whatever"))))
+                .await().join();
+        assertThat(badName.<McpService>get(McpService.NAME).servers()).isEmpty();
+        badName.fiber().disposeAsync().join();
+
+        Context fatal = Context.create();
+        fatal.plugin(new ToolsPlugin(), null).await().join();
+        assertThatThrownBy(() -> fatal.plugin(new McpPlugin(), Map.of(
+                        "failOnStartupError", true,
+                        "servers", Map.of("echo", Map.of(
+                                "command", "definitely-not-a-real-command-42"))))
+                .await().join())
+                .isInstanceOf(RuntimeException.class);
+        fatal.fiber().disposeAsync().join();
     }
 }

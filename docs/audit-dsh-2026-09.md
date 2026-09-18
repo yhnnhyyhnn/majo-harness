@@ -58,9 +58,11 @@ one of **adopted** (code landed), **divergence** (deliberate, keep), or
 
 ## Candidates for future cycles (reference has, majo lacks)
 
-- **MCP hardening**: reconnect policy with attempt budget, server
-  `instructions` as system-prompt sections, shared resource tools
-  (above), server-name validation.
+- **MCP hardening** ✅ partially adopted 2026-09-18: reconnect policy
+  (exponential backoff with attempt budget + stability reset; startup
+  failures governed separately by `failOnStartupError`), server-name
+  validation (`[A-Za-z0-9_-]{1,32}`). Still candidates: server
+  `instructions` as system-prompt sections and shared resource tools.
 - **`context` family** ✅ adopted 2026-09-18 (`majo-context`): request-
   context injection plugins — workspace instructions (AGENTS.md /
   CLAUDE.md loading) and time context as durable one-shot `CONTEXT_NOTE`

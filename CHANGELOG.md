@@ -469,6 +469,16 @@ Working area for the next iteration.
 
 Working area for the next iteration.
 
+- **MCP reconnect & startup policy** (dsh `reconnect`/`failOnStartupError`
+  analog): dead server connections lazily reopen with exponential backoff
+  (500ms→30s, 10 attempts, 60s stability-window budget reset; config
+  `reconnect: {enabled, initialDelayMs, maxDelayMs, maxAttempts}`, default
+  on) and one in-line retry when a call loses its connection mid-flight;
+  startup failures are governed separately by `failOnStartupError`
+  (default false — loud log, non-fatal) and never burn the reconnect
+  budget; server names must match `[A-Za-z0-9_-]{1,32}`.
+  MCP 重连：死连接按退避预算懒重连，启动失败独立管控，服务器名校验。
+
 - **Spill family** (new `majo-spill` module, dsh `spill` analog /
   roadmap-0.5 candidate adopted): tool results whose content exceeds
   `maxInlineBytes` (opt-in; web profiles: 16 KiB) store the full text

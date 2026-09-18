@@ -48,8 +48,10 @@
 
 ## 未来周期候选（参考项目有、majo 缺）
 
-- **MCP 加固**：带尝试预算的 reconnect 策略、server `instructions` 作为
-  system-prompt 段、共享 resource 工具（见上）、服务器名校验。
+- **MCP 加固 ✅ 部分采纳于 2026-09-18**：重连策略（指数退避 + 尝试预算 +
+  稳定窗重置；启动失败由独立的 `failOnStartupError` 管控）、服务器名
+  校验（`[A-Za-z0-9_-]{1,32}`）。仍是候选：server `instructions` 作为
+  system-prompt 段与共享 resource 工具。
 - **`context` 族 ✅ 已于 2026-09-18 采纳（`majo-context`）**：请求上下文
   注入插件——工作区指令（AGENTS.md / CLAUDE.md 加载）与时间上下文，以
   一次性持久 `CONTEXT_NOTE` 事件落地；`@file` 提及与跨会话快照仍是

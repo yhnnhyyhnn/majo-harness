@@ -69,6 +69,16 @@ public final class EchoMcpServerMain {
                     result.put("isError", true);
                 } else {
                     block.put("text", "echo: " + text);
+                    if ("exit".equals(text)) {
+                        // die right after answering: the next call must reconnect
+                        try {
+                            System.out.println(MAPPER.writeValueAsString(response));
+                        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                            throw new IllegalStateException(e);
+                        }
+                        System.out.flush();
+                        System.exit(0);
+                    }
                 }
             }
             case "ping" -> response.putObject("result");

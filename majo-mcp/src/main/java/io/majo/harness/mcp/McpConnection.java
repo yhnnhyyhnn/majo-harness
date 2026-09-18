@@ -41,6 +41,11 @@ interface McpConnection extends AutoCloseable {
     @Override
     void close();
 
+    /** Opens one fresh underlying connection (for reconnect wrappers). */
+    interface Factory {
+        McpConnection open() throws IOException;
+    }
+
     /**
      * Opens a connection from one profile row: {@code url} → Streamable HTTP
      * (headers by env-name), {@code command} → stdio process (env by
