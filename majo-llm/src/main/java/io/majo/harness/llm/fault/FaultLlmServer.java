@@ -32,12 +32,16 @@ public final class FaultLlmServer implements AutoCloseable {
         final byte[] body;
         /** When set, the declared Content-Length exceeds the body by this many bytes. */
         final int lieAboutLengthBy;
+        /** When set, the server accepts the request and stalls instead of answering. */
+        final long stallMillis;
 
-        private Response(int status, Map<String, String> headers, byte[] body, int lieAboutLengthBy) {
+        private Response(int status, Map<String, String> headers, byte[] body,
+                int lieAboutLengthBy, long stallMillis) {
             this.status = status;
             this.headers = headers;
             this.body = body;
             this.lieAboutLengthBy = lieAboutLengthBy;
+            this.stallMillis = stallMillis;
         }
     }
 
@@ -77,7 +81,16 @@ public final class FaultLlmServer implements AutoCloseable {
 
     /** A response with {@code status}, {@code headers}, and a UTF-8 {@code body}. */
     public static Response response(int status, Map<String, String> headers, String body) {
-        return new Response(status, headers, body.getBytes(StandardCharsets.UTF_8), 0);
+        return new Response(status, headers, body.getBytes(StandardCharsets.UTF_8), 0, 0);
+    }
+
+    /**
+     * A stalled request: accepted, read, then silence for {@code millis} —
+     * the client's request timeout must fire first (dsh llm-mock-server
+     * {@code stall} fault).
+     */
+    public static Response stall(long millis) {
+        return new Response(200, Map.of(), new byte[0], 0, millis);
     }
 
     /**
@@ -86,7 +99,8 @@ public final class FaultLlmServer implements AutoCloseable {
      * connection — the client must see a truncated stream, not a clean EOF.
      */
     public static Response truncatedBody(String body, int promiseExtra) {
-        return new Response(200, Map.of(), body.getBytes(StandardCharsets.UTF_8), promiseExtra);
+        return new Response(200, Map.of(), body.getBytes(StandardCharsets.UTF_8),
+                promiseExtra, 0);
     }
 
     private void acceptLoop() {
@@ -109,8 +123,8 @@ public final class FaultLlmServer implements AutoCloseable {
             HttpRequest request = readRequest(connection.getInputStream());
             Response response = next();
             writeResponse(connection, response);
-        } catch (IOException e) {
-            // a test-triggered abrupt close lands here; nothing to do
+        } catch (IOException | InterruptedException e) {
+            // a test-triggered abrupt close or aborted stall lands here
         }
     }
 
@@ -158,8 +172,8 @@ public final class FaultLlmServer implements AutoCloseable {
         return response(500, Map.of(), "fault-llm-server: script exhausted");
     }
 
-    private static void writeResponse(Socket connection, Response response)
-            throws IOException {
+    private void writeResponse(Socket connection, Response response)
+            throws IOException, InterruptedException {
         OutputStream out = connection.getOutputStream();
         int declared = response.body.length + response.lieAboutLengthBy;
         StringBuilder head = new StringBuilder("HTTP/1.1 ").append(response.status).append(" x\r\n")
@@ -168,6 +182,13 @@ public final class FaultLlmServer implements AutoCloseable {
         response.headers.forEach((name, value) -> head.append(name).append(": ").append(value).append("\r\n"));
         head.append("\r\n");
         out.write(head.toString().getBytes(StandardCharsets.US_ASCII));
+        if (response.stallMillis > 0) {
+            // silence: sleep in slices so close() aborts the stall cleanly
+            long deadline = System.currentTimeMillis() + response.stallMillis;
+            while (running && System.currentTimeMillis() < deadline) {
+                Thread.sleep(100);
+            }
+        }
         out.write(response.body);
         out.flush();
         // try-with-resources close() follows: an orderly FIN after fewer body

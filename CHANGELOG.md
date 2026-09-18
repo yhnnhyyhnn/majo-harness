@@ -469,6 +469,13 @@ Working area for the next iteration.
 
 Working area for the next iteration.
 
+- **Repeat-call advisory** (dsh guard repeat-tool-reminder analog): the
+  `tools` plugin gains `repeatReminder` — consecutive identical calls (same
+  tool and arguments) get an advisory line appended to the result, nudging
+  the model out of loops; default off.
+- **Stall fault** (dsh llm-mock-server `stall` analog): `FaultLlmServer`
+  can accept a request and stay silent — the client's request timeout must
+  fire; pinned by a wire test.
 - **@file mentions** (dsh `file-reference` analog, extending the context
   family): the composer's `@` completion lists workspace files
   (`GET /api/mentions?q=`, walk skipping VCS/build noise); selecting one

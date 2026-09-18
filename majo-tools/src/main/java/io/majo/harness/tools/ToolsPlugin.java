@@ -6,8 +6,10 @@ import io.jcordis.core.registry.Plugin;
 /**
  * Mounts {@link ToolRegistry} as the {@code tools} plugin.
  *
- * <p>Config: {@code {toolTimeoutSeconds: <n>}} — the per-tool-call deadline
- * (dsh guard timeout-policy analog); 0 or absent disables it.
+ * <p>Config: {@code {toolTimeoutSeconds: <n>, repeatReminder: <bool>}} —
+ * the per-tool-call deadline (dsh guard timeout-policy analog; 0 or absent
+ * disables it) and the advisory annotation on consecutive identical calls
+ * (dsh guard repeat-tool-reminder analog; default off).
  */
 public final class ToolsPlugin implements Plugin {
 

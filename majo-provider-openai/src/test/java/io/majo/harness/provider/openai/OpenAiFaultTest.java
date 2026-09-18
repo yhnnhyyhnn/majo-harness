@@ -114,4 +114,17 @@ class OpenAiFaultTest {
                 .isInstanceOf(ModelException.class)
                 .hasMessageContaining("cannot parse provider response");
     }
+
+    @Test
+    void stalledResponseFailsOnTheClientTimeout() throws IOException {
+        server = FaultLlmServer.start();
+        server.enqueue(FaultLlmServer.stall(5_000));
+        OpenAiChatModel impatient = new OpenAiChatModel(Map.of(
+                "baseUrl", server.baseUrl(), "model", "fault-model", "timeoutSeconds", 1));
+
+        assertThatThrownBy(() -> impatient.complete(request()))
+                .isInstanceOf(ModelException.class);
+        // the client gave up; the server saw exactly one request
+        assertThat(server.served()).isEqualTo(1);
+    }
 }
