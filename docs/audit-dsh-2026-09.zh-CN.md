@@ -54,8 +54,10 @@
   注入插件——工作区指令（AGENTS.md / CLAUDE.md 加载）与时间上下文，以
   一次性持久 `CONTEXT_NOTE` 事件落地；`@file` 提及与跨会话快照仍是
   候选。
-- **`spill` 族**：超长工具文本带定位器外置存储，替换内联副本（与裁剪
-  互补）。
+- **`spill` 族 ✅ 已于 2026-09-18 采纳（`majo-spill`）**：超长工具结果
+  外置存储 + 定位器（`spill_read` 取回），内联只留预览 + 取回指引；
+  经 `maxInlineBytes` 选择性启用（web profiles：16 KiB），存储失败
+  fail-open，取回豁免再溢出。
 - **`ssh` 族**：`fs`/`subprocess`/`sandbox` 提供者经一条 OpenSSH 连接
   指向远程主机（"单一执行世界"）。
 - **`ptc-runtime`**：程序化工具调用（`run_code`——模型写一个程序替代

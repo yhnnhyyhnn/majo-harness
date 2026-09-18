@@ -65,8 +65,10 @@ one of **adopted** (code landed), **divergence** (deliberate, keep), or
   context injection plugins — workspace instructions (AGENTS.md /
   CLAUDE.md loading) and time context as durable one-shot `CONTEXT_NOTE`
   events; `@file` mentions and cross-session snapshots remain candidates.
-- **`spill` family**: oversized tool text stored out-of-band with a
-  locator, replacing the inline copy (complements pruning).
+- **`spill` family** ✅ adopted 2026-09-18 (`majo-spill`): oversized tool
+  results stored out-of-band behind a locator (`spill_read`), preview +
+  retrieval guidance inline; opt-in via `maxInlineBytes` (web profiles:
+  16 KiB), fail-open on storage errors, retrieval exempt from re-spilling.
 - **`ssh` family**: `fs`/`subprocess`/`sandbox` providers re-pointed at a
   remote host over one OpenSSH connection ("one execution world").
 - **`ptc-runtime`**: programmatic tool calling (`run_code` — the model

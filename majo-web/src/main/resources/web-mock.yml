@@ -60,6 +60,10 @@
     servers: {}
 - id: context
   name: context
+- id: spill
+  name: spill
+  config:
+    maxInlineBytes: 16384
 - id: skill-files
   name: skill-files
   config:

@@ -468,3 +468,13 @@ Working area for the next iteration.
 ## [Unreleased]
 
 Working area for the next iteration.
+
+- **Spill family** (new `majo-spill` module, dsh `spill` analog /
+  roadmap-0.5 candidate adopted): tool results whose content exceeds
+  `maxInlineBytes` (opt-in; web profiles: 16 KiB) store the full text
+  out-of-band and return a preview + locator — the model retrieves the
+  whole output with `spill_read`. Storage failure fails open (the original
+  result survives), retrieval is exempt from re-spilling, and the durable
+  log carries the preview (invariant intact). Complements the compaction
+  pruner: spill handles the *current* oversized result, pruning handles
+  old ones. 溢出外置：超大工具结果落盘为文件，模型只见预览 + 取回指引。

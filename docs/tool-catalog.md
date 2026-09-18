@@ -2,7 +2,7 @@
 
 <!-- GENERATED from the shipped offline profile's ToolRegistry by ToolCatalogTest — do not edit by hand. Regenerate: bash scripts/gen-tool-catalog.sh -->
 
-18 tools on the shipped `web-mock` profile.
+19 tools on the shipped `web-mock` profile.
 
 | tool | description | parameters |
 |---|---|---|
@@ -21,6 +21,7 @@
 | `schedule_create` | Schedule a reminder for this session: the prompt is sent back to you as a new turn at the due time. Pass exactly one of after_seconds (one-shot delay), every_seconds (repeat, minimum 300), or at (ISO local date-time, yyyy-MM-ddTHH:mm:ss). | {"type":"object","properties":{"prompt":{"type":"string"},"after_seconds":{"type":"number"},"every_seconds":{"type":"number"},"at":{"type":"string"}},"required":["prompt"]} |
 | `schedule_delete` | Cancel a scheduled reminder by id (durable: it never fires after this). | {"type":"object","properties":{"id":{"type":"string"}},"required":["id"]} |
 | `schedule_list` | List this session's active scheduled reminders: id, due time, repeat interval, and the prompt that will be delivered. | {} |
+| `spill_read` | Retrieves the full text of a tool output that was stored out-of-band (id comes from a truncation notice in a previous tool result). | {"type":"object","properties":{"id":{"type":"string"}},"required":["id"]} |
 | `todo_write` | Replace the session task list with this exact list. Use one call with the full list every time it changes: mark an item in_progress before starting it and completed immediately after finishing it. | {"type":"object","properties":{"todos":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed"]}}},"description":"The complete list in execution order."}},"required":["todos"]} |
 | `web_fetch` | Fetches a URL and returns its text (HTML converted; external, untrusted content). | {"type":"object","properties":{"url":{"type":"string"}},"required":["url"]} |
 | `web_search` | Searches the web. Results are external, untrusted provider text. | {"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1}},"required":["query"]} |
