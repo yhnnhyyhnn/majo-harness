@@ -51,12 +51,29 @@
 | Todo 清单（`packages/todo`） | `majo-todo`（TODO_SET，`GET /api/sessions/{id}/todos`） | ✅ `todo_write` 整表替换清单，对话区渲染 TodoPanel |
 | Jobs（`ui-jobs`） | `majo-jobs`（ctx.jobs 接缝，`GET /api/sessions/{id}/jobs`） | ✅ 头部 jobs popover（逐任务状态/退出码）+ `run_background` / `job_output` / `job_list` / `job_kill` 工具；完成以 follow-up 送达 |
 | Schedule（`ui-schedule`） | `majo-schedule`（SCHEDULE_SET，`GET /api/sessions/{id}/schedules`） | ✅ `schedule_create/list/delete`（`after_seconds` / 绝对 `at` / `every_seconds ≥ 300`，持久化，busy→下轮 / idle→唤醒）+ 头部目录 popover |
-| Workflow（`ui-workflow-run`） | 后端未建 | ⬜ |
+| Workflow（`ui-workflow-run`） | `majo-workflow`（WORKFLOW_START/STEP/END 事件，`ctx.workflow`） | ✅ `workflows/` 下 YAML 步骤列表（示例 `review-doc.yml`）；步骤在 scoped 子会话中按序执行；`{{args.*}}`/`{{steps.<id>.output}}` 模板；连续 `parallel: true` 步骤并发扇出；`/workflow [name|status|resume]` 命令 + 审批门控的 `workflow_run` 工具（`allowModelTrigger` 豁免）；Trajectory 渲染步骤进度 |
 | Subagent 活动（`ui-subagent`） | 后端已有 subagent | ✅ 侧栏区（近期委派，轮询）+ delegate 卡的父→子转写链接；委派支持 scoped model/maxSteps/autoApprove/allowedTools + 宿主岛屿 + per-agent `settings` 覆盖 |
 | Skills 面板（`ui-skill`） | 后端已有 skills | ✅ 侧栏区（`/api/skills`，轮询） |
 | 插件管理 | 三层插件模型 + jar 热 reload | ✅ 侧栏区：托管页 + 原生 `plugin.mjs` mount/reload/unload、jar mtime 自动 reload、version/slots 徽标、重复 id 与缺版本告警 |
 | Agent team（实验） | 后端未建 | ⬜ |
-| 轨迹（`ui-trajectory`） | 会话日志已含一切 | ✅ Chat/Trajectory 视图环：按 turn 分组的事件台账（请求头、审批、压缩、簿记一应俱全），带回合时长、逐事件耗时与文本过滤 |
+| 轨迹（`ui-trajectory`） | 会话日志已含一切 | ✅ Chat/Trajectory 视图环：按 turn 分组的事件台账（请求头、审批、压缩、workflow 步骤、簿记一应俱全），带回合时长、逐事件耗时与文本过滤 |
+
+## v0.5–v0.7 新增（超出 dsh 对齐表范围）
+
+| 特性 | majo 模块 | 状态 |
+|---|---|---|
+| 上下文注入（`context` 族） | `majo-context` | ✅ 工作区指令（AGENTS.md/CLAUDE.md）+ 时间注入为持久 `CONTEXT_NOTE`；`@file` 提及经 composer 补全（`fileReferences` 接缝） |
+| 溢出外置（`spill` 族） | `majo-spill` | ✅ 超长工具结果外置存储 + 定位器；`spill_read` 取回全文；fail-open；`maxInlineBytes` 启用 |
+| 系统-prompt 段（`server-context` 形状） | `AgentLoopService.registerSystemSection` | ✅ MCP server instructions + 可用服务器清单贡献惰性 `mcp:` 段；REQUEST_HEADER 逐字记录组装后 prompt |
+| SSH 远程执行（`ssh` 族） | `majo-ssh` + fs/subprocess 提供者替换 | ✅ `fs` 和 `subprocess` 行可选 `ssh: {host, user, …}` 配置；单一执行世界不变量成立 |
+| PTC 运行时（`ptc-runtime`） | `majo-ptc` | ✅ `run_code` 工具在 Node.js 子进程执行模型写的 JavaScript；超时、错误映射 |
+| MCP 重连与启动策略 | `majo-mcp` | ✅ 懒重连 + 指数退避 + 尝试预算 + 稳定窗重置；`failOnStartupError`；服务器名校验 |
+| MCP 共享资源工具（`mcp-resources`） | `majo-mcp` | ✅ 共享 `list_mcp_resources` / `list_mcp_resource_templates` / `read_mcp_resource`（server 参数） |
+| MCP 系统段（`server-context`） | `majo-mcp` | ✅ per-server instructions 作为 `mcp:` 系统段 |
+| 会话文件代际（`session-persistence-jsonl`） | `majo-session` | ✅ `<id>.v1.jsonl` + 格式头；header-only stat/list；一步迁移；尾行修复 |
+| LLM 故障注入（`llm-mock-server`） | `majo-llm.fault` | ✅ `FaultLlmServer`（raw-socket 脚本 HTTP 含断流）+ `FaultChatModel`；线级 + 回合故障契约钉死 |
+| 工具结果裁剪（`compaction-tool-result-pruner`） | `majo-compaction` | ✅ 标记行 + head+tail 保留；阈值对齐 8192/4096/1024 |
+| Guard：超时 + 重复提醒（`guard`） | tools 接缝配置 | ✅ `toolTimeoutSeconds` + `repeatReminder`；web profiles 启用超时 600s |
 
 ## 线契约与面板机制
 

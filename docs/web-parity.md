@@ -52,12 +52,29 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Todo list (`packages/todo`) | `majo-todo` (TODO_SET, `GET /api/sessions/{id}/todos`) | ✅ `todo_write` full-replace list rendered as a conversation TodoPanel |
 | Jobs (`ui-jobs`) | `majo-jobs` (ctx.jobs seam, `GET /api/sessions/{id}/jobs`) | ✅ header jobs popover (per-job state/exit) + `run_background` / `job_output` / `job_list` / `job_kill` tools; completion notices arrive as follow-ups |
 | Schedule (`ui-schedule`) | `majo-schedule` (SCHEDULE_SET, `GET /api/sessions/{id}/schedules`) | ✅ `schedule_create/list/delete` (`after_seconds` / absolute `at` / `every_seconds ≥ 300`, persisted, busy→next turn / idle→wake) + header catalog popover |
-| Workflow run (`ui-workflow-run`) | backend workflow not built | ⬜ |
+| Workflow run (`ui-workflow-run`) | `majo-workflow` (WORKFLOW_START/STEP/END events, `ctx.workflow`) | ✅ YAML step lists under `workflows/` (sample `review-doc.yml`); steps run in scoped child sessions; `{{args.*}}`/`{{steps.<id>.output}}` templates; consecutive `parallel: true` steps fan out concurrently; `/workflow [name|status|resume]` command + approval-gated `workflow_run` tool with `allowModelTrigger` opt-out; Trajectory renders step progress |
 | Subagent activity (`ui-subagent`) | backend subagent exists | ✅ sidebar section (recent delegations, polls) + parent→child transcript link from delegate cards; delegation supports scoped model/maxSteps/autoApprove/allowedTools + host islands + per-agent `settings` overrides |
 | Skills panel (`ui-skill`) | backend skills exists | ✅ sidebar section (`/api/skills`, polls) |
 | Plugins management | three-tier plugin model + jar hot reload | ✅ sidebar section: hosted pages + native `plugin.mjs` mount/reload/unload, jar mtime auto-reload, version/slots chips, duplicate-id & unversioned warnings |
 | Agent team (`ui-agent-team`, experimental) | backend not built | ⬜ |
-| Trajectory (`ui-trajectory`) | backend session log has everything | ✅ Chat/Trajectory view ring: turn-grouped ledger of every durable event (headers, approvals, compaction, bookkeeping) with per-turn durations, per-event deltas, and a text filter |
+| Trajectory (`ui-trajectory`) | backend session log has everything | ✅ Chat/Trajectory view ring: turn-grouped ledger of every durable event (headers, approvals, compaction, workflow steps, bookkeeping) with per-turn durations, per-event deltas, and a text filter |
+
+## v0.5–v0.7 additions (beyond the dsh parity table)
+
+| feature | majo module | status |
+|---|---|---|
+| Context injection (`context` family) | `majo-context` | ✅ workspace instructions (AGENTS.md/CLAUDE.md) + time as durable `CONTEXT_NOTE`; `@file` mentions via composer completion (`fileReferences` seam) |
+| Spill (`spill` family) | `majo-spill` | ✅ oversized tool results stored out-of-band behind a locator; `spill_read` retrieves full text; fail-open; opt-in via `maxInlineBytes` |
+| System-prompt sections (`server-context` shape) | `AgentLoopService.registerSystemSection` | ✅ MCP server instructions + usable-server list contribute a lazy `mcp:` section; REQUEST_HEADER records assembled prompt verbatim |
+| SSH remote execution (`ssh` family) | `majo-ssh` + fs/subprocess provider swaps | ✅ `fs` and `subprocess` plugins gain optional `ssh: {host, user, …}` config; single execution world invariant holds |
+| PTC runtime (`ptc-runtime`) | `majo-ptc` | ✅ `run_code` tool executes model-written JavaScript in a fresh Node.js process; timeout, error mapping |
+| MCP reconnect & startup policy | `majo-mcp` | ✅ lazy reconnect with exponential backoff + attempt budget + stability reset; `failOnStartupError`; server-name validation |
+| MCP shared resource tools (`mcp-resources`) | `majo-mcp` | ✅ shared `list_mcp_resources` / `list_mcp_resource_templates` / `read_mcp_resource` with server arg |
+| MCP system sections (`server-context`) | `majo-mcp` | ✅ per-server instructions as `mcp:` system section |
+| Session file generations (`session-persistence-jsonl`) | `majo-session` | ✅ `<id>.v1.jsonl` + format header; header-only stat/list; one-step migration; tail repair |
+| LLM fault injection (`llm-mock-server`) | `majo-llm.fault` | ✅ `FaultLlmServer` (raw-socket scripted HTTP incl. mid-body disconnects) + `FaultChatModel`; wire + turn failure contracts pinned |
+| Tool-result pruning (`compaction-tool-result-pruner`) | `majo-compaction` | ✅ head+tail retention behind a marker; threshold aligned 8192/4096/1024 |
+| Guard: timeout + repeat reminder (`guard`) | tools seam config | ✅ `toolTimeoutSeconds` + `repeatReminder`; web profiles enable timeout at 600s |
 
 ## Wire contract & panels plumbing
 
