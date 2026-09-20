@@ -23,14 +23,21 @@ public final class FileSkillProvider implements SkillProvider {
     private final Path root;
 
     public FileSkillProvider(Path root) {
+        // a missing directory means no file-based skills: degrade gracefully
+        // (tests run from module directories where the repo-root-relative
+        // "skills" path doesn't resolve — this is expected, not an error)
         if (!Files.isDirectory(root)) {
-            throw new SkillException("skill-files: root is not a directory: " + root);
+            this.root = null;
+        } else {
+            this.root = root;
         }
-        this.root = root;
     }
 
     @Override
     public List<Skill> skills() {
+        if (root == null) {
+            return List.of();
+        }
         List<Skill> skills = new ArrayList<>();
         try (Stream<Path> entries = Files.list(root)) {
             for (Path entry : entries.filter(Files::isDirectory).sorted().toList()) {

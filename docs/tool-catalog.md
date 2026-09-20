@@ -2,13 +2,14 @@
 
 <!-- GENERATED from the shipped offline profile's ToolRegistry by ToolCatalogTest — do not edit by hand. Regenerate: bash scripts/gen-tool-catalog.sh -->
 
-21 tools on the shipped `web-mock` profile.
+22 tools on the shipped `web-mock` profile.
 
 | tool | description | parameters |
 |---|---|---|
 | `calc` | Evaluates a simple integer arithmetic expression of the form a+b, a-b, a*b, or a/b. | {"type":"object","properties":{"expression":{"type":"string"}},"required":["expression"]} |
 | `delegate_task` | Delegates a task to a child agent with a fresh session and returns its final answer. | {"type":"object","properties":{"task":{"type":"string"},"model":{"type":"string","description":"registered model for the child agent (defaults to the harness model)"},"systemPrompt":{"type":"string","description":"system prompt override for the child agent"},"maxSteps":{"type":"integer","minimum":1,"description":"max steps for the child turn (scoped run)"},"autoApprove":{"type":"boolean","description":"auto-approve gated tools inside the child scope"},"allowedTools":{"type":"array","items":{"type":"string","description":"tools the child agent may call (default: all)"}},"islands":{"type":"array","description":"host-registered island plugin names to mount in the child scope","items":{"type":"string"}},"settings":{"type":"object","description":"per-agent settings overrides visible inside the child scope","additionalProperties":{"type":"string"}}},"required":["task"]} |
 | `exit_plan_mode` | Call this when your plan for the current task is complete. Your plan goes to the human for review: they approve it (proceed with implementation) or reply with feedback (revise the plan and call this again). Never call it with no plan active. | {"type":"object","properties":{"summary":{"type":"string"}},"description":"Optional one-line summary of the plan for the review prompt."} |
+| `git_status` | Shows the git working-tree status: modified, staged, and untracked files. Use after writing files to verify what changed. | {} |
 | `job_kill` | Stop a running background job by id (its process is destroyed). | {"type":"object","properties":{"id":{"type":"string"}},"required":["id"]} |
 | `job_list` | List this session's background jobs: id, state (running/completed/failed/killed), script, and timing. | {} |
 | `job_output` | Read a background job's output. Pass wait_seconds (up to 60) to wait for a running job to finish before reading. | {"type":"object","properties":{"id":{"type":"string"},"wait_seconds":{"type":"number"}},"required":["id"]} |

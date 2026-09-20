@@ -38,9 +38,9 @@ class SkillSeamTest {
         assertThat(alpha.instructions()).startsWith("# Alpha skill").contains("step one.");
         assertThat(provider.skills().get(1).instructions()).isEqualTo("plain skill body");
 
-        assertThatThrownBy(() -> new FileSkillProvider(root.resolve("missing")))
-                .isInstanceOf(SkillException.class)
-                .hasMessageContaining("not a directory");
+        // a missing directory degrades gracefully: no skills, no throw
+        FileSkillProvider missing = new FileSkillProvider(root.resolve("missing"));
+        assertThat(missing.skills()).isEmpty();
     }
 
     @Test

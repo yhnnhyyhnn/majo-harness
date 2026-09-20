@@ -218,7 +218,8 @@ class HeadlessIntegrationTest {
         assertThat(fs.readText(file.toString())).isEqualTo("hi");
 
         io.majo.harness.tools.ToolRegistry tools = boot.service("tools");
-        assertThat(tools.specs()).extracting(spec -> spec.name()).containsExactly("read_file");
+        assertThat(tools.specs()).extracting(spec -> spec.name())
+                .containsExactlyInAnyOrder("read_file", "git_status");
         boot.dispose();
     }
 

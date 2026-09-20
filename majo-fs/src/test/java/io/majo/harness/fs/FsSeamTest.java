@@ -62,7 +62,8 @@ class FsSeamTest {
         root.plugin(new FsPlugin(), null).await().join();
         root.plugin(new FsToolPlugin(), null).await().join();
         ToolRegistry tools = root.get(ToolRegistry.NAME);
-        assertThat(tools.specs()).extracting(spec -> spec.name()).containsExactly("read_file");
+        assertThat(tools.specs()).extracting(spec -> spec.name())
+                .containsExactlyInAnyOrder("read_file", "git_status");
 
         Path file = dir.resolve("note.txt");
         Files.writeString(file, "payload");

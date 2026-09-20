@@ -22,7 +22,8 @@ public final class FsToolPlugin implements Plugin {
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
         FileSystemService fs = ctx.get(FileSystemService.NAME);
         Disposable readFile = tools.register(new ReadFileTool(fs));
-        return Disposables.composite(readFile);
+        Disposable gitStatus = tools.register(new GitStatusTool());
+        return Disposables.composite(readFile, gitStatus);
     }
 
     @Override
