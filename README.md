@@ -1,9 +1,10 @@
 # majo-harness
 
 <p align="left">
-  <img alt="version" src="https://img.shields.io/badge/version-0.1.0-86,134,254">
+  <img alt="version" src="https://img.shields.io/badge/version-0.7.0-86,134,254">
   <img alt="license" src="https://img.shields.io/badge/license-Apache--2.0-blue">
-  <img alt="status" src="https://img.shields.io/badge/status-plugin--harness-%230f1115">
+  <img alt="modules" src="https://img.shields.io/badge/modules-33-blue">
+  <img alt="tools" src="https://img.shields.io/badge/tools-20-green">
 </p>
 
 <p align="left">
