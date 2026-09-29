@@ -550,8 +550,6 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration.
-
 - **Compaction pressure model** (dsh v0.2.0 alignment): new
   `headroomTokens` config (default 8192, dsh uses 65536 against a 128k
   window) reserves space for the model's response — compaction triggers
@@ -565,3 +563,8 @@ Working area for the next iteration.
   writing files. Read-only, no approval required.
 - **skill-files**: gracefully skips missing directories (fixes recurring
   build warning when CWD differs from repo root).
+- **Schedule daily/weekly recurring** (dsh v0.2.0 daily/weekly parity):
+  `schedule_create` gains `daily: "HH:mm"` and
+  `weekly: {"day":"MONDAY","time":"HH:mm"}` sugar — internally computes
+  next occurrence + `every_seconds=86400/604800`; `schedule_update` tool
+  for editing existing schedules.
