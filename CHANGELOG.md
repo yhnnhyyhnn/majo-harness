@@ -548,7 +548,7 @@ Working area for the next iteration.
   process, reducing round-trips for multi-step computation; tool catalog
   regenerated (20 tools). Config: `{nodePath, timeoutSeconds}`.
 
-## [Unreleased]
+## [0.7.1] - 2026-09-29
 
 - **Compaction pressure model** (dsh v0.2.0 alignment): new
   `headroomTokens` config (default 8192, dsh uses 65536 against a 128k
@@ -568,3 +568,7 @@ Working area for the next iteration.
   `weekly: {"day":"MONDAY","time":"HH:mm"}` sugar — internally computes
   next occurrence + `every_seconds=86400/604800`; `schedule_update` tool
   for editing existing schedules.
+
+## [Unreleased]
+
+Working area for the next iteration.
