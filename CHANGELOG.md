@@ -551,3 +551,17 @@ Working area for the next iteration.
 ## [Unreleased]
 
 Working area for the next iteration.
+
+- **Compaction pressure model** (dsh v0.2.0 alignment): new
+  `headroomTokens` config (default 8192, dsh uses 65536 against a 128k
+  window) reserves space for the model's response — compaction triggers
+  when estimated input + headroom exceeds the budget, so the context
+  window never overflows from output tokens alone. Capped at half the
+  budget so small test budgets still work.
+- **`schedule_update` tool** (dsh parity): edits an existing scheduled
+  reminder's prompt and/or timing; re-arms with the new parameters.
+  Tool catalog regenerated (22 tools).
+- **`git_status` tool**: model can inspect working-tree changes after
+  writing files. Read-only, no approval required.
+- **skill-files**: gracefully skips missing directories (fixes recurring
+  build warning when CWD differs from repo root).

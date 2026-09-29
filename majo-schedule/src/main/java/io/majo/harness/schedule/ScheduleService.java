@@ -37,10 +37,12 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
     /** One schedule (the read model). */
     public static final class Schedule {
         public final String id;
-        public final String prompt;
+        public volatile String prompt;
         public volatile long dueAtMs;
-        public final long intervalSeconds;
+        public volatile long intervalSeconds;
         public volatile boolean cancelled;
+        /** Optional display title (dsh parity). */
+        public volatile String title;
 
         Schedule(String id, String prompt, long dueAtMs, long intervalSeconds) {
             this.id = id;
@@ -220,6 +222,65 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
                 SessionEvent.FIELD_INTERVAL_SECONDS, schedule.intervalSeconds,
                 SessionEvent.FIELD_CANCELLED, true));
         return true;
+    }
+
+    /**
+     * Updates an existing schedule (dsh `schedule_update` analog): changes
+     * prompt, timing, or both; re-arms with the new parameters. At least one
+     * field must be non-null; exactly one timing shape if timing is changed.
+     */
+    public Schedule update(String sessionId, String scheduleId, String newPrompt,
+            Long afterSeconds, Long atEpochMs, Long everySeconds) {
+        Schedule schedule = get(sessionId, scheduleId);
+        if (schedule == null || schedule.cancelled) {
+            throw new IllegalArgumentException(
+                    "schedule_update: unknown or cancelled schedule \"" + scheduleId + "\"");
+        }
+        boolean hasPrompt = newPrompt != null && !newPrompt.isBlank();
+        boolean hasTiming = afterSeconds != null || atEpochMs != null || everySeconds != null;
+        if (!hasPrompt && !hasTiming) {
+            throw new IllegalArgumentException(
+                    "schedule_update: pass a new prompt and/or new timing");
+        }
+        if (hasTiming) {
+            int shapes = (afterSeconds != null ? 1 : 0) + (atEpochMs != null ? 1 : 0)
+                    + (everySeconds != null ? 1 : 0);
+            if (shapes != 1) {
+                throw new IllegalArgumentException(
+                        "schedule_update: pass exactly one of after_seconds, at, every_seconds");
+            }
+        }
+        cancelTimer(sessionId, scheduleId);
+        if (hasPrompt) {
+            schedule.prompt = newPrompt;
+        }
+        if (hasTiming) {
+            if (afterSeconds != null) {
+                if (afterSeconds < 1) {
+                    throw new IllegalArgumentException("schedule_update: after_seconds >= 1");
+                }
+                schedule.dueAtMs = System.currentTimeMillis() + afterSeconds * 1000;
+                schedule.intervalSeconds = 0;
+            } else if (atEpochMs != null) {
+                schedule.dueAtMs = atEpochMs;
+                schedule.intervalSeconds = 0;
+            } else {
+                if (everySeconds < MIN_REPEAT_SECONDS) {
+                    throw new IllegalArgumentException("schedule_update: every_seconds >= "
+                            + MIN_REPEAT_SECONDS);
+                }
+                schedule.intervalSeconds = everySeconds;
+                schedule.dueAtMs = System.currentTimeMillis() + everySeconds * 1000;
+            }
+        }
+        sessions.append(sessionId, SessionEventType.SCHEDULE_SET, Map.of(
+                SessionEvent.FIELD_SCHEDULE_ID, schedule.id,
+                SessionEvent.FIELD_PROMPT, schedule.prompt,
+                SessionEvent.FIELD_DUE_AT, schedule.dueAtMs,
+                SessionEvent.FIELD_INTERVAL_SECONDS, schedule.intervalSeconds,
+                SessionEvent.FIELD_CANCELLED, false));
+        arm(sessionId, schedule);
+        return schedule;
     }
 
     private void cancelTimer(String sessionId, String scheduleId) {

@@ -30,7 +30,8 @@ public final class SchedulePlugin implements Plugin {
         Disposable create = tools.register(new ScheduleCreateTool(schedules));
         Disposable list = tools.register(new ScheduleListTool(schedules));
         Disposable delete = tools.register(new ScheduleDeleteTool(schedules));
-        Disposable tools1 = Disposables.composite(create, list, delete);
+        Disposable update = tools.register(new ScheduleUpdateTool(schedules));
+        Disposable tools1 = Disposables.composite(create, list, delete, update);
         return new Disposable() {
             @Override
             public void dispose() {
@@ -45,6 +46,7 @@ public final class SchedulePlugin implements Plugin {
         Map<String, Object> inject = new HashMap<>();
         inject.put(SessionService.NAME, null);
         inject.put(ToolRegistry.NAME, null);
+        inject.put(AgentLoopService.NAME, null);
         return inject;
     }
 

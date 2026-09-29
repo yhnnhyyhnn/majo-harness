@@ -2,7 +2,7 @@
 
 <!-- GENERATED from the shipped offline profile's ToolRegistry by ToolCatalogTest — do not edit by hand. Regenerate: bash scripts/gen-tool-catalog.sh -->
 
-22 tools on the shipped `web-mock` profile.
+23 tools on the shipped `web-mock` profile.
 
 | tool | description | parameters |
 |---|---|---|
@@ -23,6 +23,7 @@
 | `schedule_create` | Schedule a reminder for this session: the prompt is sent back to you as a new turn at the due time. Pass exactly one of after_seconds (one-shot delay), every_seconds (repeat, minimum 300), or at (ISO local date-time, yyyy-MM-ddTHH:mm:ss). | {"type":"object","properties":{"prompt":{"type":"string"},"after_seconds":{"type":"number"},"every_seconds":{"type":"number"},"at":{"type":"string"}},"required":["prompt"]} |
 | `schedule_delete` | Cancel a scheduled reminder by id (durable: it never fires after this). | {"type":"object","properties":{"id":{"type":"string"}},"required":["id"]} |
 | `schedule_list` | List this session's active scheduled reminders: id, due time, repeat interval, and the prompt that will be delivered. | {} |
+| `schedule_update` | Updates an existing scheduled reminder: change the prompt and/or timing (exactly one of after_seconds, at_epoch_ms, every_seconds). | {"type":"object","properties":{"id":{"type":"string"},"prompt":{"type":"string"},"after_seconds":{"type":"number"},"at_epoch_ms":{"type":"number"},"every_seconds":{"type":"number"}},"required":["id"]} |
 | `spill_read` | Retrieves the full text of a tool output that was stored out-of-band (id comes from a truncation notice in a previous tool result). | {"type":"object","properties":{"id":{"type":"string"}},"required":["id"]} |
 | `todo_write` | Replace the session task list with this exact list. Use one call with the full list every time it changes: mark an item in_progress before starting it and completed immediately after finishing it. | {"type":"object","properties":{"todos":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed"]}}},"description":"The complete list in execution order."}},"required":["todos"]} |
 | `web_fetch` | Fetches a URL and returns its text (HTML converted; external, untrusted content). | {"type":"object","properties":{"url":{"type":"string"}},"required":["url"]} |

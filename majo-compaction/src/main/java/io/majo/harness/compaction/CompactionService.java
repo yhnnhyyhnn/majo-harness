@@ -30,6 +30,14 @@ public final class CompactionService extends io.jcordis.core.service.Service {
 
     public static final String NAME = "compaction";
     public static final int DEFAULT_MAX_TOKENS = 32_000;
+    /**
+     * Safety buffer (dsh `headroomTokens` analog): compaction triggers when
+     * estimated input tokens + headroom exceed the budget, so the model's
+     * response never pushes the total past the context window. Default
+     * 8,192 (proportional to majo's 32k budget; dsh uses 65,536 against a
+     * 128k window).
+     */
+    public static final int DEFAULT_HEADROOM_TOKENS = 8_192;
     /** Tool results older than the final assistant round collapse past this many characters (dsh compaction-tool-result-pruner: thresholdChars). */
     public static final int DEFAULT_PRUNE_CHARS = 8_192;
     /** Kept head/tail of a pruned result (dsh: head 4096 / tail 1024). */
@@ -44,6 +52,7 @@ public final class CompactionService extends io.jcordis.core.service.Service {
     private final SessionService sessions;
     private final LLMService llm;
     private final int maxTokens;
+    private final int headroomTokens;
     private final int pruneChars;
     private final int pruneHeadChars;
     private final int pruneTailChars;
@@ -62,6 +71,7 @@ public final class CompactionService extends io.jcordis.core.service.Service {
                     "compaction: maxTokens must be >= 100, got " + tokens);
         }
         this.maxTokens = tokens;
+        this.headroomTokens = intConfig(config, "headroomTokens", DEFAULT_HEADROOM_TOKENS);
         int prune = DEFAULT_PRUNE_CHARS;
         if (config instanceof Map<?, ?> map && map.get("pruneChars") instanceof Number number) {
             prune = number.intValue();
@@ -163,9 +173,20 @@ public final class CompactionService extends io.jcordis.core.service.Service {
         return estimateTokens(MessageDeriver.derive(sessions.events(sessionId)));
     }
 
-    /** Whether the session's derived history is over the budget. */
+    /** The configured headroom buffer in tokens. */
+    public int headroomTokens() {
+        return headroomTokens;
+    }
+
+    /**
+     * Whether the session's derived history + headroom buffer exceeds the
+     * budget (dsh pressure-model analog: the headroom reserves space for the
+     * model's response so compaction triggers before the window overflows).
+     * Headroom is capped at half the budget so small test budgets work.
+     */
     public boolean isOverBudget(String sessionId) {
-        return estimateTokens(sessionId) > maxTokens;
+        int effectiveHeadroom = Math.min(headroomTokens, maxTokens / 2);
+        return estimateTokens(sessionId) + effectiveHeadroom > maxTokens;
     }
 
     /**
