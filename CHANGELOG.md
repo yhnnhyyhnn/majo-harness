@@ -673,7 +673,7 @@ Working area for the next iteration.
 
 ## [0.8.1] - 2026-09-30
 
-## [Unreleased]
+## [0.8.2] - 2026-09-30
 
 ### Skill scope chain + single tool (dsh skill parity — roadmap-0.6 P6a)
 
@@ -708,3 +708,7 @@ Working area for the next iteration.
   watchdog reports timeout rather than the kill exit code.
 
 ### Hooks compatibility bridge (dsh hook-protocol parity — roadmap-0.6 P5)
+
+## [Unreleased]
+
+Working area for the next iteration.
