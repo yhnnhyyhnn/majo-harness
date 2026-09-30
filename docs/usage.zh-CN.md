@@ -57,10 +57,10 @@ profile 里加一行：
 | `todo_write` | 替换会话待办列表 |
 | `exit_plan_mode` | 提交计划等审批 |
 | `schedule_create/list/update/delete` | 定时提醒，daily/weekly 糖与 Vixie cron（`cron` + `timezone`） |
-| `run_code` | **PTC**：在 Node.js 进程执行 JavaScript |
+| `run_code` | **PTC**：在 Node.js 进程执行 JavaScript；程序内经 `await tools.<name>(args)` 调用宿主工具 |
 | `spill_read` | 取回外置存储的超长工具输出 |
 | `workflow_run` | 执行命名工作流 |
-| `list_skills` / `load_skill` | 加载技能指令 |
+| `skill` | 加载指定技能的完整指令（目录随系统提示注入） |
 
 ## 关键功能
 

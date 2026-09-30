@@ -19,7 +19,7 @@ majo-harness is an **all-plugin agent harness**: every product capability is a p
 | shell capability (dsh `shell/`) | service over subprocess + strategy-selected families | `majo-shell` (`ctx.shell`, `run_shell` tool) |
 | sandbox capability (dsh `sandbox/`) | argv-wrap provider seam + policy waterfall | `majo-sandbox` (`ctx.sandbox`, identity/bwrap providers) |
 | interaction capability (dsh `interaction/`) | approval/ask-user handlers + tool gate | `majo-interaction` (`ctx.interactions`, `tool-approval`) |
-| skill capability (dsh `skill/`) | provider registry + local provider + catalog/loader tools | `majo-skill` (`ctx.skills`, `list_skills`/`load_skill`) |
+| skill capability (dsh `skill/`) | provider registry with scope ranks + multi-root local provider + single `skill` tool + catalog system section | `majo-skill` (`ctx.skills`, `skill`) |
 | subagent capability (dsh `subagent/`) | child-session delegation + depth guard | `majo-subagent` (`ctx.subagent`, `delegate_task`) |
 | web access family (dsh `web/` six packages) | neutral `ctx.web` + swappable backends + tools | `majo-web-access` (`ctx.web`, `web_search`/`web_fetch`) |
 | settings capability (dsh `settings/`) | user-settings store + file provider | `majo-settings` (`ctx.settings`) |
@@ -41,7 +41,7 @@ Sandbox wraps process spawning: `SandboxService` (`ctx.sandbox`) confines an arg
 
 Interaction gates operations behind humans: `InteractionService` (`ctx.interactions`) routes approval and ask-user requests to registered `InteractionHandler` strategies in order; handlers abstain by default and an unanswered approval denies while an unanswered question fails loudly (fail-safe). Shipped handler modes are `auto`/`deny` for approvals and `canned:`/none for answers; a `QueueingInteractionHandler` provides the interactive channel for a UI. The `tool-approval` plugin is a Chain-of-Responsibility listener on `tools/pre-execute`: gated tools pause behind `ctx.interactions` and delegate only on approval.
 
-Skills give the model reusable procedures: `SkillRegistry` (`ctx.skills`) aggregates `SkillProvider` contributions — the shipped `skill-files` provider scans directories of `SKILL.md` files (front-matter descriptions, body instructions) — and rejects name collisions across providers loudly. `list_skills`/`load_skill` browse the catalog and load instructions as tool results; wiring loaded skills into the prompt assembly arrives with the system-prompt seam.
+Skills give the model reusable procedures: `SkillRegistry` (`ctx.skills`) aggregates `SkillProvider` contributions under precedence ranks — duplicated names resolve to the lowest rank outright (project 100 < custom 200 < user 300 < bundled 600, dsh scope-chain parity; first registration breaks ties; within one provider a duplicate still fails loudly). The shipped `skill-files` provider scans directories of `SKILL.md` files (front-matter descriptions, body instructions) — one root per configured scope (`path`/`custom`/`user`/`bundled`). The single `skill` tool loads instructions on demand; the catalog rides the `skills` system section as a persistent `<available_skills>` block.
 
 Subagents delegate within the same tree: `SubagentService` (`ctx.subagent`) opens a fresh child session and drives it through the same `ctx.agentLoop`, returning the child's final text (a child agent is a new session with isolated history, not a second loop). Nesting depth is config-guarded (`maxDepth`, default 3) and exceeding it fails loudly; the `delegate_task` tool exposes delegation to the model.
 
@@ -78,7 +78,7 @@ majo-interaction/ ApprovalRequest/Question/ApprovalDecision / InteractionHandler
                   / ToolApprovalPlugin (tool-approval gate on tools/pre-execute)
 majo-skill/       Skill / SkillProvider seam / FileSkillProvider (SKILL.md dirs)
                   / SkillRegistry / SkillPlugin / FileSkillPlugin
-                  / ListSkillsTool / LoadSkillTool / SkillToolsPlugin
+                  / SkillTool / SkillToolsPlugin (single `skill` tool + `skills` system section)
 majo-subagent/    SubagentService / AgentScope + host-policy islands (registerIsland /
                   delegateSpecIslands) / SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
                   (delegate_task: model/maxSteps/autoApprove/allowedTools/islands/settings)

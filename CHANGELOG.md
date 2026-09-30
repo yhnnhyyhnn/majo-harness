@@ -675,4 +675,36 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration.
+### Skill scope chain + single tool (dsh skill parity — roadmap-0.6 P6a)
+
+- **Scope ranks on `ctx.skills`**: providers register under a precedence
+  rank — duplicated skill names resolve to the lowest rank outright
+  (project 100 < custom 200 < user 300 < bundled 600, dsh scope-chain
+  parity; first registration breaks rank ties). A losing duplicate is
+  logged and skipped (its provider's other skills keep working); within
+  one provider a duplicate still fails loudly. Every skill carries its
+  `source` bucket as prompt-visible metadata.
+- **Multi-root `skill-files`**: config accepts `path` (project) plus
+  optional `custom`/`user`/`bundled` roots — one provider per scope.
+- **Single `skill` tool** (dsh tool-skill parity): replaces
+  `list_skills`/`load_skill`; the catalog rides the new `skills` system
+  section as a persistent `<available_skills>` block with the
+  load-before-acting instruction. Tool count 27 → 26.
+
+### PTC tool callbacks (dsh ptc-runtime parity — roadmap-0.6 P6b)
+
+- **`tools.<name>(args)` from `run_code` programs**: the Node.js child
+  speaks a JSON-lines control protocol — `call`/`result`/`error` frames on
+  stdout, replies on stdin, the program's `console.*` redirected to stderr
+  so the channel stays clean. `await tools.read_file({path})` resolves
+  with the tool's content (JSON-decoded when possible) and rejects on tool
+  failure. Nested dispatch is sequential on the calling turn's thread, so
+  approval gates apply unchanged.
+- **Completion**: the program calls `result(value)` (rendered as text,
+  pretty-printed for objects); a program that never does gets its printed
+  output returned — the pre-callback contract, preserved as a fallback
+  with an explanatory note. `maxToolCalls` (default 64) caps runaway
+  programs; module completion (not pending timers) ends the run; the
+  watchdog reports timeout rather than the kill exit code.
+
+### Hooks compatibility bridge (dsh hook-protocol parity — roadmap-0.6 P5)

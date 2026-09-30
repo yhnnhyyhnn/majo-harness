@@ -19,10 +19,10 @@ import java.util.Map;
  * {@code run_code} tool that executes a JavaScript program in a fresh
  * Node.js process. The core value: instead of N discrete tool calls
  * (each costing a full LLM round-trip), the model writes one program that
- * does all N steps and prints the final result. v1 has no tool callbacks —
- * the model embeds data inline.
+ * does all N steps — calling host tools directly via {@code tools.<name>(args)}
+ * through a JSON-lines control protocol (nested dispatch, approval gates apply).
  *
- * <p>Config: {@code {nodePath: "node", timeoutSeconds: 30}}.
+ * <p>Config: {@code {nodePath: "node", timeoutSeconds: 30, maxToolCalls: 64}}.
  */
 public final class PtcPlugin implements Plugin {
 
@@ -31,33 +31,42 @@ public final class PtcPlugin implements Plugin {
 
     @Override
     public Object apply(Context ctx, Object config) {
-        Map<?, ?> map = config instanceof Map<?, ?> m ? m : Map.of();
         PtcService service = new PtcService(ctx, config);
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
-        return tools.register(new RunCodeTool(service));
+        return tools.register(new RunCodeTool(service, tools));
     }
 
     /** The model-facing {@code run_code} tool. */
     private static final class RunCodeTool implements Tool {
 
         private final PtcService service;
+        private final ToolRegistry tools;
 
-        RunCodeTool(PtcService service) {
+        RunCodeTool(PtcService service, ToolRegistry tools) {
             this.service = service;
+            this.tools = tools;
         }
 
         @Override
         public ToolSpec spec() {
             ObjectNode schema = MAPPER.createObjectNode();
             schema.put("type", "object");
-            schema.putObject("properties").putObject("code").put("type", "string");
+            schema.putObject("properties").putObject("code").put("type", "string")
+                    .put("description",
+                            "JavaScript (ES module). Host tools are callable: "
+                                    + "await tools.<name>(args) — e.g. await tools.read_file({path}). "
+                                    + "Complete with result(value); console.log output is returned "
+                                    + "instead when the program never calls result().");
             schema.putArray("required").add("code");
             return new ToolSpec("run_code",
-                    "Executes a JavaScript program and returns its stdout output. "
-                            + "Use this for multi-step computation, JSON transformation, "
-                            + "math, string processing, or any logic that would otherwise "
-                            + "require multiple tool calls. Write self-contained code; "
-                            + "print or console.log the final result.",
+                    "Executes a JavaScript program in a fresh Node.js process and returns its "
+                            + "result. The program can call host tools directly — "
+                            + "await tools.read_file({path: '...'}) — so one program replaces N "
+                            + "tool round-trips (multi-step computation, JSON transformation, "
+                            + "batch file inspection). Nested calls pass the same approval "
+                            + "gates as direct calls. Complete with result(value); "
+                            + "console.log output is returned instead when the program never "
+                            + "calls result().",
                     schema);
         }
 
@@ -69,7 +78,7 @@ public final class PtcPlugin implements Plugin {
                 if (code.isBlank()) {
                     return ToolResult.error("run_code: pass a code string");
                 }
-                String result = service.execute(code);
+                String result = service.execute(code, tools);
                 return ToolResult.ok(result, Map.of());
             } catch (PtcException e) {
                 return ToolResult.error(e.getMessage());

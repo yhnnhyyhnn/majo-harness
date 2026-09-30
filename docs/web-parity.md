@@ -67,7 +67,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Spill (`spill` family) | `majo-spill` | ✅ oversized tool results stored out-of-band behind a locator; `spill_read` retrieves full text; fail-open; opt-in via `maxInlineBytes` |
 | System-prompt sections (`server-context` shape) | `AgentLoopService.registerSystemSection` | ✅ MCP server instructions + usable-server list contribute a lazy `mcp:` section; REQUEST_HEADER records assembled prompt verbatim |
 | SSH remote execution (`ssh` family) | `majo-ssh` + fs/subprocess provider swaps | ✅ `fs` and `subprocess` plugins gain optional `ssh: {host, user, …}` config; single execution world invariant holds |
-| PTC runtime (`ptc-runtime`) | `majo-ptc` | ✅ `run_code` tool executes model-written JavaScript in a fresh Node.js process; timeout, error mapping |
+| PTC runtime (`ptc-runtime`) | `majo-ptc` | ✅ `run_code` executes model-written JavaScript in a fresh Node.js process; programs call host tools via `tools.<name>(args)` over a JSON-lines control channel (sequential nested dispatch, approval gates apply); `result(value)` completion with console.log fallback; `maxToolCalls` cap; timeout, error mapping |
 | MCP reconnect & startup policy | `majo-mcp` | ✅ lazy reconnect with exponential backoff + attempt budget + stability reset; `failOnStartupError`; server-name validation |
 | MCP shared resource tools (`mcp-resources`) | `majo-mcp` | ✅ shared `list_mcp_resources` / `list_mcp_resource_templates` / `read_mcp_resource` with server arg |
 | MCP system sections (`server-context`) | `majo-mcp` | ✅ per-server instructions as `mcp:` system section |
@@ -79,6 +79,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Turn abort / TurnEndReason (`core/session`) | `majo-agent-loop` | ✅ minimal: durable `TURN_END` reason `completed`/`aborted`, cooperative `abort()` + `POST /api/sessions/{id}/abort` (mid-request interruption stays future work) |
 | Cron schedules (`schedule`) | `majo-schedule` | ✅ Vixie five-field parser + IANA timezone on `schedule_create`/`schedule_update`; durable expression; next-occurrence recompute on fire/restart |
 | Hooks compatibility (`hooks`/`hook-protocol`) | `majo-hooks` | ✅ Claude Code / Codex `hooks.json` command hooks: `PreToolUse` blocking gate, `UserPromptSubmit` reject/context, `Stop` context note; dsh matcher dialect verbatim; durable `HOOK_INVOKED`/`HOOK_RESULT` audit; fail-open |
+| Skill scope chain (`skill`/`tool-skill`) | `majo-skill` | ✅ rank-resolved scope chain (project/custom/user/bundled, lowest rank wins duplicates), multi-root `skill-files`, single `skill` tool + persistent `<available_skills>` system section |
 
 ## Wire contract & panels plumbing
 

@@ -66,7 +66,7 @@
 | 溢出外置（`spill` 族） | `majo-spill` | ✅ 超长工具结果外置存储 + 定位器；`spill_read` 取回全文；fail-open；`maxInlineBytes` 启用 |
 | 系统-prompt 段（`server-context` 形状） | `AgentLoopService.registerSystemSection` | ✅ MCP server instructions + 可用服务器清单贡献惰性 `mcp:` 段；REQUEST_HEADER 逐字记录组装后 prompt |
 | SSH 远程执行（`ssh` 族） | `majo-ssh` + fs/subprocess 提供者替换 | ✅ `fs` 和 `subprocess` 行可选 `ssh: {host, user, …}` 配置；单一执行世界不变量成立 |
-| PTC 运行时（`ptc-runtime`） | `majo-ptc` | ✅ `run_code` 工具在 Node.js 子进程执行模型写的 JavaScript；超时、错误映射 |
+| PTC 运行时（`ptc-runtime`） | `majo-ptc` | ✅ `run_code` 在全新 Node.js 进程执行模型写的 JavaScript；程序经 `tools.<name>(args)` 走 JSON-lines 控制通道调用宿主工具（顺序嵌套分发、审批门不变）；`result(value)` 完成语义 + console.log 回退；`maxToolCalls` 上限；超时、错误映射 |
 | MCP 重连与启动策略 | `majo-mcp` | ✅ 懒重连 + 指数退避 + 尝试预算 + 稳定窗重置；`failOnStartupError`；服务器名校验 |
 | MCP 共享资源工具（`mcp-resources`） | `majo-mcp` | ✅ 共享 `list_mcp_resources` / `list_mcp_resource_templates` / `read_mcp_resource`（server 参数） |
 | MCP 系统段（`server-context`） | `majo-mcp` | ✅ per-server instructions 作为 `mcp:` 系统段 |
@@ -78,6 +78,7 @@
 | 回合取消 / TurnEndReason（`core/session`） | `majo-agent-loop` | ✅ 最小版：持久 `TURN_END` 原因 `completed`/`aborted`，协作式 `abort()` + `POST /api/sessions/{id}/abort`（请求中途打断仍为未来项） |
 | Cron 计划（`schedule`） | `majo-schedule` | ✅ Vixie 五字段解析器 + IANA 时区，接入 `schedule_create`/`schedule_update`；表达式持久化；触发/重启时重算下次触发 |
 | Hooks 兼容（`hooks`/`hook-protocol`） | `majo-hooks` | ✅ Claude Code / Codex `hooks.json` 命令钩子：`PreToolUse` 阻断门、`UserPromptSubmit` 拒绝/上下文、`Stop` 上下文注记；dsh 匹配器方言逐字移植；持久 `HOOK_INVOKED`/`HOOK_RESULT` 审计；fail-open |
+| skill scope 链（`skill`/`tool-skill`） | `majo-skill` | ✅ rank 决议的 scope 链（project/custom/user/bundled，低 rank 胜出重名）、多根 `skill-files`、单一 `skill` 工具 + 持久 `<available_skills>` 系统段 |
 
 ## 线契约与面板机制
 

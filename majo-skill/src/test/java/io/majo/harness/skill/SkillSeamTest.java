@@ -67,24 +67,69 @@ class SkillSeamTest {
     }
 
     @Test
-    void nameCollisionsAcrossProvidersFailLoud(@TempDir Path one, @TempDir Path two) throws Exception {
-        writeSkill(one, "shared", "first");
-        writeSkill(two, "shared", "second");
-        writeSkill(two, "unique", "only here");
+    void nameCollisionsResolveByRankInsteadOfFailing(@TempDir Path one, @TempDir Path two) throws Exception {
+        writeSkill(one, "shared", "bundled body");
+        writeSkill(one, "unique", "only here");
+        writeSkill(two, "shared", "project body wins");
         Context ctx = Context.create();
         ctx.plugin(new SkillPlugin(), null).await().join();
         SkillRegistry skills = ctx.get(SkillRegistry.NAME);
-        skills.register(new FileSkillProvider(one));
-        assertThatThrownBy(() -> skills.register(new FileSkillProvider(two)))
-                .isInstanceOf(SkillException.class)
-                .hasMessageContaining("shared");
-        // the colliding provider registered nothing: unique is not visible
-        assertThat(skills.skills()).extracting(Skill::name).containsExactly("shared");
+        skills.register(new FileSkillProvider(one), "bundled", SkillRegistry.BUNDLED_RANK);
+        skills.register(new FileSkillProvider(two), "project", SkillRegistry.PROJECT_RANK);
+        // the lower rank wins the duplicated name outright
+        assertThat(skills.load("shared").instructions()).isEqualTo("project body wins");
+        assertThat(skills.load("shared").source()).isEqualTo("project");
+        // the loser's other skills still work
+        assertThat(skills.load("unique").instructions()).isEqualTo("only here");
+        assertThat(skills.load("unique").source()).isEqualTo("bundled");
         ctx.fiber().disposeAsync().join();
     }
 
     @Test
-    void toolsBrowseCatalogAndLoadSkills(@TempDir Path root) throws Exception {
+    void sameRankCollisionKeepsTheFirstRegistration(@TempDir Path one, @TempDir Path two) throws Exception {
+        writeSkill(one, "shared", "first");
+        writeSkill(two, "shared", "second");
+        Context ctx = Context.create();
+        ctx.plugin(new SkillPlugin(), null).await().join();
+        SkillRegistry skills = ctx.get(SkillRegistry.NAME);
+        skills.register(new FileSkillProvider(one), "custom-a", SkillRegistry.CUSTOM_RANK);
+        skills.register(new FileSkillProvider(two), "custom-b", SkillRegistry.CUSTOM_RANK);
+        assertThat(skills.load("shared").instructions()).isEqualTo("first");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void providerSelfContradictionStillFailsLoud() {
+        Context ctx = Context.create();
+        ctx.plugin(new SkillPlugin(), null).await().join();
+        SkillRegistry skills = ctx.get(SkillRegistry.NAME);
+        SkillProvider contradictory = () -> java.util.List.of(
+                new Skill("dupe", null, "one"), new Skill("dupe", null, "two"));
+        assertThatThrownBy(() -> skills.register(contradictory))
+                .isInstanceOf(SkillException.class)
+                .hasMessageContaining("dupe");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void scopeRootsComposeIntoOneSourceChain(@TempDir Path project, @TempDir Path custom) throws Exception {
+        writeSkill(project, "deploy", "project deploy steps");
+        writeSkill(project, "lint", "project lint");
+        writeSkill(custom, "deploy", "custom deploy steps");
+        Context ctx = Context.create();
+        ctx.plugin(new io.majo.harness.tools.ToolsPlugin(), null).await().join();
+        ctx.plugin(new SkillPlugin(), null).await().join();
+        ctx.plugin(new FileSkillPlugin(), java.util.Map.of(
+                "path", project.toString(), "custom", custom.toString())).await().join();
+        SkillRegistry skills = ctx.get(SkillRegistry.NAME);
+        assertThat(skills.skills()).extracting(Skill::name).containsExactly("deploy", "lint");
+        assertThat(skills.load("deploy").source()).isEqualTo("project");
+        assertThat(skills.load("lint").source()).isEqualTo("project");
+        ctx.fiber().disposeAsync().join();
+    }
+
+    @Test
+    void singleSkillToolLoadsAndTheCatalogRidesTheSystemSection(@TempDir Path root) throws Exception {
         writeSkill(root, "alpha", "alpha instructions");
         Context ctx = Context.create();
         ctx.plugin(new io.majo.harness.tools.ToolsPlugin(), null).await().join();
@@ -93,20 +138,16 @@ class SkillSeamTest {
         ctx.plugin(new SkillToolsPlugin(), null).await().join();
         io.majo.harness.tools.ToolRegistry tools = ctx.get(io.majo.harness.tools.ToolRegistry.NAME);
         assertThat(tools.specs()).extracting(spec -> spec.name())
-                .containsExactly("list_skills", "load_skill");
-
-        io.majo.harness.tools.ToolResult catalog = tools.execute(
-                io.majo.harness.tools.ToolCall.of("list_skills", "{}"));
-        assertThat(catalog.ok()).isTrue();
-        assertThat(catalog.content()).contains("- alpha");
+                .containsExactly("skill");
 
         io.majo.harness.tools.ToolResult loaded = tools.execute(
-                io.majo.harness.tools.ToolCall.of("load_skill", "{\"skill\":\"alpha\"}"));
+                io.majo.harness.tools.ToolCall.of("skill", "{\"skill\":\"alpha\"}"));
         assertThat(loaded.ok()).isTrue();
         assertThat(loaded.content()).isEqualTo("alpha instructions");
+        assertThat(loaded.data()).containsEntry("source", "project");
 
         io.majo.harness.tools.ToolResult missing = tools.execute(
-                io.majo.harness.tools.ToolCall.of("load_skill", "{\"skill\":\"ghost\"}"));
+                io.majo.harness.tools.ToolCall.of("skill", "{\"skill\":\"ghost\"}"));
         assertThat(missing.ok()).isFalse();
         assertThat(missing.visibleText()).contains("unknown skill");
         ctx.fiber().disposeAsync().join();

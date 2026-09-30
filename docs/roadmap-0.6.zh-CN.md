@@ -66,7 +66,7 @@ subprocess/shell 命令携带可选 stdin 载荷（异步写入、容忍断管�
 新增 `agent/user-submit`（落盘前替换或拒绝）与 `agent/turn-closed` 事件，
 `prompt`/`agent`/`http` 钩子类型与参考桥一致地解析后跳过。
 
-## P6 — skill 与 PTC 深化（候选）
+## P6 — skill 与 PTC 深化 ✅
 
 - skill：scope 链（project/custom/user）+ 优先级 rank + 单 `skill`
   工具 + 持久目录消息。

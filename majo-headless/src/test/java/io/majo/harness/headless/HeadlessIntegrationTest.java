@@ -348,7 +348,7 @@ class HeadlessIntegrationTest {
         assertThat(skills.skills()).extracting(s -> s.name()).containsExactly("alpha");
         io.majo.harness.tools.ToolRegistry tools = boot.service("tools");
         assertThat(tools.specs()).extracting(spec -> spec.name())
-                .containsExactly("list_skills", "load_skill");
+                .containsExactly("skill");
         boot.dispose();
     }
 

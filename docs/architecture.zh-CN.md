@@ -19,7 +19,7 @@ majo-harness 是一个**全插件式 agent harness**：每一项产品能力都�
 | shell 能力（dsh `shell/`） | 构建在 subprocess 之上的服务 + 策略选择的家族 | `majo-shell`（`ctx.shell`、`run_shell` 工具） |
 | sandbox 能力（dsh `sandbox/`） | argv 包裹 provider 接缝 + 策略 waterfall | `majo-sandbox`（`ctx.sandbox`、identity/bwrap provider） |
 | interaction 能力（dsh `interaction/`） | 审批/ask-user handler + 工具门禁 | `majo-interaction`（`ctx.interactions`、`tool-approval`） |
-| skill 能力（dsh `skill/`） | provider 注册表 + 本地 provider + catalog/loader 工具 | `majo-skill`（`ctx.skills`、`list_skills`/`load_skill`） |
+| skill 能力（dsh `skill/`） | provider 注册表（scope rank 决议）+ 多根本地 provider + 单 `skill` 工具 + 目录系统段 | `majo-skill`（`ctx.skills`、`skill`） |
 | subagent 能力（dsh `subagent/`） | 子会话委派 + 深度受限 | `majo-subagent`（`ctx.subagent`、`delegate_task`） |
 | web 访问族（dsh `web/` 六包） | 中立 `ctx.web` + 可换后端 + 工具 | `majo-web-access`（`ctx.web`、`web_search`/`web_fetch`） |
 | settings 能力（dsh `settings/`） | 用户设置存储 + 文件 provider | `majo-settings`（`ctx.settings`） |
@@ -41,7 +41,7 @@ sandbox 包裹进程 spawn：`SandboxService`（`ctx.sandbox`）经可换 `Sandb
 
 交互把操作挡在真人之后：`InteractionService`（`ctx.interactions`）把审批与 ask-user 请求按序路由到注册的 `InteractionHandler` 策略；handler 默认弃权，未获审批即拒绝、无人回答的问题 loud 失败（fail-safe）。出厂 handler 模式：审批 `auto`/`deny`，回答 `canned:`/none；`QueueingInteractionHandler` 提供面向 UI 的交互通道。`tool-approval` 插件是挂在 `tools/pre-execute` 上的 Chain-of-Responsibility 监听：受管工具在 `ctx.interactions` 后暂停，仅获批后让权执行。
 
-skill 向模型提供可复用流程：`SkillRegistry`（`ctx.skills`）聚合 `SkillProvider` 贡献——出厂 `skill-files` provider 扫描含 `SKILL.md` 的目录（front-matter 描述、正文指令），并 loud 拒绝跨 provider 重名。`list_skills`/`load_skill` 浏览目录并以工具结果加载指令；把已加载 skill 织入 prompt 组装留给 system-prompt 接缝。
+skill 向模型提供可复用流程：`SkillRegistry`（`ctx.skills`）按优先级 rank 聚合 `SkillProvider` 贡献——重名直接由最低 rank 胜出（project 100 < custom 200 < user 300 < bundled 600，dsh scope 链对齐；同 rank 先注册胜出；单 provider 内部重复仍然 loud 失败）。出厂 `skill-files` provider 扫描含 `SKILL.md` 的目录（front-matter 描述、正文指令），每个配置的 scope 一个根（`path`/`custom`/`user`/`bundled`）。单一 `skill` 工具按需加载指令；目录经 `skills` 系统段以持久 `<available_skills>` 块注入。
 
 subagent 在同一棵树内委派：`SubagentService`（`ctx.subagent`）开启新子会话并由同一个 `ctx.agentLoop` 驱动，返回子代理最终文本（子代理 = 历史隔离的新会话，而非第二个 loop）。嵌套深度按配置受限（`maxDepth`，默认 3），超限 loud 失败；`delegate_task` 工具向模型暴露委派。
 
@@ -78,7 +78,7 @@ majo-interaction/ ApprovalRequest/Question/ApprovalDecision / InteractionHandler
                   / ToolApprovalPlugin（tools/pre-execute 上的 tool-approval 门禁）
 majo-skill/       Skill / SkillProvider 接缝 / FileSkillProvider（SKILL.md 目录）
                   / SkillRegistry / SkillPlugin / FileSkillPlugin
-                  / ListSkillsTool / LoadSkillTool / SkillToolsPlugin
+                  / SkillTool / SkillToolsPlugin（单一 `skill` 工具 + `skills` 系统段）
 majo-subagent/    SubagentService / AgentScope + 宿主策略岛屿（registerIsland /
                   delegateSpecIslands）/ SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
                   （delegate_task：model/maxSteps/autoApprove/allowedTools/islands/settings）

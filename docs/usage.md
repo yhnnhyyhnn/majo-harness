@@ -57,10 +57,10 @@ Select it in the header model picker or via `/model my-model`.
 | `todo_write` | Replace the session todo list |
 | `exit_plan_mode` | Submit a plan for approval |
 | `schedule_create/list/update/delete` | Timer reminders, daily/weekly sugar, and Vixie cron (`cron` + `timezone`) |
-| `run_code` | **PTC**: execute JavaScript in a Node.js process |
+| `run_code` | **PTC**: execute JavaScript in a Node.js process; the program calls host tools via `await tools.<name>(args)` |
 | `spill_read` | Retrieve a spilled oversized tool output |
 | `workflow_run` | Execute a named workflow |
-| `list_skills` / `load_skill` | Load skill instructions |
+| `skill` | Load a named skill's full instructions (catalog rides the system prompt) |
 
 ## Key features
 

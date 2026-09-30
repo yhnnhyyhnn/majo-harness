@@ -76,7 +76,7 @@ fires `agent/user-submit` (replacement or rejection before durability) and
 `agent/turn-closed` events, and `prompt`/`agent`/`http` hook types are
 parsed-and-skipped like the reference bridges.
 
-## P6 — skill and PTC deepening (candidates)
+## P6 — skill and PTC deepening ✅
 
 - Skill: scope chain (project/custom/user) + priority rank + single `skill`
   tool with a persistent catalog message.
