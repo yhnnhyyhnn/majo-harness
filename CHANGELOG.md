@@ -739,7 +739,7 @@ Working area for the next iteration.
 - **`/goal` command** (dsh command-goal parity): show, create by objective
   text, edit, pause, resume, clear. Tool count 26 → 29.
 
-## [Unreleased]
+## [0.9.1] - 2026-09-30
 
 ### Compaction region selection (dsh compaction-basic region parity — roadmap-0.7 P1)
 
@@ -755,5 +755,7 @@ Working area for the next iteration.
 - **Region-scoped summarization**: the summarizer request carries only
   the region (cheaper; the summary cannot hallucinate about the tail it
   never saw). Multiple compactions compose.
+
+## [Unreleased]
 
 Working area for the next iteration.
