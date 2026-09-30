@@ -569,7 +569,7 @@ Working area for the next iteration.
   next occurrence + `every_seconds=86400/604800`; `schedule_update` tool
   for editing existing schedules.
 
-## [Unreleased]
+## [0.8.1] - 2026-09-30
 
 ### Hooks compatibility bridge (dsh hook-protocol parity — roadmap-0.6 P5)
 
@@ -670,6 +670,8 @@ Working area for the next iteration.
   shipped here; P5 hooks bridge, P6 skill/PTC deepening, P7 goal-system
   design study queued; the host product layer — storage/workspace/
   session-query/preset/desktop — explicitly out of scope).
+
+## [0.8.1] - 2026-09-30
 
 ## [Unreleased]
 
