@@ -569,7 +569,7 @@ Working area for the next iteration.
   next occurrence + `every_seconds=86400/604800`; `schedule_update` tool
   for editing existing schedules.
 
-## [Unreleased]
+## [0.8.0] - 2026-09-30
 
 ### fs write family (dsh tool-fs parity — audit Round 2 P1)
 
@@ -639,3 +639,7 @@ Working area for the next iteration.
   shipped here; P5 hooks bridge, P6 skill/PTC deepening, P7 goal-system
   design study queued; the host product layer — storage/workspace/
   session-query/preset/desktop — explicitly out of scope).
+
+## [Unreleased]
+
+Working area for the next iteration.
