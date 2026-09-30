@@ -41,6 +41,7 @@ send_message/interrupt_agent/list_agents；continuable children 以父
   不做。
 - **审批撤问**：同步阻塞 ask 已 fail-safe（超时即拒，默认 30s）；
   abort-signal 撤问增益有限。
-- **重复提醒深化**（被拒调用计数、用户插话重置）：便宜，顺路就做。
+- **重复提醒深化** ✅（被拒调用计数、用户插话重置、per-session 链、规范化
+  参数）——顺路在 0.9.3 完成，连同 goal 空闲创建自驱修复。
 - **多模态内容块 / 请求中途取消 / 重试执行器**：与 0.6 相同——在
   multimodal provider 或硬需求出现前不做。

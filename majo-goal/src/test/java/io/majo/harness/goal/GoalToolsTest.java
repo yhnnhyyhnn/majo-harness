@@ -41,11 +41,12 @@ class GoalToolsTest {
                     .registerModel("model", request -> io.majo.harness.llm.ChatResponse.text("ok"));
             ctx.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
             SessionService sessions = ctx.get(SessionService.NAME);
-            GoalService goals = new GoalService(ctx, null, sessions,
-                    ctx.get(io.majo.harness.agent.loop.AgentLoopService.NAME));
+            // a loop-less goal service: no self-drive (the driver races these
+            // tool-level tests); wrapup injection still rides the loop
+            GoalService goals = new GoalService(ctx, null, sessions, null);
             ctx.plugin(new GoalToolPlugin(goals,
                     ctx.get(io.majo.harness.agent.loop.AgentLoopService.NAME)), null).await().join();
-            return new Harness(ctx, sessions, goals, ((ToolRegistry) ctx.get(ToolRegistry.NAME)));
+            return new Harness(ctx, sessions, goals, ctx.get(ToolRegistry.NAME));
         }
     }
 

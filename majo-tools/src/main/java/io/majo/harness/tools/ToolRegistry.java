@@ -29,11 +29,6 @@ public final class ToolRegistry extends Service {
      * return a clear timed-out error instead of stalling the turn forever.
      */
     private final long timeoutMillis;
-    /** dsh guard repeat-tool-reminder analog: annotate consecutive identical calls. */
-    private final boolean repeatReminder;
-    private final Object repeatMonitor = new Object();
-    private String repeatSignature;
-    private int repeatCount;
     private final java.util.concurrent.ExecutorService toolExecutor =
             java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
 
@@ -47,8 +42,6 @@ public final class ToolRegistry extends Service {
                 && map.get("toolTimeoutSeconds") instanceof Number number
                 && number.longValue() > 0 ? number.longValue() : 0;
         this.timeoutMillis = seconds * 1000L;
-        this.repeatReminder = config instanceof Map<?, ?> map
-                && Boolean.TRUE.equals(map.get("repeatReminder"));
     }
 
     /**
@@ -78,38 +71,8 @@ public final class ToolRegistry extends Service {
         }
         Object result = ctx.waterfall(null, ToolEvents.PRE_EXECUTE, new Object[] {call, tool},
                 args -> runToolBounded(tool, (ToolCall) args[0]));
-        return annotateRepeat(call,
-                (ToolResult) ctx.waterfall(null, ToolEvents.POST_EXECUTE,
-                        new Object[] {call, result}, args -> args[1]));
-    }
-
-    /**
-     * dsh guard repeat-tool-reminder analog: consecutive identical calls
-     * (same tool and arguments) get an advisory line appended to the result,
-     * nudging the model to change approach instead of looping.
-     */
-    private ToolResult annotateRepeat(ToolCall call, ToolResult result) {
-        if (!repeatReminder) {
-            return result;
-        }
-        synchronized (repeatMonitor) {
-            String signature = call.name() + ":" + call.arguments();
-            if (signature.equals(repeatSignature)) {
-                repeatCount++;
-            } else {
-                repeatSignature = signature;
-                repeatCount = 1;
-            }
-            if (repeatCount > 1 && result != null && result.ok()
-                    && result.content() != null) {
-                return new ToolResult(true, result.content()
-                        + "\n[advisory: identical repeat call #" + repeatCount
-                        + " — same tool and arguments as the previous call; consider "
-                        + "a different approach if this one is not working]",
-                        null, result.data());
-            }
-            return result;
-        }
+        return (ToolResult) ctx.waterfall(null, ToolEvents.POST_EXECUTE,
+                new Object[] {call, result}, args -> args[1]);
     }
 
     /** Runs the tool under the configured deadline; the task is interrupted on expiry. */

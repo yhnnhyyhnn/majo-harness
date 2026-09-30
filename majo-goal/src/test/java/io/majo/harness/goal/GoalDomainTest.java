@@ -103,7 +103,7 @@ class GoalDomainTest {
     }
 
     @Test
-    void aFreshRuntimeRestoresTheGoalDisarmed() {
+    void aFreshRuntimeRestoresTheGoalDisarmed() throws Exception {
         Context ctx = boot();
         SessionService sessions = ctx.get(SessionService.NAME);
         String sessionId = sessions.createSession();
@@ -112,20 +112,43 @@ class GoalDomainTest {
         GoalService first = new GoalService(ctx, null, sessions, loop);
         first.create(sessionId, "keep going", null);
         assertThat(first.get(sessionId)).isNotNull();
+        // armed at create drives immediately: the first instance queued its
+        // round (the model here is unregistered, so the round's turn fails
+        // after its goal-produced user message landed) — async, so poll
+        long afterFirst = awaitGoalMessages(sessions, sessionId, 1);
+        assertThat(afterFirst).isEqualTo(1);
 
         // restart simulation: a fresh service over the same store (the loop's
         // goal listeners are ctx-level; use a raw instance without re-drive)
         GoalService restarted = new GoalService(Context.create(), null, sessions, loop);
         assertThat(restarted.get(sessionId)).isNotNull();
         assertThat(restarted.get(sessionId).phase()).isEqualTo(GoalService.Phase.ACTIVE);
-        // disarm = maybeDrive offers nothing: no goal-produced messages appear
+        // disarm = maybeDrive offers nothing: no NEW goal-produced messages
         restarted.maybeDrive(sessionId);
-        long goalMessages = sessions.events(sessionId).stream()
+        TimeUnit.MILLISECONDS.sleep(200);
+        assertThat(countGoalMessages(sessions, sessionId)).isEqualTo(afterFirst);
+    }
+
+    private static long awaitGoalMessages(SessionService sessions, String sessionId,
+            int expected) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5000;
+        long count = 0;
+        while (System.currentTimeMillis() < deadline) {
+            count = countGoalMessages(sessions, sessionId);
+            if (count >= expected) {
+                return count;
+            }
+            TimeUnit.MILLISECONDS.sleep(20);
+        }
+        return count;
+    }
+
+    private static long countGoalMessages(SessionService sessions, String sessionId) {
+        return sessions.events(sessionId).stream()
                 .filter(event -> event.type() == SessionEventType.USER_MESSAGE)
                 .filter(event -> "goal".equals(event.fields()
                         .get(SessionEvent.FIELD_PRODUCER)))
                 .count();
-        assertThat(goalMessages).isZero();
     }
 
     @Test

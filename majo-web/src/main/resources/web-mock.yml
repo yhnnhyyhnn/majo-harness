@@ -28,6 +28,10 @@
     systemPrompt: "You are a small calculator harness. Use the calc tool whenever asked for arithmetic."
     maxSteps: 6
     parallelDelegates: true
+- id: repeat-reminder
+  name: repeat-reminder
+  config:
+    repeatReminder: true
 - id: session-title
   name: session-title
 - id: session-title-heuristic

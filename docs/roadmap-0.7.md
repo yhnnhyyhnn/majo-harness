@@ -48,8 +48,9 @@ list/interrupt round it out.
   is adequate locally; the project-chain refresh machinery stays out.
 - **Approval withdraw**: the sync-blocking ask already fails safe
   (timeout → deny, 30s default); abort-signal withdrawal adds little.
-- **Repeat-reminder deepening** (denied calls count, user-interruption
-  reset): cheap, taken opportunistically.
+- **Repeat-reminder deepening** ✅ (denied calls count, user-interruption
+  reset, per-session chains, canonical args) — taken opportunistically in
+  0.9.3 along with the goal idle-creation drive fix.
 - **Multimodal content blocks / mid-request cancellation / retry
   executor**: unchanged from 0.6 — out until a multimodal provider or a
   hard need appears.

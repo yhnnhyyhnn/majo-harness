@@ -108,6 +108,13 @@ class GoalDriverTest {
                 SessionEvent.FIELD_ROUND, 2));
 
         goals.maybeDrive(sessionId);
+        // the block may land on this thread or the driver thread (the create
+        // self-drive race) — poll for it
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline
+                && goals.get(sessionId).phase() != GoalService.Phase.BLOCKED) {
+            TimeUnit.MILLISECONDS.sleep(20);
+        }
         assertThat(goals.get(sessionId).phase()).isEqualTo(GoalService.Phase.BLOCKED);
         assertThat(goals.get(sessionId).blockedCode()).isEqualTo("round-limit");
     }

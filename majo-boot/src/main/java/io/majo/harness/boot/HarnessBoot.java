@@ -98,6 +98,7 @@ public final class HarnessBoot {
     public static final String PLUGIN_WEB_SEARCH_STATIC = StaticSearchPlugin.NAME;
     public static final String PLUGIN_WEB_SEARCH_WIKI = WikiSearchPlugin.NAME;
     public static final String PLUGIN_AGENT_LOOP = AgentLoopPlugin.NAME;
+    public static final String PLUGIN_REPEAT_REMINDER = io.majo.harness.agent.loop.RepeatReminderPlugin.NAME;
     public static final String PLUGIN_TODO = TodoPlugin.NAME;
     public static final String PLUGIN_PLAN = PlanPlugin.NAME;
     public static final String PLUGIN_JOBS = JobsPlugin.NAME;
@@ -156,6 +157,7 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_WEB_SEARCH_STATIC, new StaticSearchPlugin());
         loader.builtin(PLUGIN_WEB_SEARCH_WIKI, new WikiSearchPlugin());
         loader.builtin(PLUGIN_AGENT_LOOP, new AgentLoopPlugin());
+        loader.builtin(PLUGIN_REPEAT_REMINDER, new io.majo.harness.agent.loop.RepeatReminderPlugin());
         loader.builtin(PLUGIN_TODO, new TodoPlugin());
         loader.builtin(PLUGIN_PLAN, new PlanPlugin());
         loader.builtin(PLUGIN_JOBS, new JobsPlugin());

@@ -306,6 +306,8 @@ public final class AgentLoopService extends Service {
         // notes queued while nobody was driving land before the user message
         deliverQueuedNotes(sessionId);
         appendUserMessage(sessionId, userText, producer);
+        fireTurnOpened(sessionId, producer == null ? null :
+                String.valueOf(producer.get(SessionEvent.FIELD_PRODUCER)));
         for (int step = 1; ; step++) {
             if (aborted.get()) {
                 return closeAborted(sessionId);
@@ -364,6 +366,15 @@ public final class AgentLoopService extends Service {
             ctx.emit(AgentLoopEvents.TURN_CLOSED, new Object[] {sessionId});
         } catch (RuntimeException e) {
             LOG.warn("agent-loop: turn-closed listener failed on session \"{}\"", sessionId, e);
+        }
+    }
+
+    /** Fires the {@code agent/turn-opened} event (repeat-chain reset seam); never breaks the turn. */
+    private void fireTurnOpened(String sessionId, String producerTag) {
+        try {
+            ctx.emit(AgentLoopEvents.TURN_OPENED, new Object[] {sessionId, producerTag});
+        } catch (RuntimeException e) {
+            LOG.warn("agent-loop: turn-opened listener failed on session \"{}\"", sessionId, e);
         }
     }
 

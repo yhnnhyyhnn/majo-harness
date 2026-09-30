@@ -36,4 +36,12 @@ public final class AgentLoopEvents {
      * hooks Stop bridge hangs here.
      */
     public static final String TURN_CLOSED = "agent/turn-closed";
+
+    /**
+     * Plain event when a turn opens with {@code (sessionId, producerTag)} —
+     * the producer tag from the user message ({@code null}/absent = human,
+     * {@code "goal"} = a goal round). The repeat-reminder chain resets on
+     * non-goal turns (the user-interruption signal, dsh parity).
+     */
+    public static final String TURN_OPENED = "agent/turn-opened";
 }

@@ -774,4 +774,21 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
+### Repeat-reminder deepening (dsh guard repeat-tool-reminder parity — roadmap-0.7 P3)
+
+- The reminder moved out of ToolRegistry into its own `repeat-reminder`
+  plugin (majo-agent-loop): chains are **per-session** (no cross-session
+  crosstalk; a shared chain for unbound callers); calls match by a
+  **deep key-sorted canonical form** (key order and whitespace do not
+  matter); counting happens at pre-execute so **denied calls count too**
+  — and the advisory wraps the denial instead of being lost; a **human
+  turn opening resets the chain** (new `agent/turn-opened` event; goal
+  rounds do not reset it).
+- **Goal idle-creation drive fix** (found by the E2E smoke): a goal
+  created while the session is idle (via /goal or the API) now drives its
+  first round immediately — create/resume are themselves triggers, not
+  just turn-close events. E2E confirmed the full chain on the web-mock
+  profile: self-driven goal rounds raised pressure and auto-compaction
+  fired (region selection) on a live session.
+
 Working area for the next iteration.

@@ -213,6 +213,7 @@ public final class GoalService extends Service {
 
     /** Creates the session goal (only when none is live); arms the driver. */
     public Goal create(String sessionId, String objective, Long maxRounds) {
+        Goal goal;
         synchronized (lock(sessionId)) {
             Goal existing = current.get(sessionId);
             if (existing != null && existing.phase() != Phase.COMPLETE) {
@@ -227,13 +228,16 @@ public final class GoalService extends Service {
             long next = goalCounters.getOrDefault(sessionId, 0L) + 1;
             goalCounters.put(sessionId, next);
             long now = System.currentTimeMillis();
-            Goal goal = new Goal("goal-" + next, 1, objective, Phase.ACTIVE, max,
+            goal = new Goal("goal-" + next, 1, objective, Phase.ACTIVE, max,
                     null, null, now, now);
             append(sessionId, "create", goal, true);
             current.put(sessionId, goal);
             armed.put(sessionId, true);
-            return goal;
         }
+        // armed at create: drive immediately (an idle-created goal has no
+        // turn-close event to lean on)
+        maybeDrive(sessionId);
+        return goal;
     }
 
     /** Edits objective/maxRounds; the phase is immutable. */
@@ -426,6 +430,7 @@ public final class GoalService extends Service {
 
     private Goal mutate(String sessionId, Ref ref, String operation,
             java.util.function.Function<Goal, Goal> change) {
+        Goal updated;
         synchronized (lock(sessionId)) {
             Goal goal = current.get(sessionId);
             if (goal == null) {
@@ -435,7 +440,7 @@ public final class GoalService extends Service {
                 throw new GoalException("goal: stale revision " + ref + " (current "
                         + goal.ref() + ")");
             }
-            Goal updated = change.apply(goal);
+            updated = change.apply(goal);
             if (updated.phase() == Phase.PAUSED || updated.phase() == Phase.COMPLETE
                     || updated.phase() == Phase.BLOCKED) {
                 armed.put(sessionId, false);
@@ -444,8 +449,12 @@ public final class GoalService extends Service {
             }
             append(sessionId, operation, updated, false);
             current.put(sessionId, updated);
-            return updated;
         }
+        if ("resume".equals(operation)) {
+            // armed at resume: drive immediately (same idle-creation gap)
+            maybeDrive(sessionId);
+        }
+        return updated;
     }
 
     private void append(String sessionId, String operation, Goal goal, boolean isNew) {

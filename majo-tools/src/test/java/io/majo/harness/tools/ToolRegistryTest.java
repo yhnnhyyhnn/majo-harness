@@ -161,32 +161,12 @@ class ToolRegistryTest {
     }
 
     @Test
-    void repeatReminderAnnotatesConsecutiveIdenticalCalls() {
+    void registryRunsToolsWithoutBuiltInRepeatAnnotations() {
+        // the repeat-reminder moved to its own plugin (majo-agent-loop,
+        // repeat-reminder row) — the registry itself stays neutral
         Context root = Context.create();
-        root.plugin(new ToolsPlugin(), Map.of("repeatReminder", true)).await().join();
-        ToolRegistry tools = root.get(ToolRegistry.NAME);
-        tools.register(new Tool() {
-            @Override public ToolSpec spec() { return SPEC; }
-            @Override public ToolResult execute(ToolCall call) {
-                return ToolResult.ok("ran:" + call.arguments());
-            }
-        });
-
-        ToolResult first = tools.execute(ToolCall.of("demo", "{\"q\":1}"));
-        assertThat(first.content()).isEqualTo("ran:{\"q\":1}").doesNotContain("advisory");
-        ToolResult second = tools.execute(ToolCall.of("demo", "{\"q\":1}"));
-        assertThat(second.content()).contains("ran:{\"q\":1}",
-                "identical repeat call #2");
-        ToolResult third = tools.execute(ToolCall.of("demo", "{\"q\":1}"));
-        assertThat(third.content()).contains("identical repeat call #3");
-        ToolResult different = tools.execute(ToolCall.of("demo", "{\"q\":2}"));
-        assertThat(different.content()).isEqualTo("ran:{\"q\":2}").doesNotContain("advisory");
-        root.fiber().disposeAsync().join();
-
-        // default off: no annotation
-        Context plain = Context.create();
-        plain.plugin(new ToolsPlugin(), null).await().join();
-        ToolRegistry bare = plain.get(ToolRegistry.NAME);
+        root.plugin(new ToolsPlugin(), null).await().join();
+        ToolRegistry bare = root.get(ToolRegistry.NAME);
         bare.register(new Tool() {
             @Override public ToolSpec spec() { return SPEC; }
             @Override public ToolResult execute(ToolCall call) {
@@ -195,6 +175,6 @@ class ToolRegistryTest {
         });
         assertThat(bare.execute(ToolCall.of("demo", "x")).content()).isEqualTo("same");
         assertThat(bare.execute(ToolCall.of("demo", "x")).content()).isEqualTo("same");
-        plain.fiber().disposeAsync().join();
+        root.fiber().disposeAsync().join();
     }
 }
