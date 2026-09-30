@@ -56,11 +56,25 @@ Status lives in the CHANGELOG (`## [Unreleased]`).
   stored durably (new event fields), next occurrence computed at
   create/update and re-computed after each fire and on restart rescan.
 
-## P5 — hooks compatibility bridge (next candidate)
+## P5 — hooks compatibility bridge ✅
 
 Run Claude Code / Codex `hooks.json` command hooks on the waterfall surface
-(`PreToolUse` blocking + model-visible messages, context injection). Small,
-practical, reuses existing fixtures.
+(`majo-hooks`): `PreToolUse` (blocking gate — exit 2 / `continue:false` /
+`permissionDecision: deny` turn the call into a model-visible error; allow
+and ask are advisory), `UserPromptSubmit` (reject loudly before durability,
+or inject stdout context into the submitted text — what the model sees is
+exactly one logged message), and `Stop` (post-turn context as a durable
+CONTEXT_NOTE). The dsh matcher dialect is ported verbatim (word-and-pipe
+literal alternation vs unanchored regex, match-all sentinels, invalid regex
+matches nothing). Every invocation appends the durable
+`HOOK_INVOKED`/`HOOK_RESULT` audit pair (decision, bounded stderr via the
+exit-code contract, wall-clock duration); a hook that cannot run fails open;
+config is a `hooks.json` file path (missing file = hooks off, like
+skill-files) or inline. Supporting seams: the subprocess/shell commands
+carry an optional stdin payload (async feed, broken-pipe tolerant), the loop
+fires `agent/user-submit` (replacement or rejection before durability) and
+`agent/turn-closed` events, and `prompt`/`agent`/`http` hook types are
+parsed-and-skipped like the reference bridges.
 
 ## P6 — skill and PTC deepening (candidates)
 

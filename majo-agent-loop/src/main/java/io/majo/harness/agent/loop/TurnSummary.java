@@ -52,6 +52,8 @@ public final class TurnSummary implements SessionProjection {
             case TypedSessionEvent.WorkflowStart ignored -> current;
             case TypedSessionEvent.WorkflowStep ignored -> current;
             case TypedSessionEvent.WorkflowEnd ignored -> current;
+            case TypedSessionEvent.HookInvoked ignored -> current;
+            case TypedSessionEvent.HookResult ignored -> current;
         };
         state.put(sessionId, next);
     }

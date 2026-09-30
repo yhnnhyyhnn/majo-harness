@@ -78,6 +78,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Token usage metering (`llm` TokenUsage) | `majo-llm` | ✅ input/output (+cache read/write) on `ChatResponse`; OpenAI-compatible parsing (non-stream + final stream chunk); durable on ASSISTANT_MESSAGE |
 | Turn abort / TurnEndReason (`core/session`) | `majo-agent-loop` | ✅ minimal: durable `TURN_END` reason `completed`/`aborted`, cooperative `abort()` + `POST /api/sessions/{id}/abort` (mid-request interruption stays future work) |
 | Cron schedules (`schedule`) | `majo-schedule` | ✅ Vixie five-field parser + IANA timezone on `schedule_create`/`schedule_update`; durable expression; next-occurrence recompute on fire/restart |
+| Hooks compatibility (`hooks`/`hook-protocol`) | `majo-hooks` | ✅ Claude Code / Codex `hooks.json` command hooks: `PreToolUse` blocking gate, `UserPromptSubmit` reject/context, `Stop` context note; dsh matcher dialect verbatim; durable `HOOK_INVOKED`/`HOOK_RESULT` audit; fail-open |
 
 ## Wire contract & panels plumbing
 

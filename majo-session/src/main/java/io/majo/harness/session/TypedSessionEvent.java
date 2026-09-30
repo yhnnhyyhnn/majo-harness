@@ -88,6 +88,13 @@ public sealed interface TypedSessionEvent {
     /** A workflow run closed. */
     record WorkflowEnd(String status, String runId) implements TypedSessionEvent {}
 
+    /** A hook command was invoked at a hook point (audit; HOOK_RESULT pairs by handlerId). */
+    record HookInvoked(String point, String handlerId) implements TypedSessionEvent {}
+
+    /** One hook finished: neutral decision + wall-clock duration. */
+    record HookResult(String handlerId, String decision, long durationMs)
+            implements TypedSessionEvent {}
+
     /** A serialized assistant tool call (the log's wire form of a ToolCall). */
     record ToolCallEntry(String id, String name, String arguments) {}
 
@@ -145,6 +152,14 @@ public sealed interface TypedSessionEvent {
             case WORKFLOW_END -> new WorkflowEnd(
                     text(fields, SessionEvent.FIELD_CONTENT),
                     text(fields, SessionEvent.FIELD_RUN_ID));
+            case HOOK_INVOKED -> new HookInvoked(
+                    text(fields, SessionEvent.FIELD_POINT),
+                    text(fields, SessionEvent.FIELD_HANDLER_ID));
+            case HOOK_RESULT -> new HookResult(
+                    text(fields, SessionEvent.FIELD_HANDLER_ID),
+                    text(fields, SessionEvent.FIELD_DECISION),
+                    Long.parseLong(String.valueOf(fields.getOrDefault(
+                            SessionEvent.FIELD_DURATION_MS, 0))));
         };
     }
 

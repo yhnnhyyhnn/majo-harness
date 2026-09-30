@@ -275,6 +275,9 @@ public final class AgentLoopService extends Service {
         // a stale abort on an idle session must not kill this fresh turn
         AtomicBoolean aborted = aborts.computeIfAbsent(sessionId, ignored -> new AtomicBoolean());
         aborted.set(false);
+        // the user-submit waterfall runs before durability: a replacement is
+        // what gets logged (verbatim), a rejection leaves the log untouched
+        userText = userSubmit(sessionId, userText);
         // notes queued while nobody was driving land before the user message
         deliverQueuedNotes(sessionId);
         sessions.append(sessionId, SessionEventType.USER_MESSAGE,
@@ -319,6 +322,7 @@ public final class AgentLoopService extends Service {
         }
         sessions.append(sessionId, SessionEventType.TURN_END,
                 Map.of(SessionEvent.FIELD_REASON, "completed"));
+        fireTurnClosed(sessionId);
         return lastFinalText(sessions.events(sessionId));
     }
 
@@ -326,7 +330,30 @@ public final class AgentLoopService extends Service {
     private String closeAborted(String sessionId) {
         sessions.append(sessionId, SessionEventType.TURN_END,
                 Map.of(SessionEvent.FIELD_REASON, "aborted"));
+        fireTurnClosed(sessionId);
         return lastFinalText(sessions.events(sessionId));
+    }
+
+    /** Fires the {@code agent/turn-closed} event (Stop-bridge seam); never breaks the turn. */
+    private void fireTurnClosed(String sessionId) {
+        try {
+            ctx.emit(AgentLoopEvents.TURN_CLOSED, new Object[] {sessionId});
+        } catch (RuntimeException e) {
+            LOG.warn("agent-loop: turn-closed listener failed on session \"{}\"", sessionId, e);
+        }
+    }
+
+    /**
+     * The {@link AgentLoopEvents#USER_SUBMIT} waterfall: a listener may
+     * replace the user text (returned verbatim into the log) or reject the
+     * submission by throwing.
+     */
+    @SuppressWarnings("unchecked")
+    private String userSubmit(String sessionId, String userText) {
+        Object result = ctx.waterfall(null, AgentLoopEvents.USER_SUBMIT,
+                new Object[] {sessionId, userText},
+                args -> args[1]);
+        return (String) result;
     }
 
     /** Appends queued notes: steer as user input, inject as a context note. */

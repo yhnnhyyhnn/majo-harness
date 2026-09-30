@@ -34,7 +34,9 @@ public final class SshSubprocessProvider implements SubprocessProvider {
         }
         long timeout = command.timeoutSeconds() > 0
                 ? command.timeoutSeconds() : 60;
-        var result = ssh.exec(remote.toString().strip());
+        var result = command.stdin() == null
+                ? ssh.exec(remote.toString().strip())
+                : ssh.execWithStdin(remote.toString().strip(), command.stdin());
         return new ProcessResult(result.exitCode(), result.stdout(), result.stderr());
     }
 }

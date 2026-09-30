@@ -77,6 +77,7 @@
 | Token 用量计量（`llm` TokenUsage） | `majo-llm` | ✅ input/output（含 cache 读写）挂上 `ChatResponse`；OpenAI 兼容解析（非流式 + 流末块）；持久化到 ASSISTANT_MESSAGE |
 | 回合取消 / TurnEndReason（`core/session`） | `majo-agent-loop` | ✅ 最小版：持久 `TURN_END` 原因 `completed`/`aborted`，协作式 `abort()` + `POST /api/sessions/{id}/abort`（请求中途打断仍为未来项） |
 | Cron 计划（`schedule`） | `majo-schedule` | ✅ Vixie 五字段解析器 + IANA 时区，接入 `schedule_create`/`schedule_update`；表达式持久化；触发/重启时重算下次触发 |
+| Hooks 兼容（`hooks`/`hook-protocol`） | `majo-hooks` | ✅ Claude Code / Codex `hooks.json` 命令钩子：`PreToolUse` 阻断门、`UserPromptSubmit` 拒绝/上下文、`Stop` 上下文注记；dsh 匹配器方言逐字移植；持久 `HOOK_INVOKED`/`HOOK_RESULT` 审计；fail-open |
 
 ## 线契约与面板机制
 

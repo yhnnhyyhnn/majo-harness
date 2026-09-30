@@ -63,6 +63,10 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_CRON = "cron";
     /** IANA timezone the cron expression evaluates in. */
     public static final String FIELD_TIMEZONE = "timezone";
+    /** Hook point name of a {@link SessionEventType#HOOK_INVOKED} (PreToolUse, UserPromptSubmit, Stop). */
+    public static final String FIELD_POINT = "point";
+    /** Stable per-invocation id correlating a HOOK_INVOKED/HOOK_RESULT pair. */
+    public static final String FIELD_HANDLER_ID = "handlerId";
     /** Log cursor covered by a {@link SessionEventType#CONTEXT_COMPACTION}. */
     public static final String FIELD_UP_TO_SEQ = "upToSeq";
     /** Correlation id of a workflow run (WORKFLOW_* events). */

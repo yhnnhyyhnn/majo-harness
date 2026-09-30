@@ -74,6 +74,10 @@
   name: spill
   config:
     maxInlineBytes: 16384
+- id: hooks
+  name: hooks
+  config:
+    path: hooks.json   # Claude Code / Codex hooks.json (optional file; missing → hooks off)
 - id: workflow
   name: workflow
   config:

@@ -26,12 +26,14 @@ public final class MessageDeriver {
             switch (event.type()) {
                 case TURN_START, TURN_END, REQUEST_HEADER, APPROVAL_REQUESTED, APPROVAL_DECIDED,
                         TODO_SET, PLAN_SET, SCHEDULE_SET,
-                        WORKFLOW_START, WORKFLOW_STEP, WORKFLOW_END -> {
+                        WORKFLOW_START, WORKFLOW_STEP, WORKFLOW_END,
+                        HOOK_INVOKED, HOOK_RESULT -> {
                     // turn boundaries, request headers, the approval audit
-                    // pair, todo/plan/schedule bookkeeping, and workflow
-                    // progress are not model messages (tool results and
-                    // spliced notes carry the model text; schedules deliver
-                    // their prompt as a turn)
+                    // pair, todo/plan/schedule bookkeeping, workflow
+                    // progress, and the hook audit pair are not model
+                    // messages (tool results and spliced notes carry the
+                    // model text; schedules deliver their prompt as a turn;
+                    // hook context reaches the model as CONTEXT_NOTE)
                 }
                 case CONTEXT_COMPACTION -> {
                     // dsh compaction: everything logged before this event is

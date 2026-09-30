@@ -46,5 +46,9 @@ public enum SessionEventType {
     /** One workflow step finished (content: step id + status; duration in fields). */
     WORKFLOW_STEP,
     /** A workflow run closed (content: final status; summary in fields). */
-    WORKFLOW_END
+    WORKFLOW_END,
+    /** A hook command was invoked at a hook point (durable audit; HOOK_RESULT pairs by handlerId). */
+    HOOK_INVOKED,
+    /** One hook finished: decision, exit code, bounded stderr, wall-clock duration. */
+    HOOK_RESULT
 }

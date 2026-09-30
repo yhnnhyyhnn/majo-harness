@@ -569,6 +569,37 @@ Working area for the next iteration.
   next occurrence + `every_seconds=86400/604800`; `schedule_update` tool
   for editing existing schedules.
 
+## [Unreleased]
+
+### Hooks compatibility bridge (dsh hook-protocol parity — roadmap-0.6 P5)
+
+- **`majo-hooks` module + `hooks` plugin**: runs Claude Code / Codex
+  `hooks.json` command hooks on the waterfall surface. Three points:
+  `PreToolUse` blocks the tool call (exit 2 with stderr as reason,
+  `continue:false`, or `permissionDecision: deny` → model-visible error;
+  allow/ask are advisory — the approval seam stays the authority);
+  `UserPromptSubmit` rejects the submission loudly before anything is logged
+  or appends stdout context to the submitted text (the model sees exactly
+  one durable message); `Stop` lands post-turn context as a durable
+  CONTEXT_NOTE.
+- **dsh matcher dialect ported verbatim**: absent/empty/`*` match all;
+  word-and-pipe patterns are literal exact alternations, other patterns
+  unanchored regexes; invalid regexes match nothing (config parsing rejects
+  them loudly). `prompt`/`agent`/`http` hook types are parsed-and-skipped
+  like the reference bridges.
+- **Durable audit**: every invocation appends `HOOK_INVOKED` +
+  `HOOK_RESULT` (neutral decision word, wall-clock duration) to the session
+  log; fail-open when a hook cannot run; config is a `hooks.json` file path
+  (missing file → hooks off, matching the skill-files convention) or an
+  inline `hooks:` block; default timeout 600s, per-hook `timeout` (seconds)
+  overrides.
+- **Supporting seams**: subprocess/shell `Command` records carry optional
+  stdin (async feed, broken-pipe tolerant; SSH provider maps to
+  `execWithStdin`); the agent loop fires `agent/user-submit` (listeners may
+  replace the text or reject before durability) and `agent/turn-closed`
+  (post-`TURN_END`, including aborted turns); `HOOK_*` events are logged
+  but never derived into model messages.
+
 ## [0.8.0] - 2026-09-30
 
 ### fs write family (dsh tool-fs parity — audit Round 2 P1)

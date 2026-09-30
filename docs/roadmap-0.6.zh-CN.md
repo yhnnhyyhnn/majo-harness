@@ -50,11 +50,21 @@ dsh 0.2.0-rc.1）按实用价值排出了剩余对齐债。本周期落地四个
   持久化存储（新增事件字段），创建/更新时计算下次触发，每次触发后与
   重启 rescan 时重新计算。
 
-## P5 — hooks 兼容桥（下一个候选）
+## P5 — hooks 兼容桥 ✅
 
 在 waterfall 面上运行 Claude Code / Codex 的 `hooks.json` 命令钩子
-（`PreToolUse` 阻断 + 模型可见消息、上下文注入）。小而实用，直接复用
-现成 fixture。
+（`majo-hooks`）：`PreToolUse`（阻断门——exit 2 / `continue:false` /
+`permissionDecision: deny` 使调用变为模型可见错误；allow 与 ask 仅为
+建议值）、`UserPromptSubmit`（在落盘前大声拒绝，或将 stdout 上下文注入
+提交文本——模型所见即一条已记录消息）、`Stop`（回合后上下文落为持久
+CONTEXT_NOTE）。dsh 匹配器方言逐字移植（纯词+竖线为字面量交替、其余为
+非锚定正则、match-all 哨兵、无效正则不匹配任何东西）。每次调用追加持久
+`HOOK_INVOKED`/`HOOK_RESULT` 审计对（决策、按退出码契约定界的 stderr、
+墙钟时长）；无法运行的钩子 fail-open；配置为 `hooks.json` 文件路径
+（文件缺失即关闭，同 skill-files 惯例）或内联。配套接缝：
+subprocess/shell 命令携带可选 stdin 载荷（异步写入、容忍断管），loop
+新增 `agent/user-submit`（落盘前替换或拒绝）与 `agent/turn-closed` 事件，
+`prompt`/`agent`/`http` 钩子类型与参考桥一致地解析后跳过。
 
 ## P6 — skill 与 PTC 深化（候选）
 

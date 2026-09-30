@@ -19,4 +19,21 @@ public final class AgentLoopEvents {
      * means logged" holds.
      */
     public static final String BEFORE_REQUEST = "agent/before-request";
+
+    /**
+     * Waterfall at user-turn open with {@code (sessionId, String userText)},
+     * fired inside the turn hold but BEFORE the message becomes durable —
+     * listeners may return a {@code String} replacement (the loop logs the
+     * returned text verbatim, preserving "model-visible means logged") or
+     * throw to reject the submission outright (the turn fails loudly, nothing
+     * was logged). The default returns the text unchanged.
+     */
+    public static final String USER_SUBMIT = "agent/user-submit";
+
+    /**
+     * Plain event after a turn closes durably with {@code (sessionId)} —
+     * including aborted turns, excluding failed ones (they stay open). The
+     * hooks Stop bridge hangs here.
+     */
+    public static final String TURN_CLOSED = "agent/turn-closed";
 }

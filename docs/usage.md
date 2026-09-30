@@ -178,6 +178,14 @@ passwordless SSH; POSIX remote hosts only.
   `POST /api/sessions/{id}/abort` closes it with reason `aborted` at the
   next step boundary (no mid-request interruption). Every finished turn
   ends with a durable `TURN_END` reason (`completed`/`aborted`).
+- **Hooks**: point the `hooks` plugin at a Claude Code / Codex
+  `hooks.json` (`hooks: {path: hooks.json}`) to run command hooks at three
+  points — `PreToolUse` (a blocking gate: exit 2 / `continue:false` /
+  `permissionDecision: deny` turns the tool call into a model-visible
+  error), `UserPromptSubmit` (reject the submission before it is logged, or
+  append stdout context to it), and `Stop` (post-turn context as a durable
+  note). Every invocation is audited (`HOOK_INVOKED`/`HOOK_RESULT`); a hook
+  that cannot run blocks nothing.
 
 ## Gates
 

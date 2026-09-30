@@ -40,7 +40,8 @@ public final class LocalShellProvider implements ShellProvider {
         if (sandbox != null) {
             argv = sandbox.confine(argv);
         }
-        Command subprocessCommand = new Command(argv, command.cwd(), command.env(), command.timeoutSeconds());
+        Command subprocessCommand = new Command(argv, command.cwd(), command.env(),
+                command.timeoutSeconds(), command.stdin());
         try {
             ProcessResult result = subprocess.run(subprocessCommand);
             return new ShellResult(result.exitCode(), result.stdout(), result.stderr());

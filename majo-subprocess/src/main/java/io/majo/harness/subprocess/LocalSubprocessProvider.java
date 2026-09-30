@@ -39,6 +39,7 @@ public final class LocalSubprocessProvider implements SubprocessProvider {
             Process process = builder.start();
             CompletableFuture<byte[]> stdout = drain(process.getInputStream());
             CompletableFuture<byte[]> stderr = drain(process.getErrorStream());
+            CompletableFuture<Void> stdinFeed = feedStdin(process, command.stdin());
             boolean finished = process.waitFor(command.timeoutSeconds(), TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
@@ -47,6 +48,7 @@ public final class LocalSubprocessProvider implements SubprocessProvider {
                         + "s: " + command.argv().get(0));
             }
             int exit = process.exitValue();
+            stdinFeed.join(); // surface a broken-pipe write as an IOException path
             return new ProcessResult(exit,
                     decode(stdout.join()), decode(stderr.join()));
         } catch (IOException e) {
@@ -64,6 +66,25 @@ public final class LocalSubprocessProvider implements SubprocessProvider {
                 return input.readAllBytes();
             } catch (IOException e) {
                 return new byte[0];
+            }
+        }, STREAM_READERS);
+    }
+
+    /**
+     * Writes the stdin payload and closes the pipe (async, so a child that
+     * never reads cannot deadlock the wait); {@code null} stdin just closes
+     * the pipe. A broken pipe means the child exited before reading — the
+     * exit code still governs.
+     */
+    private static CompletableFuture<Void> feedStdin(Process process, String stdin) {
+        return CompletableFuture.runAsync(() -> {
+            try (java.io.OutputStream output = process.getOutputStream()) {
+                if (stdin != null) {
+                    output.write(stdin.getBytes(StandardCharsets.UTF_8));
+                    output.flush();
+                }
+            } catch (IOException ignored) {
+                // the child exited without reading stdin: its exit code governs
             }
         }, STREAM_READERS);
     }

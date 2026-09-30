@@ -169,6 +169,13 @@ onFailure: abort
 - 运行中的回合可协作取消：`POST /api/sessions/{id}/abort` 在下一个步
   边界以 `aborted` 收回合（不做请求中途打断）。每个完成的回合都以
   持久 `TURN_END` 原因收尾（`completed`/`aborted`）。
+- **Hooks**：把 `hooks` 插件指向 Claude Code / Codex 的 `hooks.json`
+  （`hooks: {path: hooks.json}`），即可在三个点运行命令钩子——
+  `PreToolUse`（阻断门：exit 2 / `continue:false` /
+  `permissionDecision: deny` 使工具调用变为模型可见错误）、
+  `UserPromptSubmit`（在落盘前拒绝提交，或把 stdout 上下文附加到提交
+  文本）、`Stop`（回合后上下文落为持久注记）。每次调用都有审计
+  （`HOOK_INVOKED`/`HOOK_RESULT`）；无法运行的钩子不阻断任何操作。
 
 ## 门禁
 
