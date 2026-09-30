@@ -28,7 +28,7 @@ majo adopts the same shape at its scale —
   hallucinate about the tail it never saw).
 - Multiple compactions compose (each fold keeps the newer tail).
 
-## P2 — continuable subagents (next candidate)
+## P2 — continuable subagents ✅
 
 dsh children continue across turns (`tool-subagent-control`:
 send_message/interrupt_agent/list_agents; continuable children seeded

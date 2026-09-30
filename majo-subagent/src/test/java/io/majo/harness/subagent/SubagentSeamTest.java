@@ -90,7 +90,7 @@ class SubagentSeamTest {
         Context ctx = stack(3);
         SessionService sessions = ctx.get(SessionService.NAME);
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
-        assertThat(tools.specs()).extracting(spec -> spec.name()).containsExactly("delegate_task");
+        assertThat(tools.specs()).extracting(spec -> spec.name()).containsExactlyInAnyOrder("delegate_task", "send_message", "list_agents", "interrupt_agent");
 
         io.majo.harness.tools.ToolResult result = tools.execute(
                 io.majo.harness.tools.ToolCall.of("delegate_task", "{\"task\":\"draft a summary\"}"));

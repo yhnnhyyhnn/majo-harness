@@ -758,4 +758,18 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
+### Continuable subagents (dsh tool-subagent-control parity — roadmap-0.7 P2)
+
+- **`send_message`** (gated): continues a live child agent with a
+  follow-up — synchronous at majo scale, the child runs its next turn now
+  and the answer returns, so the parent acts on it in the same turn. The
+  child session persists, so the child sees its prior history; scoped
+  children re-mount their remembered AgentScope (model, spec, islands).
+- **`list_agents`**: live child agents (session id, task, status, last
+  answer preview) — the send_message target list.
+- **`interrupt_agent`** (gated): cooperative cancellation of a running
+  child turn via the minimal-cancellation abort; the child stays
+  continuable afterwards.
+- Tool count 29 → 32; depth guard applies to continuations too.
+
 Working area for the next iteration.

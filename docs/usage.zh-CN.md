@@ -40,7 +40,7 @@ profile 里加一行：
 
 在头部模型选择器里选，或用 `/model my-model`。
 
-## 29 个工具
+## 32 个工具
 
 | 工具 | 功能 |
 |---|---|
@@ -54,6 +54,7 @@ profile 里加一行：
 | `run_background` | 后台执行 + `job_output/list/kill` |
 | `web_search` / `web_fetch` | 网页搜索与抓取 |
 | `delegate_task` | 扇出 scoped 子代理 |
+| `send_message` / `list_agents` / `interrupt_agent` | 续聊子代理（follow-up）、列出存活子代理、中断在跑子轮 |
 | `todo_write` | 替换会话待办列表 |
 | `exit_plan_mode` | 提交计划等审批 |
 | `schedule_create/list/update/delete` | 定时提醒，daily/weekly 糖与 Vixie cron（`cron` + `timezone`） |

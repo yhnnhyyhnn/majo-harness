@@ -53,6 +53,7 @@
 | Schedule（`ui-schedule`） | `majo-schedule`（SCHEDULE_SET，`GET /api/sessions/{id}/schedules`） | ✅ `schedule_create/list/delete`（`after_seconds` / 绝对 `at` / `every_seconds ≥ 300`，持久化，busy→下轮 / idle→唤醒）+ 头部目录 popover |
 | Workflow（`ui-workflow-run`） | `majo-workflow`（WORKFLOW_START/STEP/END 事件，`ctx.workflow`） | ✅ `workflows/` 下 YAML 步骤列表（示例 `review-doc.yml`）；步骤在 scoped 子会话中按序执行；`{{args.*}}`/`{{steps.<id>.output}}` 模板；连续 `parallel: true` 步骤并发扇出；`/workflow [name|status|resume]` 命令 + 审批门控的 `workflow_run` 工具（`allowModelTrigger` 豁免）；Trajectory 渲染步骤进度 |
 | Subagent 活动（`ui-subagent`） | 后端已有 subagent | ✅ 侧栏区（近期委派，轮询）+ delegate 卡的父→子转写链接；委派支持 scoped model/maxSteps/autoApprove/allowedTools + 宿主岛屿 + per-agent `settings` 覆盖 |
+| 可续聊子代理（`tool-subagent-control`） | `majo-subagent` | ✅ `send_message`（门控；记忆的 per-child AgentScope 重挂、子历史可见）、`list_agents`、`interrupt_agent`（协作中止，子代理仍可续聊） |
 | Skills 面板（`ui-skill`） | 后端已有 skills | ✅ 侧栏区（`/api/skills`，轮询） |
 | 插件管理 | 三层插件模型 + jar 热 reload | ✅ 侧栏区：托管页 + 原生 `plugin.mjs` mount/reload/unload、jar mtime 自动 reload、version/slots 徽标、重复 id 与缺版本告警 |
 | Agent team（实验） | 后端未建 | ⬜ |

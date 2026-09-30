@@ -2,16 +2,16 @@ package io.majo.harness.subagent;
 
 import io.jcordis.core.context.Context;
 import io.jcordis.core.registry.Plugin;
-import io.jcordis.core.util.Disposable;
 import io.majo.harness.tools.ToolRegistry;
 import io.majo.harness.util.Disposables;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The subagent tool consumer: registers the {@code delegate_task} tool on
- * {@code ctx.tools} once the tools and subagent services are live (further
- * consumers compose beside it via {@link Disposables}).
+ * The subagent tool consumer: registers {@code delegate_task} plus the
+ * control family {@code send_message}/{@code list_agents}/
+ * {@code interrupt_agent} (dsh tool-subagent-control parity) on
+ * {@code ctx.tools} once the tools and subagent services are live.
  */
 public final class SubagentToolPlugin implements Plugin {
 
@@ -21,8 +21,11 @@ public final class SubagentToolPlugin implements Plugin {
     public Object apply(Context ctx, Object config) {
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
         SubagentService subagent = ctx.get(SubagentService.NAME);
-        Disposable delegate = tools.register(new DelegateTaskTool(subagent));
-        return Disposables.composite(delegate);
+        return Disposables.composite(
+                tools.register(new DelegateTaskTool(subagent)),
+                tools.register(new SendMessageTool(subagent)),
+                tools.register(new ListAgentsTool(subagent)),
+                tools.register(new InterruptAgentTool(subagent)));
     }
 
     @Override

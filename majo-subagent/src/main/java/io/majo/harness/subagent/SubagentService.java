@@ -36,6 +36,18 @@ public final class SubagentService extends Service {
     private static final int MAX_RECENT = 25;
     private final ArrayDeque<Delegation> recent = new ArrayDeque<>();
 
+    /** One live child agent (dsh list_agents parity). */
+    public record AgentEntry(String childSessionId, String task, String agent, String status,
+            String lastAnswerPreview, long createdAtMillis, long lastActivityMillis) {}
+
+    /** The remembered per-child delegation shape a continuation re-mounts. */
+    private record Continuation(AgentSpec spec, java.util.List<AgentScope.Island> islands,
+            boolean scoped, String agent, boolean auto) {}
+
+    private final java.util.Map<String, AgentEntry> agents = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, Continuation> continuations =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     /** One delegation attempt as shown in the Subagents panel. */
     public record Delegation(String task, String status, String detail, long atMillis,
             String model, Integer maxSteps, Boolean autoApprove,
@@ -212,16 +224,19 @@ public final class SubagentService extends Service {
             try {
                 String agent = "subagent-" + childSessionId.substring(0, Math.min(8, childSessionId.length()));
                 boolean auto = spec.autoApprove() != null && spec.autoApprove();
+                remember(childSessionId, task, agent, spec, islands, scoped, auto);
                 String answer = io.majo.harness.interaction.InteractionContext.run(agent, auto,
                         spec.allowedTools(),
                         () -> io.majo.harness.settings.SettingsService.scoped(spec.settings(),
                                 () -> scoped ? runScoped(childSessionId, task, spec, islands)
                                         : loop.runTurn(childSessionId, task, null,
                                                 spec.model(), spec.systemPrompt())));
+                finished(childSessionId, answer);
                 record(new Delegation(task, "done", preview(answer), System.currentTimeMillis(),
                         spec.model(), spec.maxSteps(), spec.autoApprove(), spec.allowedTools()));
                 return new DelegationOutcome(childSessionId, answer);
             } catch (RuntimeException failure) {
+                markStatus(childSessionId, "failed");
                 record(new Delegation(task, "failed", String.valueOf(failure.getMessage()),
                         System.currentTimeMillis(), spec.model(), spec.maxSteps(),
                         spec.autoApprove(), spec.allowedTools()));
@@ -230,6 +245,108 @@ public final class SubagentService extends Service {
         } finally {
             depth.decrementAndGet();
         }
+    }
+
+    // ----- continuations (dsh tool-subagent-control parity) -----
+
+    private void remember(String childSessionId, String task, String agent, AgentSpec spec,
+            java.util.List<AgentScope.Island> islands, boolean scoped, boolean auto) {
+        continuations.put(childSessionId, new Continuation(spec,
+                java.util.List.copyOf(islands), scoped, agent, auto));
+        agents.put(childSessionId, new AgentEntry(childSessionId, task, agent, "running",
+                null, System.currentTimeMillis(), System.currentTimeMillis()));
+    }
+
+    private void finished(String childSessionId, String answer) {
+        AgentEntry entry = agents.get(childSessionId);
+        if (entry != null) {
+            agents.put(childSessionId, new AgentEntry(entry.childSessionId(), entry.task(),
+                    entry.agent(), "done", preview(answer), entry.createdAtMillis(),
+                    System.currentTimeMillis()));
+        }
+    }
+
+    private void markStatus(String childSessionId, String status) {
+        AgentEntry entry = agents.get(childSessionId);
+        if (entry != null) {
+            agents.put(childSessionId, new AgentEntry(entry.childSessionId(), entry.task(),
+                    entry.agent(), status, entry.lastAnswerPreview(), entry.createdAtMillis(),
+                    System.currentTimeMillis()));
+        }
+    }
+
+    /**
+     * Continues a live child agent with a follow-up message (dsh send_message
+     * parity, synchronous at majo scale): the remembered per-child delegation
+     * shape re-mounts — scoped children re-run inside their AgentScope — and
+     * the child sees its prior history because the child session persists.
+     * Unknown session ids fail loudly.
+     */
+    public DelegationOutcome sendMessage(String childSessionId, String message) {
+        Continuation continuation = continuations.get(childSessionId);
+        if (continuation == null) {
+            throw new IllegalArgumentException("subagent: unknown child session \""
+                    + childSessionId + "\" — list_agents shows continuable agents");
+        }
+        int entered = depth.incrementAndGet();
+        try {
+            if (entered > maxDepth) {
+                throw new SubagentException("subagent: delegation depth " + entered
+                        + " exceeds maxDepth " + maxDepth);
+            }
+            AgentSpec spec = continuation.spec();
+            markStatus(childSessionId, "running");
+            try {
+                String answer = io.majo.harness.interaction.InteractionContext.run(
+                        continuation.agent(), continuation.auto(), spec.allowedTools(),
+                        () -> io.majo.harness.settings.SettingsService.scoped(spec.settings(),
+                                () -> continuation.scoped()
+                                        ? runScoped(childSessionId, message, spec,
+                                                continuation.islands())
+                                        : loop.runTurn(childSessionId, message, null,
+                                                spec.model(), spec.systemPrompt())));
+                finished(childSessionId, answer);
+                record(new Delegation(message, "done", preview(answer),
+                        System.currentTimeMillis(), spec.model(), spec.maxSteps(),
+                        spec.autoApprove(), spec.allowedTools()));
+                return new DelegationOutcome(childSessionId, answer);
+            } catch (RuntimeException failure) {
+                markStatus(childSessionId, "failed");
+                record(new Delegation(message, "failed", String.valueOf(failure.getMessage()),
+                        System.currentTimeMillis(), spec.model(), spec.maxSteps(),
+                        spec.autoApprove(), spec.allowedTools()));
+                throw failure;
+            }
+        } finally {
+            depth.decrementAndGet();
+        }
+    }
+
+    /** Live child agents, most recently active first (dsh list_agents parity). */
+    public java.util.List<AgentEntry> agents() {
+        return agents.values().stream()
+                .sorted(java.util.Comparator.comparingLong(AgentEntry::lastActivityMillis)
+                        .reversed())
+                .toList();
+    }
+
+    /** One live child agent, or {@code null} when unknown. */
+    public AgentEntry agent(String childSessionId) {
+        return agents.get(childSessionId);
+    }
+
+    /**
+     * Requests cooperative cancellation of the child's running turn (dsh
+     * interrupt_agent parity — the loop's minimal-cancellation abort). Known
+     * child sessions only; unknown ids return {@code false}.
+     */
+    public boolean interrupt(String childSessionId) {
+        if (!agents.containsKey(childSessionId)) {
+            return false;
+        }
+        loop.abort(childSessionId);
+        markStatus(childSessionId, "interrupt-requested");
+        return true;
     }
 
     /** Runs the child turn inside a plugin-mounted {@link AgentScope}. */

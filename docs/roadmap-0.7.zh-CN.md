@@ -23,7 +23,7 @@
   无法对未见过的尾段产生幻觉）。
 - 多次压缩可组合（每次折叠保留更新的尾段）。
 
-## P2 — 可续聊子代理（下一个候选）
+## P2 — 可续聊子代理 ✅
 
 dsh 的子代理可跨回合延续（`tool-subagent-control`：
 send_message/interrupt_agent/list_agents；continuable children 以父

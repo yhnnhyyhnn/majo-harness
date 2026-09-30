@@ -40,7 +40,7 @@ add a row to your profile:
 
 Select it in the header model picker or via `/model my-model`.
 
-## The 29 tools
+## The 32 tools
 
 | tool | what it does |
 |---|---|
@@ -53,7 +53,8 @@ Select it in the header model picker or via `/model my-model`.
 | `run_shell` / `run_command` | Shell/command execution (gated) |
 | `run_background` | Background execution with `job_output/list/kill` |
 | `web_search` / `web_fetch` | Web search and page fetching |
-| `delegate_task` | Fan out a scoped child agent |
+| `delegate_task` | Fan out a scoped child agent (returns its session_id) |
+| `send_message` / `list_agents` / `interrupt_agent` | Continue a child agent with follow-ups, list live children, interrupt a running child turn |
 | `todo_write` | Replace the session todo list |
 | `exit_plan_mode` | Submit a plan for approval |
 | `schedule_create/list/update/delete` | Timer reminders, daily/weekly sugar, and Vixie cron (`cron` + `timezone`) |
@@ -62,6 +63,8 @@ Select it in the header model picker or via `/model my-model`.
 | `workflow_run` | Execute a named workflow |
 | `skill` | Load a named skill's full instructions (catalog rides the system prompt) |
 | `get_goal` / `create_goal` / `update_goal` | Session goal: view, create (human-only), edit/pause/resume (human-only), complete/blocked (autonomous inside a goal round, blocked after ≥N rounds) |
+| `delegate_task` | Fan out a scoped child agent (returns its session_id) |
+| `send_message` / `list_agents` / `interrupt_agent` | Continue a child agent with follow-ups, list live children, interrupt a running child turn |
 
 ## Key features
 
