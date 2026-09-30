@@ -10,7 +10,7 @@ import java.util.Map;
  * {@code static-web/__name__/}. Start with:
  *
  * <pre>
- *   java -jar majo-web-0.9.2.jar --profile web-mock \
+ *   java -jar majo-web-0.9.3.jar --profile web-mock \
  *     --plugin __name__=./examples/__name__-plugin/__name__.jar
  * </pre>
  *

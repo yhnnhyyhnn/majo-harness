@@ -772,7 +772,7 @@ Working area for the next iteration.
   continuable afterwards.
 - Tool count 29 → 32; depth guard applies to continuations too.
 
-## [Unreleased]
+## [0.9.3] - 2026-09-30
 
 ### Repeat-reminder deepening (dsh guard repeat-tool-reminder parity — roadmap-0.7 P3)
 
@@ -790,5 +790,7 @@ Working area for the next iteration.
   just turn-close events. E2E confirmed the full chain on the web-mock
   profile: self-driven goal rounds raised pressure and auto-compaction
   fired (region selection) on a live session.
+
+## [Unreleased]
 
 Working area for the next iteration.
