@@ -709,7 +709,7 @@ Working area for the next iteration.
 
 ### Hooks compatibility bridge (dsh hook-protocol parity — roadmap-0.6 P5)
 
-## [Unreleased]
+## [0.9.0] - 2026-09-30
 
 ### Goal system (dsh goal parity — roadmap-0.6 P7, design: docs/goal-design.md)
 
@@ -738,5 +738,7 @@ Working area for the next iteration.
   ride the `goal-tools` system section.
 - **`/goal` command** (dsh command-goal parity): show, create by objective
   text, edit, pause, resume, clear. Tool count 26 → 29.
+
+## [Unreleased]
 
 Working area for the next iteration.
