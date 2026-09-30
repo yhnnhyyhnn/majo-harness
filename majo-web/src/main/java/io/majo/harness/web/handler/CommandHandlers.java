@@ -122,6 +122,99 @@ public final class CommandHandlers {
         });
         registerPlanCommand(commands);
         registerCompactCommand(commands);
+        registerGoalCommand(commands);
+    }
+
+    /**
+     * The {@code /goal} command (dsh command-goal parity): show, create by
+     * objective text, edit, pause, resume, clear. Host commands are the
+     * direct-human authority by construction.
+     */
+    private void registerGoalCommand(CommandRegistry commands) {
+        commands.register("goal",
+                "session goal: /goal [<objective>|edit <objective>|pause|resume|clear]",
+                (commandCtx, args) -> {
+                    io.majo.harness.goal.GoalService goals =
+                            ctx.boot.ctx().get(io.majo.harness.goal.GoalService.NAME);
+                    if (goals == null) {
+                        throw new IllegalArgumentException(
+                                "goal: the goal module is not mounted in this profile");
+                    }
+                    String sessionId = String.valueOf(args.get("session"));
+                    if (sessionId.isBlank() || "null".equals(sessionId)) {
+                        throw new IllegalArgumentException("goal: pass the current session id");
+                    }
+                    List<String> argv = new java.util.ArrayList<>();
+                    if (args.get("args") instanceof List<?> raw) {
+                        for (Object item : raw) {
+                            argv.add(String.valueOf(item));
+                        }
+                    }
+                    io.majo.harness.goal.GoalService.Goal goal = goals.get(sessionId);
+                    if (argv.isEmpty()) {
+                        if (goal == null) {
+                            return "no active goal. Start one: /goal <objective>";
+                        }
+                        return goalStatus(goals, sessionId, goal);
+                    }
+                    String head = argv.get(0);
+                    switch (head.toLowerCase()) {
+                        case "clear" -> {
+                            goals.clear(sessionId);
+                            return "goal cleared.";
+                        }
+                        case "pause" -> {
+                            requireGoal(goal);
+                            return "goal paused: " + goals.pause(sessionId, goal.ref(), true)
+                                    .ref() + " (the running turn was aborted if any)";
+                        }
+                        case "resume" -> {
+                            requireGoal(goal);
+                            return "goal resumed (armed): " + goals.resume(sessionId, goal.ref())
+                                    .ref();
+                        }
+                        case "edit" -> {
+                            requireGoal(goal);
+                            if (argv.size() < 2) {
+                                throw new IllegalArgumentException("goal: edit needs the new objective");
+                            }
+                            String objective = String.join(" ", argv.subList(1, argv.size()));
+                            return "goal edited: " + goals.edit(sessionId, goal.ref(),
+                                    objective, null).ref();
+                        }
+                        default -> {
+                            if ("complete".equalsIgnoreCase(head)) {
+                                throw new IllegalArgumentException(
+                                        "goal: completion belongs to the model inside a goal round");
+                            }
+                            String objective = String.join(" ", argv);
+                            io.majo.harness.goal.GoalService.Goal created =
+                                    goals.create(sessionId, objective, null);
+                            return "goal created " + created.ref()
+                                    + " (armed — it will drive rounds automatically)";
+                        }
+                    }
+                });
+    }
+
+    private static void requireGoal(io.majo.harness.goal.GoalService.Goal goal) {
+        if (goal == null) {
+            throw new IllegalArgumentException("goal: no active goal on this session");
+        }
+    }
+
+    private static String goalStatus(io.majo.harness.goal.GoalService goals, String sessionId,
+            io.majo.harness.goal.GoalService.Goal goal) {
+        StringBuilder text = new StringBuilder();
+        text.append("Status: ").append(goal.phase().name().toLowerCase());
+        if (goal.phase() == io.majo.harness.goal.GoalService.Phase.BLOCKED) {
+            text.append(" (").append(goal.blockedCode()).append(")");
+        }
+        text.append("\nObjective: ").append(goal.objective());
+        text.append("\nRounds: ").append(goals.roundsStarted(sessionId)).append('/')
+                .append(goal.maxRounds());
+        text.append("\nRevision: ").append(goal.revision());
+        return text.toString();
     }
 
     /**

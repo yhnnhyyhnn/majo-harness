@@ -711,4 +711,32 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
+### Goal system (dsh goal parity — roadmap-0.6 P7, design: docs/goal-design.md)
+
+- **Event-sourced goal domain** (`majo-goal`, module #34): one durable
+  objective per session as GOAL_CHANGE snapshots with CAS revisions (stale
+  refs fail loudly), phase machine active/paused/blocked/complete, a
+  clear tombstone with id non-reuse, and a loud fold on corrupt logs.
+- **Round-source plumbing**: inbox turn entries carry a producer tag (null
+  = human, dsh message-source parity); USER_MESSAGE gains the `producer`
+  field (goal rounds carry goalId/revision/round); `agent/user-submit`
+  moved BEFORE the TURN_START append so a rejected submission leaves no
+  open turn.
+- **Round driver**: an armed active goal queues its exact rendered
+  `<goal_round>` prompt as a goal-produced followup. Three fences: the
+  pending attempt re-validates at user-submit (stale = rejected, the round
+  is not consumed), competing inbox work stands the driver down, and the
+  round budget blocks with `round-limit`. Activation is process-local: a
+  restart leaves the goal disarmed until a human resumes. Host pause
+  aborts the running turn via the minimal-cancellation abort.
+- **Authority** (dsh requireDirectHuman parity): create/edit/pause/resume
+  demand a real user message in the open turn; complete/blocked work
+  autonomously inside a goal round; blocked carries a consecutive-rounds
+  floor (default 3, configurable via blockedAfterConsecutiveRounds).
+  Autonomous complete/blocked inject the `<goal_complete>`/
+  `<goal_blocked>` wrapup note at the next step boundary. System rules
+  ride the `goal-tools` system section.
+- **`/goal` command** (dsh command-goal parity): show, create by objective
+  text, edit, pause, resume, clear. Tool count 26 → 29.
+
 Working area for the next iteration.

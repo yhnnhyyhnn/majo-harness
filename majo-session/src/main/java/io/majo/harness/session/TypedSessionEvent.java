@@ -95,6 +95,11 @@ public sealed interface TypedSessionEvent {
     record HookResult(String handlerId, String decision, long durationMs)
             implements TypedSessionEvent {}
 
+    /** The session goal changed: full snapshot or clear tombstone (dsh goal/change). */
+    record GoalChange(String operation, String goalId, long revision, String objective,
+            String phase, long maxRounds, String blockedCode, String blockedMessage)
+            implements TypedSessionEvent {}
+
     /** A serialized assistant tool call (the log's wire form of a ToolCall). */
     record ToolCallEntry(String id, String name, String arguments) {}
 
@@ -160,6 +165,17 @@ public sealed interface TypedSessionEvent {
                     text(fields, SessionEvent.FIELD_DECISION),
                     Long.parseLong(String.valueOf(fields.getOrDefault(
                             SessionEvent.FIELD_DURATION_MS, 0))));
+            case GOAL_CHANGE -> new GoalChange(
+                    text(fields, SessionEvent.FIELD_OPERATION),
+                    text(fields, SessionEvent.FIELD_GOAL_ID),
+                    Long.parseLong(String.valueOf(fields.getOrDefault(
+                            SessionEvent.FIELD_GOAL_REVISION, 0))),
+                    text(fields, SessionEvent.FIELD_OBJECTIVE),
+                    text(fields, SessionEvent.FIELD_PHASE),
+                    Long.parseLong(String.valueOf(fields.getOrDefault(
+                            SessionEvent.FIELD_MAX_ROUNDS, 0))),
+                    text(fields, SessionEvent.FIELD_BLOCKED_CODE),
+                    text(fields, SessionEvent.FIELD_BLOCKED_MESSAGE));
         };
     }
 

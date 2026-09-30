@@ -79,6 +79,8 @@ majo-interaction/ ApprovalRequest/Question/ApprovalDecision / InteractionHandler
 majo-skill/       Skill / SkillProvider 接缝 / FileSkillProvider（SKILL.md 目录）
                   / SkillRegistry / SkillPlugin / FileSkillPlugin
                   / SkillTool / SkillToolsPlugin（单一 `skill` 工具 + `skills` 系统段）
+majo-goal/         GoalService (CAS revisions, phase machine, round driver + fences)
+                  / GoalPlugin / GoalToolPlugin (get/create/update_goal + goal-tools section)
 majo-subagent/    SubagentService / AgentScope + 宿主策略岛屿（registerIsland /
                   delegateSpecIslands）/ SubagentPlugin / DelegateTaskTool / SubagentToolPlugin
                   （delegate_task：model/maxSteps/autoApprove/allowedTools/islands/settings）

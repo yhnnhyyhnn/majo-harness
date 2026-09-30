@@ -168,6 +168,7 @@ class SessionProjectionTest {
                 case TypedSessionEvent.WorkflowEnd ignored -> SessionEventType.WORKFLOW_END;
                 case TypedSessionEvent.HookInvoked ignored -> SessionEventType.HOOK_INVOKED;
                 case TypedSessionEvent.HookResult ignored -> SessionEventType.HOOK_RESULT;
+                case TypedSessionEvent.GoalChange ignored -> SessionEventType.GOAL_CHANGE;
             };
         }
 

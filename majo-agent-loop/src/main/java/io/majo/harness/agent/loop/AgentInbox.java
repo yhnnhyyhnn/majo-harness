@@ -1,5 +1,6 @@
 package io.majo.harness.agent.loop;
 
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -8,7 +9,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * entries ({@code followup}, and {@code steer} offered while idle) wake or
  * chain a turn; note entries ({@code steer} into a running turn,
  * {@code inject}) are delivered at step boundaries or turn openings and never
- * start a turn.
+ * start a turn. Each turn entry carries a producer tag ({@code null} =
+ * human, dsh source parity) that lands as the USER_MESSAGE {@code producer}
+ * field — goal rounds ride it with their goal/round metadata.
  */
 final class AgentInbox {
 
@@ -17,11 +20,23 @@ final class AgentInbox {
     record Note(Kind kind, String text) {
     }
 
-    private final Queue<String> turnStarters = new ConcurrentLinkedQueue<>();
+    /** One queued turn start: the text plus its producer tag + metadata. */
+    record TurnEntry(String text, Map<String, Object> producer) {
+        TurnEntry {
+            producer = producer == null || producer.isEmpty()
+                    ? Map.of() : Map.copyOf(producer);
+        }
+    }
+
+    private final Queue<TurnEntry> turnStarters = new ConcurrentLinkedQueue<>();
     private final Queue<Note> notes = new ConcurrentLinkedQueue<>();
 
     void offerTurnStart(String text) {
-        turnStarters.add(text);
+        turnStarters.add(new TurnEntry(text, Map.of()));
+    }
+
+    void offerTurnStart(String text, Map<String, Object> producer) {
+        turnStarters.add(new TurnEntry(text, producer));
     }
 
     void offerNote(Note note) {
@@ -29,7 +44,7 @@ final class AgentInbox {
     }
 
     /** Pops the next turn-starting entry, or {@code null} when none. */
-    String pollTurnStart() {
+    TurnEntry pollTurnStart() {
         return turnStarters.poll();
     }
 

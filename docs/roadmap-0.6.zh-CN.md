@@ -73,11 +73,12 @@ subprocess/shell 命令携带可选 stdin 载荷（异步写入、容忍断管�
 - PTC：`run_code` 程序回调宿主工具的协议（fd 通道 + 嵌套 dispatch +
   逐调用 dispatch log）。
 
-## P7 — goal 系统（先设计后动工）
+## P7 — goal 系统 ✅ 已交付（设计：docs/goal-design.zh-CN.md）
 
-事件溯源 goal 领域 + 自动续跑 driver + goal 工具。机制上吸引但是一整个
-周期；动工前需要设计提案（类似 workflow v1）。
-
+设计提案后全量实施：事件溯源领域（`majo-goal`）、轮 source 管线、
+三围栏轮 driver、authority 规则（requireDirectHuman 对齐、blocked 下界
+3）、wrapup 注入与 /goal 命令。范围问题按默认决策：全量 A+B、dsh
+authority 语义、下界 3（可配置）。
 ## 明确不在 0.6 范围
 
 宿主产品层——storage/workspace/session-query/preset/desktop、

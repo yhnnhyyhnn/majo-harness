@@ -68,6 +68,10 @@
   name: workflow
   config:
     dir: workflows
+- id: goal
+  name: goal
+- id: goal-tools
+  name: goal-tools
 - id: ptc
   name: ptc
   config:

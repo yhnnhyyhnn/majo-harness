@@ -83,11 +83,13 @@ parsed-and-skipped like the reference bridges.
 - PTC: host-tool callback protocol from `run_code` programs (fd channel +
   nested dispatch + per-call dispatch log).
 
-## P7 — goal system (design study first)
+## P7 — goal system ✅ SHIPPED (design: docs/goal-design.md)
 
-Event-sourced goal domain + auto-continue driver + goal tools. Attractive
-mechanically but a cycle of its own; needs a design proposal (like workflow
-v1) before any code.
+Implemented in full after the design proposal: the event-sourced domain
+(`majo-goal`), the round-source plumbing, the three-fence round driver,
+the authority rules (requireDirectHuman parity, blocked floor 3), the
+wrapup injection, and the /goal command. Scope questions were decided by
+default: full A+B, dsh authority semantics, floor 3 (configurable).
 
 ## Explicitly out of scope for 0.6
 

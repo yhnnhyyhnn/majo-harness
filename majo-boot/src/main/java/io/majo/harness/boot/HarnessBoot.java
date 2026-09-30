@@ -107,6 +107,8 @@ public final class HarnessBoot {
     public static final String PLUGIN_CONTEXT = ContextPlugin.NAME;
     public static final String PLUGIN_SPILL = SpillPlugin.NAME;
     public static final String PLUGIN_HOOKS = io.majo.harness.hooks.HooksPlugin.NAME;
+    public static final String PLUGIN_GOAL = io.majo.harness.goal.GoalPlugin.NAME;
+    public static final String PLUGIN_GOAL_TOOLS = io.majo.harness.goal.GoalToolPlugin.NAME;
     public static final String PLUGIN_WORKFLOW = WorkflowPlugin.NAME;
     public static final String PLUGIN_PTC = PtcPlugin.NAME;
     public static final String PLUGIN_COMMANDS = io.majo.harness.boot.commands.CommandRegistryPlugin.NAME;
@@ -163,6 +165,8 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_CONTEXT, new ContextPlugin());
         loader.builtin(PLUGIN_SPILL, new SpillPlugin());
         loader.builtin(PLUGIN_HOOKS, new io.majo.harness.hooks.HooksPlugin());
+        loader.builtin(PLUGIN_GOAL, new io.majo.harness.goal.GoalPlugin());
+        loader.builtin(PLUGIN_GOAL_TOOLS, new io.majo.harness.goal.GoalToolPlugin());
         loader.builtin(PLUGIN_WORKFLOW, new WorkflowPlugin());
         loader.builtin(PLUGIN_PTC, new PtcPlugin());
         loader.builtin(PLUGIN_COMMANDS, new io.majo.harness.boot.commands.CommandRegistryPlugin());

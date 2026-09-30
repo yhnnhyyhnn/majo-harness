@@ -155,10 +155,26 @@ public final class AgentLoopService extends Service {
     /**
      * Queues a next turn for {@code sessionId}: when the loop is idle a
      * driver thread runs it; when a turn is executing it chains right after
-     * (inside the current turn hold). Returns immediately.
+     * (inside the current turn hold). Returns immediately. The text is
+     * human-produced (producer {@code user}).
      */
     public void followup(String sessionId, String text) {
-        inbox(sessionId).offerTurnStart(text);
+        followup(sessionId, text, null);
+    }
+
+    /**
+     * Like {@link #followup(String, String)} with an explicit producer tag +
+     * metadata (dsh message-source parity): goal rounds ride
+     * {@code {producer: "goal", goalId, goalRevision, round}}; the tag lands
+     * as the USER_MESSAGE {@code producer} field. {@code null} producer = a
+     * plain user message.
+     */
+    public void followup(String sessionId, String text, java.util.Map<String, Object> producer) {
+        if (producer == null || producer.isEmpty()) {
+            inbox(sessionId).offerTurnStart(text);
+        } else {
+            inbox(sessionId).offerTurnStart(text, producer);
+        }
         requestDrive(sessionId);
     }
 
@@ -258,30 +274,38 @@ public final class AgentLoopService extends Service {
      * ask/decision audit pair into this session's log. */
     private String runSingleTurn(String sessionId, String userText,
             java.util.function.Consumer<String> textSink, String modelOverride, String prompt) {
+        return runSingleTurn(sessionId, userText, textSink, modelOverride, prompt, java.util.Map.of());
+    }
+
+    private String runSingleTurn(String sessionId, String userText,
+            java.util.function.Consumer<String> textSink, String modelOverride, String prompt,
+            java.util.Map<String, Object> producer) {
         String effectivePrompt = prompt == null || prompt.isBlank() ? systemPrompt : prompt;
         AtomicBoolean busy = inTurn(sessionId);
         busy.set(true);
         try {
             return InteractionContext.runSession(sessionId,
-                    () -> runSingleTurnBound(sessionId, userText, textSink, modelOverride, effectivePrompt));
+                    () -> runSingleTurnBound(sessionId, userText, textSink, modelOverride,
+                            effectivePrompt, producer));
         } finally {
             busy.set(false);
         }
     }
 
     private String runSingleTurnBound(String sessionId, String userText,
-            java.util.function.Consumer<String> textSink, String modelOverride, String effectivePrompt) {
+            java.util.function.Consumer<String> textSink, String modelOverride,
+            String effectivePrompt, java.util.Map<String, Object> producer) {
+        // the user-submit waterfall runs before ANY durability: a replacement
+        // is what gets logged (verbatim), a rejection leaves the log untouched
+        // (the goal driver's admission check needs exactly this)
+        userText = userSubmit(sessionId, userText);
         sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
         // a stale abort on an idle session must not kill this fresh turn
         AtomicBoolean aborted = aborts.computeIfAbsent(sessionId, ignored -> new AtomicBoolean());
         aborted.set(false);
-        // the user-submit waterfall runs before durability: a replacement is
-        // what gets logged (verbatim), a rejection leaves the log untouched
-        userText = userSubmit(sessionId, userText);
         // notes queued while nobody was driving land before the user message
         deliverQueuedNotes(sessionId);
-        sessions.append(sessionId, SessionEventType.USER_MESSAGE,
-                Map.of(SessionEvent.FIELD_CONTENT, userText));
+        appendUserMessage(sessionId, userText, producer);
         for (int step = 1; ; step++) {
             if (aborted.get()) {
                 return closeAborted(sessionId);
@@ -356,6 +380,19 @@ public final class AgentLoopService extends Service {
         return (String) result;
     }
 
+    /** Logs the user message with its producer tag (absent tag = human, unlogged field). */
+    private void appendUserMessage(String sessionId, String text,
+            java.util.Map<String, Object> producer) {
+        if (producer == null || producer.isEmpty()) {
+            sessions.append(sessionId, SessionEventType.USER_MESSAGE,
+                    Map.of(SessionEvent.FIELD_CONTENT, text));
+            return;
+        }
+        java.util.Map<String, Object> fields = new HashMap<>(producer);
+        fields.put(SessionEvent.FIELD_CONTENT, text);
+        sessions.append(sessionId, SessionEventType.USER_MESSAGE, fields);
+    }
+
     /** Appends queued notes: steer as user input, inject as a context note. */
     private void deliverQueuedNotes(String sessionId) {
         for (AgentInbox.Note note : inbox(sessionId).drainNotes()) {
@@ -375,9 +412,9 @@ public final class AgentLoopService extends Service {
     private void converge(String sessionId) {
         AgentInbox inbox = inbox(sessionId);
         while (true) {
-            String next = inbox.pollTurnStart();
+            AgentInbox.TurnEntry next = inbox.pollTurnStart();
             if (next != null) {
-                runSingleTurn(sessionId, next, null, null, null);
+                runSingleTurn(sessionId, next.text(), null, null, null, next.producer());
                 continue;
             }
             boolean wake = false;
@@ -411,12 +448,13 @@ public final class AgentLoopService extends Service {
         turnDriver.execute(() -> {
             Object mutex = turnMutex(sessionId);
             while (true) {
-                String next;
+                AgentInbox.TurnEntry next;
                 synchronized (mutex) {
                     next = inbox(sessionId).pollTurnStart();
                     if (next != null) {
                         try {
-                            runSingleTurn(sessionId, next, null, null, null);
+                            runSingleTurn(sessionId, next.text(), null, null, null,
+                                    next.producer());
                             converge(sessionId);
                         } catch (RuntimeException failure) {
                             // a driver turn has no caller to fail: log and

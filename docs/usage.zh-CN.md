@@ -40,7 +40,7 @@ profile 里加一行：
 
 在头部模型选择器里选，或用 `/model my-model`。
 
-## 26 个工具
+## 29 个工具
 
 | 工具 | 功能 |
 |---|---|
@@ -68,6 +68,14 @@ profile 里加一行：
 
 在 composer 里输入 `@` 触发工作区文件补全。选中后文件内容注入为持久
 上下文注记——模型无需工具往返即可读到。纯文本（二进制拒绝），64k 字符。
+
+### 目标（goal）
+
+`/goal <objective>` 创建持久会话目标；harness 随后自主一轮接一轮推进
+（`<goal_round>` 用户消息）。人类始终掌舵：`/goal pause`（中止在跑
+轮）、`/goal resume`、`/goal edit`、`/goal clear`。模型可在轮内宣告
+完成，或在同一阻塞条件持续 ≥3 轮后报告 blocked（可配置）。CAS
+revision 防陈旧写；重启后 goal 保持 disarmed，需人类 resume。
 
 ### 工作流
 

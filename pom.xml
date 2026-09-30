@@ -43,6 +43,7 @@
     <module>majo-context</module>
     <module>majo-spill</module>
     <module>majo-hooks</module>
+    <module>majo-goal</module>
     <module>majo-workflow</module>
     <module>majo-ssh</module>
     <module>majo-ptc</module>

@@ -40,7 +40,7 @@ add a row to your profile:
 
 Select it in the header model picker or via `/model my-model`.
 
-## The 26 tools
+## The 29 tools
 
 | tool | what it does |
 |---|---|
@@ -61,6 +61,7 @@ Select it in the header model picker or via `/model my-model`.
 | `spill_read` | Retrieve a spilled oversized tool output |
 | `workflow_run` | Execute a named workflow |
 | `skill` | Load a named skill's full instructions (catalog rides the system prompt) |
+| `get_goal` / `create_goal` / `update_goal` | Session goal: view, create (human-only), edit/pause/resume (human-only), complete/blocked (autonomous inside a goal round, blocked after ≥N rounds) |
 
 ## Key features
 
@@ -69,6 +70,16 @@ Select it in the header model picker or via `/model my-model`.
 Type `@` in the composer to get file completion from the workspace.
 Selecting a file injects its content as a durable context note — the model
 reads it without a tool round-trip. Text-only (binary rejected), 64k chars.
+
+### Goals
+
+`/goal <objective>` creates a durable session goal; the harness then drives
+round after round toward it autonomously (`<goal_round>` user messages).
+The human stays in charge: `/goal pause` (aborts a running round),
+`/goal resume`, `/goal edit`, `/goal clear`. The model can complete the
+goal inside a round, or report blocked after the same condition persisted
+for ≥3 consecutive rounds (configurable). CAS revisions prevent stale
+writes; a restart leaves the goal disarmed until a human resumes.
 
 ### Workflows
 

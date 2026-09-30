@@ -67,6 +67,33 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_POINT = "point";
     /** Stable per-invocation id correlating a HOOK_INVOKED/HOOK_RESULT pair. */
     public static final String FIELD_HANDLER_ID = "handlerId";
+    /**
+     * Who produced a {@link SessionEventType#USER_MESSAGE} (dsh message-source
+     * parity): {@code user} (the default; absent on legacy logs) or a producer
+     * tag like {@code goal} with the goal fields below. Distinct from the
+     * approval FIELD_SOURCE (policy|handler).
+     */
+    public static final String FIELD_PRODUCER = "producer";
+    /** Goal id of a goal-produced USER_MESSAGE / a GOAL_CHANGE. */
+    public static final String FIELD_GOAL_ID = "goalId";
+    /** Goal revision at production time (CAS). */
+    public static final String FIELD_GOAL_REVISION = "goalRevision";
+    /** Goal round number of a goal-produced USER_MESSAGE (1-based). */
+    public static final String FIELD_ROUND = "round";
+    /** The mutation kind of a GOAL_CHANGE (create/edit/pause/resume/complete/block/clear). */
+    public static final String FIELD_OPERATION = "operation";
+    /** Goal phase of a GOAL_CHANGE snapshot. */
+    public static final String FIELD_PHASE = "phase";
+    /** Round budget of a GOAL_CHANGE snapshot. */
+    public static final String FIELD_MAX_ROUNDS = "maxRounds";
+    /** Blocked reason code/message of a blocked GOAL_CHANGE. */
+    public static final String FIELD_BLOCKED_CODE = "blockedCode";
+    public static final String FIELD_BLOCKED_MESSAGE = "blockedMessage";
+    /** Timestamps of a GOAL_CHANGE snapshot. */
+    public static final String FIELD_CREATED_AT = "createdAt";
+    public static final String FIELD_UPDATED_AT = "updatedAt";
+    /** The objective text of a GOAL_CHANGE snapshot. */
+    public static final String FIELD_OBJECTIVE = "objective";
     /** Log cursor covered by a {@link SessionEventType#CONTEXT_COMPACTION}. */
     public static final String FIELD_UP_TO_SEQ = "upToSeq";
     /** Correlation id of a workflow run (WORKFLOW_* events). */

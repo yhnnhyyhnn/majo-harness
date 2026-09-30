@@ -50,5 +50,7 @@ public enum SessionEventType {
     /** A hook command was invoked at a hook point (durable audit; HOOK_RESULT pairs by handlerId). */
     HOOK_INVOKED,
     /** One hook finished: decision, exit code, bounded stderr, wall-clock duration. */
-    HOOK_RESULT
+    HOOK_RESULT,
+    /** The session goal changed (dsh goal/change): full snapshot or a clear tombstone. */
+    GOAL_CHANGE
 }
