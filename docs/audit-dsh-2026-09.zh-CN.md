@@ -74,3 +74,106 @@
   `storage`/`workspace`/`webhook`/`feedback`/`identity`、`lsp`、
   `extensions`（agent 可改的运行时）、`bundle` profile 分层、
   `experimental/agent-team`。
+
+---
+
+# 第二轮 — 2026-09-30：对照 dsh 0.2.0-rc.1 的深度差异分析
+
+第一轮以来参考项目前进约 **1,961 个提交、三个发布**（0.1.5-rc.3 →
+0.1.7-rc.x → 0.2.0-rc.1），包数 58 → 61。按五个领域（核心循环 /
+LLM+上下文 / 工具 / 会话+workflow / web+运行时）并行深挖后汇总如下。
+上游重心已转向**内核硬化**（goal 系统、取消体系、多模态 LLM 词汇）与
+**宿主产品层**（storage/workspace/session-query/hooks/webhook/preset/
+desktop）——后者在 majo 的规模定位下有意不追。
+
+## 一、上游新增、majo 完全空白
+
+- **Goal 家族**（本轮最大新主题）：事件溯源 goal 领域
+  （`packages/goal/goal/src/index.ts` — phase 状态机、CAS revision、
+  maxGoalRounds）、自动续跑 driver（`goal-round-driver`）、
+  `get_goal`/`create_goal`/`update_goal` 工具（`tool-goal`）、`/goal`
+  命令（`command-goal`）。majo 全库无对应物，roadmap 亦未提及。
+- **取消体系**：类型化 `TurnEndReason` 含 `aborted(cause)` +
+  `CancelOptions.keepInbox`（`packages/core/session/src/types.ts`）、abort
+  时为未启动调用落合成 `TOOL_ABORTED_BEFORE_DISPATCH` 结果保重放有效
+  （`core/agent-loop/src/tool-calls.ts`）、归档准入自动取消
+  （`core/agent/src/archive-admission.ts`）。majo 循环零 cancel/abort。
+- **多模态 + 计量 LLM 词汇**：内容块（Text/Reasoning/Image/File）+
+  StreamChunk 流协议（`packages/llm/llm/src/types.ts`）、含
+  cacheRead/cacheWrite 的 `TokenUsage`、图像 token 精算
+  （`llm-deepseek/src/image-tokens.ts`）、Files API、模型发现、独立重试
+  执行器（`packages/llm/llm-retry`）。majo `ChatMessage` 只有 String
+  content，`ChatResponse` 无 usage，无重试。
+- **宿主产品层**：`storage`（非会话 KV 持久化 + schema 校验 + 变更事件，
+  `packages/storage/storage-domain/`）、`workspace`（持久项目注册表、
+  归档不删除）、`session-query`（SQLite FTS5 + 谱系 trace，
+  `packages/session-query/session-query-sqlite/`）、`hooks` 兼容桥
+  （直接跑 Claude Code/Codex 的 hooks.json，`packages/hooks/hook-protocol/`）、
+  `webhook`（签名 GitHub 摄入）、`feedback`、`identity`（匿名 UUID）、
+  `preset`/`persona`（每会话 agent 组合）、desktop（Electron 壳）。
+- **扩展工具族**：browser-use/computer-use（experimental，能力槽位注册表
+  + MCP provider，未打包）、terminal PTY（6 工具，
+  `packages/terminal/tool-terminal/`）、lsp（单工具 4 只读操作）、
+  document office→pdf 服务、attachment 准入 + `read_image`。
+
+## 二、两边都有、上游明显更深（对齐债）
+
+- **FS 写工具族——实用性最硬的缺口**：majo 的 `majo-fs` 只有
+  `read_file` + `git_status`；dsh 有 read/write/edit/glob/grep/
+  read_image/str_replace_editor 全家（`packages/fs/tool-fs/`）。
+  **majo 的模型目前什么文件都写不了。**
+- **双 inbox**：持久 splice 事件 + 消息 id + 去重
+  （`core/agent-loop/src/inbox.ts`）vs majo 内存字符串队列
+  （`AgentInbox.java`）。
+- **turn 终止原因**：类型化 map（error/max-tokens/aborted/forked）vs
+  majo 无字段的 TURN_END。
+- **审批**：策略持久事件 + abort 撤问 + 迟到答案丢弃
+  （`packages/interaction/user-approval/`）vs ask/auto/never 事件对、
+  无撤销。
+- **重复调用提醒**：深键规范化、被拒调用也计数、用户插话重置链
+  （`packages/guard/repeat-tool-reminder/`）vs 简单计数。
+- **压缩**：区域选择（定价尾段保留 + tool 配对保护）+ start/end 事务 +
+  检查点（`packages/compaction/compaction-basic/src/region.ts`）vs
+  整史一次性摘要。
+- **指令上下文**：用户全局 + 项目链、fs 操作触发刷新、65,536 字节预算
+  （`packages/context/agent-instructions/`）vs 一次性根目录注入。
+- **skill**：scope 链 + 优先级 rank + bundled + 单 `skill` 工具 + 持久
+  目录消息（`packages/skill/tool-skill/`）vs 目录扫描 + 2 工具。
+- **PTC**：程序内 `tools.name(args)` 回调宿主工具（嵌套 dispatch）、
+  沙箱集成、升级审批（`packages/core/tools/src/ptc.ts`）vs majo
+  自述"v1 不可调工具"（`PtcService.java`）。
+- **jobs**：绝对字节偏移 ring buffer + 任意偏移读 + 归档联动 kill
+  （`packages/jobs/jobs-local/src/ring.ts`）vs 尾部截断。
+- **schedule**：every/daily/weekly/**cron**（Vixie 五字段 + IANA 时区）+
+  投递历史 + Host 级持久化 + 冷唤醒
+  （`packages/schedule/schedule/src/types.ts`）vs after/every/at +
+  daily/weekly 糖，无 cron。
+- **subagent**：continuable 子代理（send_message/interrupt/list，
+  `packages/subagent/tool-subagent-control/`）+ experimental agent-team
+  （mailbox/任务 DAG/roster）vs 一发即弃的同步 `delegate_task`。
+- **会话格式**：上游已到 **v4**（v3→v4 已落地：
+  `packages/session/session-format-v3-to-v4/README.md`）——第一轮"v3"
+  的记录当时已过时；另有检查点策略与持久投影缓存为 majo 所缺。
+
+## 三、有意分歧（保留）
+
+- **workflow 形态相反**：majo = 声明式 YAML 步骤 + 虚拟线程并行组 +
+  **in-process resume**；dsh = 模型即席写 JS 跑在 PTC 运行时
+  （`agent()/parallel()/pipeline()`），无 resume。两套语义互不映射；
+  majo 在 resume 上先行。
+- **majo 独有优势**：循环内凭据脱敏（`safe()`）、
+  `ALLOW_MODEL_TRIGGER_TAG` 审批豁免、OpenAPI 契约 + metrics + 生成式
+  web 类型（防漂移）、spill fail-open + 注册式 `spill_read`、headroom
+  半预算钳制。
+- **命名**：`read_file`/`run_shell`/`run_command` vs dsh `read`/`bash`
+  ——为会话/测试稳定保留，已文档化。
+- **成立简化**：maxSteps=8 硬上限、steer-while-idle 退化为 followup、
+  pending 不持久、abort 仅在步边界生效（不做请求中途取消）。
+
+## 处置
+
+第二轮结论汇入 `docs/roadmap-0.6.zh-CN.md`：P1 fs 写工具族、
+P2 TokenUsage、P3 最小取消体系（类型化 TURN_END + abort）、
+P4 cron schedule；P5 hooks 桥、P6 skill/PTC 深化、P7 goal 系统设计
+研究。宿主产品层（storage/workspace/session-query/preset/desktop）与
+majo 单用户本地定位有张力，明确不做。

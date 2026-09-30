@@ -59,6 +59,10 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_INTERVAL_SECONDS = "intervalSeconds";
     /** Deletion marker of a {@link SessionEventType#SCHEDULE_SET}. */
     public static final String FIELD_CANCELLED = "cancelled";
+    /** Vixie cron expression of a cron-driven {@link SessionEventType#SCHEDULE_SET}. */
+    public static final String FIELD_CRON = "cron";
+    /** IANA timezone the cron expression evaluates in. */
+    public static final String FIELD_TIMEZONE = "timezone";
     /** Log cursor covered by a {@link SessionEventType#CONTEXT_COMPACTION}. */
     public static final String FIELD_UP_TO_SEQ = "upToSeq";
     /** Correlation id of a workflow run (WORKFLOW_* events). */
@@ -67,6 +71,17 @@ public record SessionEvent(long seq, SessionEventType type, long timestamp, Map<
     public static final String FIELD_STEP_ID = "stepId";
     /** Step duration (millis) of a {@link SessionEventType#WORKFLOW_STEP}. */
     public static final String FIELD_DURATION_MS = "durationMs";
+    /**
+     * Why a {@link SessionEventType#TURN_END} happened (dsh TurnEndReason
+     * parity, minimal): {@code completed} (converged) or {@code aborted}
+     * (cooperative cancel). Failed turns stay open — the failure contract.
+     */
+    public static final String FIELD_REASON = "reason";
+    /** Token metering of an assistant round (dsh TokenUsage parity), when the provider reports it. */
+    public static final String FIELD_INPUT_TOKENS = "inputTokens";
+    public static final String FIELD_OUTPUT_TOKENS = "outputTokens";
+    public static final String FIELD_CACHE_READ_TOKENS = "cacheReadTokens";
+    public static final String FIELD_CACHE_WRITE_TOKENS = "cacheWriteTokens";
 
     public SessionEvent {
         fields = fields == null ? Map.of() : Map.copyOf(fields);

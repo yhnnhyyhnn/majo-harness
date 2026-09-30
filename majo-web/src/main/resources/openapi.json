@@ -152,6 +152,14 @@
         ]
       }
     },
+    "/api/sessions/{id}/abort": {
+      "post": {
+        "summary": "Request cooperative cancellation of the session's running turn",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/messages/{id}/{seq}/feedback": {
       "put": {
         "summary": "Rate a message up|down",

@@ -4,6 +4,7 @@ import io.majo.harness.agent.loop.AgentLoopService;
 import io.majo.harness.session.SessionEvent;
 import io.majo.harness.session.SessionEventType;
 import io.majo.harness.session.SessionService;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +26,9 @@ import org.slf4j.LoggerFactory;
  * (the log keeps the creation record, like dsh).
  *
  * <p>Shapes: {@code after_seconds} one-shot delay, {@code every_seconds}
- * fixed repeat ({@code >= 300}), or an ISO local {@code at}. No cron, no
- * fork inheritance — matching the reference scope.
+ * fixed repeat ({@code >= 300}), an ISO local {@code at}, or a Vixie
+ * five-field {@code cron} evaluated in an explicit IANA {@code timezone}
+ * (dsh v0.2.0 parity). No fork inheritance — matching the reference scope.
  */
 public final class ScheduleService extends io.jcordis.core.service.Service {
 
@@ -43,12 +45,19 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
         public volatile boolean cancelled;
         /** Optional display title (dsh parity). */
         public volatile String title;
+        /** Vixie cron expression when this schedule is cron-driven (else null). */
+        public volatile String cron;
+        /** IANA timezone the cron expression evaluates in (nullable). */
+        public volatile String timezone;
 
-        Schedule(String id, String prompt, long dueAtMs, long intervalSeconds) {
+        Schedule(String id, String prompt, long dueAtMs, long intervalSeconds,
+                String cron, String timezone) {
             this.id = id;
             this.prompt = prompt;
             this.dueAtMs = dueAtMs;
             this.intervalSeconds = intervalSeconds;
+            this.cron = cron;
+            this.timezone = timezone;
         }
     }
 
@@ -91,7 +100,11 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
                         String.valueOf(fields.get(SessionEvent.FIELD_SCHEDULE_ID)),
                         String.valueOf(fields.get(SessionEvent.FIELD_PROMPT)),
                         Long.parseLong(String.valueOf(fields.get(SessionEvent.FIELD_DUE_AT))),
-                        Long.parseLong(String.valueOf(fields.get(SessionEvent.FIELD_INTERVAL_SECONDS)))),
+                        Long.parseLong(String.valueOf(fields.get(SessionEvent.FIELD_INTERVAL_SECONDS))),
+                        fields.get(SessionEvent.FIELD_CRON) == null
+                                ? null : String.valueOf(fields.get(SessionEvent.FIELD_CRON)),
+                        fields.get(SessionEvent.FIELD_TIMEZONE) == null
+                                ? null : String.valueOf(fields.get(SessionEvent.FIELD_TIMEZONE))),
                         Boolean.parseBoolean(String.valueOf(fields.get(SessionEvent.FIELD_CANCELLED))));
             }
         }
@@ -121,7 +134,15 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
 
     private void arm(String sessionId, Schedule schedule) {
         long now = System.currentTimeMillis();
-        if (schedule.intervalSeconds > 0) {
+        if (schedule.cron != null) {
+            // cron schedules recompute their next occurrence instead of a
+            // fixed interval — after a fire, and after a restart catch-up
+            if (schedule.dueAtMs < now) {
+                schedule.dueAtMs = CronExpression.parse(schedule.cron)
+                        .next(java.time.Instant.ofEpochMilli(now),
+                                CronExpression.zone(schedule.timezone)).toEpochMilli();
+            }
+        } else if (schedule.intervalSeconds > 0) {
             long intervalMs = schedule.intervalSeconds * 1000;
             if (schedule.dueAtMs < now) {
                 // restart catch-up: the next unmissed occurrence
@@ -142,7 +163,8 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
         }
     }
 
-    private void fire(String sessionId, Schedule schedule) {
+    // package-private so in-package tests can drive a delivery directly
+    void fire(String sessionId, Schedule schedule) {
         if (schedule.cancelled) {
             return;
         }
@@ -153,7 +175,12 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
                 LOG.error("schedule: delivery of {} failed", schedule.id, e);
             }
         }
-        if (schedule.intervalSeconds > 0) {
+        if (schedule.cron != null) {
+            schedule.dueAtMs = CronExpression.parse(schedule.cron)
+                    .next(java.time.Instant.ofEpochMilli(System.currentTimeMillis()),
+                            CronExpression.zone(schedule.timezone)).toEpochMilli();
+            arm(sessionId, schedule);
+        } else if (schedule.intervalSeconds > 0) {
             schedule.dueAtMs = System.currentTimeMillis() + schedule.intervalSeconds * 1000;
             arm(sessionId, schedule);
         } else {
@@ -169,18 +196,33 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
     /** Creates a schedule; exactly one timing shape must be provided. */
     public Schedule create(String sessionId, String prompt, Long afterSeconds,
             Long atEpochMs, Long everySeconds) {
+        return create(sessionId, prompt, afterSeconds, atEpochMs, everySeconds, null, null);
+    }
+
+    /**
+     * Creates a schedule with an optional cron shape ({@code cronSpec} is a
+     * Vixie five-field expression evaluated in {@code timezoneId}; both null
+     * for the other shapes). Exactly one timing shape must be provided.
+     */
+    public Schedule create(String sessionId, String prompt, Long afterSeconds,
+            Long atEpochMs, Long everySeconds, String cronSpec, String timezoneId) {
         if (prompt == null || prompt.isBlank()) {
             throw new IllegalArgumentException("schedule: prompt must not be blank");
         }
         int shapes = (afterSeconds != null ? 1 : 0) + (atEpochMs != null ? 1 : 0)
-                + (everySeconds != null ? 1 : 0);
+                + (everySeconds != null ? 1 : 0) + (cronSpec != null ? 1 : 0);
         if (shapes != 1) {
             throw new IllegalArgumentException(
-                    "schedule: pass exactly one of after_seconds, at, every_seconds");
+                    "schedule: pass exactly one of after_seconds, at, every_seconds, cron");
         }
         long dueAtMs;
         long intervalSeconds = 0;
-        if (afterSeconds != null) {
+        ZoneId zone = CronExpression.zone(timezoneId);
+        if (cronSpec != null) {
+            CronExpression cron = CronExpression.parse(cronSpec);
+            dueAtMs = cron.next(java.time.Instant.ofEpochMilli(System.currentTimeMillis()), zone)
+                    .toEpochMilli();
+        } else if (afterSeconds != null) {
             if (afterSeconds < 1) {
                 throw new IllegalArgumentException("schedule: after_seconds must be >= 1");
             }
@@ -196,13 +238,9 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
             dueAtMs = System.currentTimeMillis() + everySeconds * 1000;
         }
         int next = counters.computeIfAbsent(sessionId, ignored -> new AtomicInteger()).incrementAndGet();
-        Schedule schedule = new Schedule("sched-" + next, prompt, dueAtMs, intervalSeconds);
-        sessions.append(sessionId, SessionEventType.SCHEDULE_SET, Map.of(
-                SessionEvent.FIELD_SCHEDULE_ID, schedule.id,
-                SessionEvent.FIELD_PROMPT, schedule.prompt,
-                SessionEvent.FIELD_DUE_AT, schedule.dueAtMs,
-                SessionEvent.FIELD_INTERVAL_SECONDS, schedule.intervalSeconds,
-                SessionEvent.FIELD_CANCELLED, false));
+        Schedule schedule = new Schedule("sched-" + next, prompt, dueAtMs, intervalSeconds,
+                cronSpec, cronSpec == null ? null : zone.getId());
+        sessions.append(sessionId, SessionEventType.SCHEDULE_SET, eventFields(schedule, false));
         apply(sessionId, schedule, false);
         return schedule;
     }
@@ -215,12 +253,7 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
         }
         schedule.cancelled = true;
         cancelTimer(sessionId, scheduleId);
-        sessions.append(sessionId, SessionEventType.SCHEDULE_SET, Map.of(
-                SessionEvent.FIELD_SCHEDULE_ID, schedule.id,
-                SessionEvent.FIELD_PROMPT, schedule.prompt,
-                SessionEvent.FIELD_DUE_AT, schedule.dueAtMs,
-                SessionEvent.FIELD_INTERVAL_SECONDS, schedule.intervalSeconds,
-                SessionEvent.FIELD_CANCELLED, true));
+        sessions.append(sessionId, SessionEventType.SCHEDULE_SET, eventFields(schedule, true));
         return true;
     }
 
@@ -231,23 +264,32 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
      */
     public Schedule update(String sessionId, String scheduleId, String newPrompt,
             Long afterSeconds, Long atEpochMs, Long everySeconds) {
+        return update(sessionId, scheduleId, newPrompt,
+                afterSeconds, atEpochMs, everySeconds, null, null);
+    }
+
+    /** Cron-aware update: pass a new {@code cronSpec}/{@code timezoneId} to switch shapes. */
+    public Schedule update(String sessionId, String scheduleId, String newPrompt,
+            Long afterSeconds, Long atEpochMs, Long everySeconds,
+            String cronSpec, String timezoneId) {
         Schedule schedule = get(sessionId, scheduleId);
         if (schedule == null || schedule.cancelled) {
             throw new IllegalArgumentException(
                     "schedule_update: unknown or cancelled schedule \"" + scheduleId + "\"");
         }
         boolean hasPrompt = newPrompt != null && !newPrompt.isBlank();
-        boolean hasTiming = afterSeconds != null || atEpochMs != null || everySeconds != null;
+        boolean hasTiming = afterSeconds != null || atEpochMs != null || everySeconds != null
+                || cronSpec != null;
         if (!hasPrompt && !hasTiming) {
             throw new IllegalArgumentException(
                     "schedule_update: pass a new prompt and/or new timing");
         }
         if (hasTiming) {
             int shapes = (afterSeconds != null ? 1 : 0) + (atEpochMs != null ? 1 : 0)
-                    + (everySeconds != null ? 1 : 0);
+                    + (everySeconds != null ? 1 : 0) + (cronSpec != null ? 1 : 0);
             if (shapes != 1) {
                 throw new IllegalArgumentException(
-                        "schedule_update: pass exactly one of after_seconds, at, every_seconds");
+                        "schedule_update: pass exactly one of after_seconds, at, every_seconds, cron");
             }
         }
         cancelTimer(sessionId, scheduleId);
@@ -255,15 +297,28 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
             schedule.prompt = newPrompt;
         }
         if (hasTiming) {
-            if (afterSeconds != null) {
+            ZoneId zone = CronExpression.zone(timezoneId);
+            if (cronSpec != null) {
+                CronExpression cron = CronExpression.parse(cronSpec);
+                schedule.cron = cronSpec;
+                schedule.timezone = zone.getId();
+                schedule.intervalSeconds = 0;
+                schedule.dueAtMs = cron.next(
+                        java.time.Instant.ofEpochMilli(System.currentTimeMillis()), zone)
+                        .toEpochMilli();
+            } else if (afterSeconds != null) {
                 if (afterSeconds < 1) {
                     throw new IllegalArgumentException("schedule_update: after_seconds >= 1");
                 }
                 schedule.dueAtMs = System.currentTimeMillis() + afterSeconds * 1000;
                 schedule.intervalSeconds = 0;
+                schedule.cron = null;
+                schedule.timezone = null;
             } else if (atEpochMs != null) {
                 schedule.dueAtMs = atEpochMs;
                 schedule.intervalSeconds = 0;
+                schedule.cron = null;
+                schedule.timezone = null;
             } else {
                 if (everySeconds < MIN_REPEAT_SECONDS) {
                     throw new IllegalArgumentException("schedule_update: every_seconds >= "
@@ -271,16 +326,28 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
                 }
                 schedule.intervalSeconds = everySeconds;
                 schedule.dueAtMs = System.currentTimeMillis() + everySeconds * 1000;
+                schedule.cron = null;
+                schedule.timezone = null;
             }
         }
-        sessions.append(sessionId, SessionEventType.SCHEDULE_SET, Map.of(
-                SessionEvent.FIELD_SCHEDULE_ID, schedule.id,
-                SessionEvent.FIELD_PROMPT, schedule.prompt,
-                SessionEvent.FIELD_DUE_AT, schedule.dueAtMs,
-                SessionEvent.FIELD_INTERVAL_SECONDS, schedule.intervalSeconds,
-                SessionEvent.FIELD_CANCELLED, false));
+        sessions.append(sessionId, SessionEventType.SCHEDULE_SET, eventFields(schedule, false));
         arm(sessionId, schedule);
         return schedule;
+    }
+
+    /** The durable SCHEDULE_SET payload (null cron/timezone fields stay absent). */
+    private static Map<String, Object> eventFields(Schedule schedule, boolean cancelled) {
+        Map<String, Object> fields = new java.util.LinkedHashMap<>();
+        fields.put(SessionEvent.FIELD_SCHEDULE_ID, schedule.id);
+        fields.put(SessionEvent.FIELD_PROMPT, schedule.prompt);
+        fields.put(SessionEvent.FIELD_DUE_AT, schedule.dueAtMs);
+        fields.put(SessionEvent.FIELD_INTERVAL_SECONDS, schedule.intervalSeconds);
+        fields.put(SessionEvent.FIELD_CANCELLED, cancelled);
+        if (schedule.cron != null) {
+            fields.put(SessionEvent.FIELD_CRON, schedule.cron);
+            fields.put(SessionEvent.FIELD_TIMEZONE, schedule.timezone);
+        }
+        return Map.copyOf(fields);
     }
 
     private void cancelTimer(String sessionId, String scheduleId) {

@@ -74,11 +74,14 @@
 | LLM 故障注入（`llm-mock-server`） | `majo-llm.fault` | ✅ `FaultLlmServer`（raw-socket 脚本 HTTP 含断流）+ `FaultChatModel`；线级 + 回合故障契约钉死 |
 | 工具结果裁剪（`compaction-tool-result-pruner`） | `majo-compaction` | ✅ 标记行 + head+tail 保留；阈值对齐 8192/4096/1024 |
 | Guard：超时 + 重复提醒（`guard`） | tools 接缝配置 | ✅ `toolTimeoutSeconds` + `repeatReminder`；web profiles 启用超时 600s |
+| Token 用量计量（`llm` TokenUsage） | `majo-llm` | ✅ input/output（含 cache 读写）挂上 `ChatResponse`；OpenAI 兼容解析（非流式 + 流末块）；持久化到 ASSISTANT_MESSAGE |
+| 回合取消 / TurnEndReason（`core/session`） | `majo-agent-loop` | ✅ 最小版：持久 `TURN_END` 原因 `completed`/`aborted`，协作式 `abort()` + `POST /api/sessions/{id}/abort`（请求中途打断仍为未来项） |
+| Cron 计划（`schedule`） | `majo-schedule` | ✅ Vixie 五字段解析器 + IANA 时区，接入 `schedule_create`/`schedule_update`；表达式持久化；触发/重启时重算下次触发 |
 
 ## 线契约与面板机制
 
 - 类型单一真源：`WebApiModels` DTO + `SessionEventType` 枚举 → `WebTypesGenerator` → `web-ui/src/types.ts`；后端按同一 DTO 序列化（`@OptionalWire` 配合 `NON_NULL`）。
-- 端点：`GET/POST /api/sessions`（`GET ?view=active|archived|all`）、`GET/PUT/DELETE /api/sessions/:id`（`PUT …/title`、`PUT/DELETE …/model`、`PUT/DELETE …/archive`、`GET …/events?since=`、`GET …/feedback`、`GET …/export`）、`POST /api/sessions/import`、`GET /api/search?q=`、`GET/PUT /api/settings/model`、`GET /api/skills`、`GET /api/subagents`（+ `POST /api/subagents/delegate`）、`GET /api/plugins`（+ `POST …/:name/reload`、`DELETE …/:name`）、`GET /api/commands`（+ `POST /api/commands/:name`）、`GET /api/health`、`GET /api/metrics`、`GET /api/info`、`GET /api/openapi.json`、审批/问答决策、`PUT/DELETE /api/messages/:id/:seq/feedback`、SSE `/api/turn/stream`（每流 `X-Turn-Id` + 心跳）。
+- 端点：`GET/POST /api/sessions`（`GET ?view=active|archived|all`）、`GET/PUT/DELETE /api/sessions/:id`（`PUT …/title`、`PUT/DELETE …/model`、`PUT/DELETE …/archive`、`GET …/events?since=`、`GET …/feedback`、`GET …/export`、`POST …/abort`——回合协作取消）、`POST /api/sessions/import`、`GET /api/search?q=`、`GET/PUT /api/settings/model`、`GET /api/skills`、`GET /api/subagents`（+ `POST /api/subagents/delegate`）、`GET /api/plugins`（+ `POST …/:name/reload`、`DELETE …/:name`）、`GET /api/commands`（+ `POST /api/commands/:name`）、`GET /api/health`、`GET /api/metrics`、`GET /api/info`、`GET /api/openapi.json`、审批/问答决策、`PUT/DELETE /api/messages/:id/:seq/feedback`、SSE `/api/turn/stream`（每流 `X-Turn-Id` + 心跳）。
 - 工具结果在线路上携带可选结构化 `data`（退出码、hits、child 会话 id…），卡片无需再解析文本；文本仍是模型可见的唯一真源。
 - UI 装配仍只靠注册：`features/*` 填 message-renderer/rail/sidebar/command 槽（经 `FEATURES` 编译期列表）；壳层只渲染槽并在运行时注入座位（`openSession`、`rate`、command `run`）。
 

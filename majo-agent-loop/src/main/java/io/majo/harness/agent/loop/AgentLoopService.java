@@ -73,6 +73,13 @@ public final class AgentLoopService extends Service {
     /** Whether a turn body is currently executing (steer routing decision). */
     private final Map<String, AtomicBoolean> inTurn = new ConcurrentHashMap<>();
     /**
+     * Cooperative-cancel flags (minimal cancellation): a running turn closes
+     * {@code aborted} at the next step boundary or before dispatching tool
+     * calls. Cleared at turn open, so a stale abort on an idle session never
+     * kills a fresh turn.
+     */
+    private final Map<String, AtomicBoolean> aborts = new ConcurrentHashMap<>();
+    /**
      * Lazily-evaluated system-prompt sections contributed by plugins (dsh
      * server-context analog), assembled in id order after the configured
      * prompt — and recorded verbatim in every REQUEST_HEADER, so the
@@ -177,6 +184,17 @@ public final class AgentLoopService extends Service {
         inbox(sessionId).offerNote(new AgentInbox.Note(AgentInbox.Kind.INJECT, text));
     }
 
+    /**
+     * Requests cancellation of the session's running turn (minimal
+     * cancellation, dsh abort analog): the turn closes durably with reason
+     * {@code aborted} at the next step boundary or before its next tool
+     * dispatch, returning the answer produced so far. No mid-request or
+     * mid-tool interruption; a no-op when the session is idle.
+     */
+    public void abort(String sessionId) {
+        aborts.computeIfAbsent(sessionId, ignored -> new AtomicBoolean()).set(true);
+    }
+
     /** Inbox depth for the session (turn starters + undelivered notes). */
     public int queuedCount(String sessionId) {
         AgentInbox inbox = inboxes.get(sessionId);
@@ -254,11 +272,17 @@ public final class AgentLoopService extends Service {
     private String runSingleTurnBound(String sessionId, String userText,
             java.util.function.Consumer<String> textSink, String modelOverride, String effectivePrompt) {
         sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
+        // a stale abort on an idle session must not kill this fresh turn
+        AtomicBoolean aborted = aborts.computeIfAbsent(sessionId, ignored -> new AtomicBoolean());
+        aborted.set(false);
         // notes queued while nobody was driving land before the user message
         deliverQueuedNotes(sessionId);
         sessions.append(sessionId, SessionEventType.USER_MESSAGE,
                 Map.of(SessionEvent.FIELD_CONTENT, userText));
         for (int step = 1; ; step++) {
+            if (aborted.get()) {
+                return closeAborted(sessionId);
+            }
             if (step > maxSteps) {
                 throw new IllegalStateException("agent-loop: turn on session \"" + sessionId
                         + "\" exceeded maxSteps=" + maxSteps + " without a final answer");
@@ -287,9 +311,21 @@ public final class AgentLoopService extends Service {
             if (!response.isToolRound()) {
                 break;
             }
+            // abort during the model call: close before tools run
+            if (aborted.get()) {
+                return closeAborted(sessionId);
+            }
             executeTools(sessionId, response.toolCalls());
         }
-        sessions.append(sessionId, SessionEventType.TURN_END, Map.of());
+        sessions.append(sessionId, SessionEventType.TURN_END,
+                Map.of(SessionEvent.FIELD_REASON, "completed"));
+        return lastFinalText(sessions.events(sessionId));
+    }
+
+    /** Durably closes the running turn as cancelled and returns the answer so far. */
+    private String closeAborted(String sessionId) {
+        sessions.append(sessionId, SessionEventType.TURN_END,
+                Map.of(SessionEvent.FIELD_REASON, "aborted"));
         return lastFinalText(sessions.events(sessionId));
     }
 
@@ -492,6 +528,16 @@ public final class AgentLoopService extends Service {
                         SessionEvent.FIELD_ARGUMENTS, call.arguments()));
             }
             fields.put(SessionEvent.FIELD_TOOL_CALLS, calls);
+        }
+        if (response.usage() != null) {
+            fields.put(SessionEvent.FIELD_INPUT_TOKENS, response.usage().inputTokens());
+            fields.put(SessionEvent.FIELD_OUTPUT_TOKENS, response.usage().outputTokens());
+            if (response.usage().cacheReadTokens() != null) {
+                fields.put(SessionEvent.FIELD_CACHE_READ_TOKENS, response.usage().cacheReadTokens());
+            }
+            if (response.usage().cacheWriteTokens() != null) {
+                fields.put(SessionEvent.FIELD_CACHE_WRITE_TOKENS, response.usage().cacheWriteTokens());
+            }
         }
         sessions.append(sessionId, SessionEventType.ASSISTANT_MESSAGE, fields);
     }

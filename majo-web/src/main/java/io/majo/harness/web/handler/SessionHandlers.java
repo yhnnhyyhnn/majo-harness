@@ -130,6 +130,24 @@ public final class SessionHandlers {
         return new WebApiModels.Ok(true);
     }
 
+    /**
+     * Requests cooperative cancellation of the session's running turn (minimal
+     * cancellation): the turn closes with reason {@code aborted} at its next
+     * step boundary. A no-op when the session is idle.
+     */
+    public WebApiModels.Ok abort(String sessionId) {
+        SessionService sessions = ctx.boot.service(SessionService.NAME);
+        SessionSupport.requireKnownSession(sessions, sessionId);
+        io.majo.harness.agent.loop.AgentLoopService loop =
+                ctx.boot.ctx().get(io.majo.harness.agent.loop.AgentLoopService.NAME);
+        if (loop == null) {
+            throw new IllegalArgumentException(
+                    "abort: the agent-loop module is not mounted in this profile");
+        }
+        loop.abort(sessionId);
+        return new WebApiModels.Ok(true);
+    }
+
     /** Estimated context pressure (dsh Context Meter); unavailable when the module is unmounted. */    public WebApiModels.ContextSnapshot context(String sessionId) {
         SessionService sessions = ctx.boot.service(SessionService.NAME);
         SessionSupport.requireKnownSession(sessions, sessionId);

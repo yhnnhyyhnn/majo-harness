@@ -138,4 +138,61 @@ class ScheduleTest {
                 .hasMessageContaining("prompt");
         schedules.close();
     }
+
+    @Test
+    void cronSchedulesCarryTheirExpressionAndRearmAfterFiring() {
+        Context ctx = harness();
+        SessionService sessions = ctx.get(SessionService.NAME);
+        String sessionId = sessions.createSession();
+        ScheduleService schedules = new ScheduleService(ctx, sessions, null);
+
+        ScheduleService.Schedule created = schedules.create(
+                sessionId, "cron check", null, null, null, "30 9 * * 1-5", "UTC");
+        assertThat(created.cron).isEqualTo("30 9 * * 1-5");
+        assertThat(created.timezone).isEqualTo("UTC");
+        assertThat(created.intervalSeconds).isZero();
+        assertThat(created.dueAtMs).isGreaterThan(System.currentTimeMillis());
+
+        // the durable record carries the expression so a restart restores it
+        boolean loggedWithCron = sessions.events(sessionId).stream()
+                .filter(event -> event.type() == SessionEventType.SCHEDULE_SET)
+                .anyMatch(event -> "30 9 * * 1-5".equals(
+                        event.fields().get(SessionEvent.FIELD_CRON))
+                        && "UTC".equals(event.fields().get(SessionEvent.FIELD_TIMEZONE)));
+        assertThat(loggedWithCron).isTrue();
+
+        // firing recomputes the next occurrence from the expression instead
+        // of advancing a fixed interval: simulate the timer having reached the
+        // due time, then the next occurrence must land in the future
+        long firedAt = System.currentTimeMillis();
+        created.dueAtMs = firedAt - 60_000;
+        schedules.fire(sessionId, created);
+        assertThat(created.dueAtMs).isGreaterThan(firedAt);
+        assertThat(schedules.list(sessionId)).hasSize(1);
+
+        // restart simulation: the rescan restores the cron schedule from the log
+        schedules.rescan();
+        ScheduleService.Schedule restored = schedules.list(sessionId).get(0);
+        assertThat(restored.cron).isEqualTo("30 9 * * 1-5");
+        assertThat(restored.dueAtMs).isGreaterThan(System.currentTimeMillis());
+        schedules.close();
+    }
+
+    @Test
+    void cronSchedulesValidateExpressionsAndTimezones() {
+        Context ctx = harness();
+        SessionService sessions = ctx.get(SessionService.NAME);
+        String sessionId = sessions.createSession();
+        ScheduleService schedules = new ScheduleService(ctx, sessions, null);
+
+        assertThatThrownBy(() -> schedules.create(
+                sessionId, "x", null, null, null, "0 9 * * * 1", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("5 fields");
+        assertThatThrownBy(() -> schedules.create(
+                sessionId, "x", null, null, null, "0 9 * * *", "Mars/Olympus"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Mars/Olympus");
+        schedules.close();
+    }
 }

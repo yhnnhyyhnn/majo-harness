@@ -2,16 +2,16 @@ package io.majo.harness.fs;
 
 import io.jcordis.core.context.Context;
 import io.jcordis.core.registry.Plugin;
-import io.jcordis.core.util.Disposable;
 import io.majo.harness.tools.ToolRegistry;
 import io.majo.harness.util.Disposables;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The fs tool consumer: registers the model-facing {@code read_file} tool on
- * {@code ctx.tools} once the tools and fs services are live (the consumer role
- * of the fs seam — further tools compose beside it via {@link Disposables}).
+ * The fs tool consumer: registers the model-facing fs tool family on
+ * {@code ctx.tools} once the tools and fs services are live (the consumer
+ * role of the fs seam — further tools compose beside it via
+ * {@link Disposables}).
  */
 public final class FsToolPlugin implements Plugin {
 
@@ -21,9 +21,13 @@ public final class FsToolPlugin implements Plugin {
     public Object apply(Context ctx, Object config) {
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
         FileSystemService fs = ctx.get(FileSystemService.NAME);
-        Disposable readFile = tools.register(new ReadFileTool(fs));
-        Disposable gitStatus = tools.register(new GitStatusTool());
-        return Disposables.composite(readFile, gitStatus);
+        return Disposables.composite(
+                tools.register(new ReadFileTool(fs)),
+                tools.register(new WriteFileTool(fs)),
+                tools.register(new EditFileTool(fs)),
+                tools.register(new GlobTool(fs)),
+                tools.register(new GrepTool(fs)),
+                tools.register(new GitStatusTool()));
     }
 
     @Override

@@ -40,19 +40,23 @@ add a row to your profile:
 
 Select it in the header model picker or via `/model my-model`.
 
-## The 20 tools
+## The 26 tools
 
 | tool | what it does |
 |---|---|
 | `calc` | Integer arithmetic (gated → approval card) |
-| `read_file` / `write` via `read_file` | Read a file (gated) |
+| `read_file` | Read a file (gated) |
+| `write_file` | Create or overwrite a file (gated) |
+| `edit_file` | Exact-string replace in a file, uniqueness-checked (gated) |
+| `glob` | Recursive file search by glob pattern (`**` crosses directories) (gated) |
+| `grep` | Regex content search with include filter and head limit (gated) |
 | `run_shell` / `run_command` | Shell/command execution (gated) |
 | `run_background` | Background execution with `job_output/list/kill` |
 | `web_search` / `web_fetch` | Web search and page fetching |
 | `delegate_task` | Fan out a scoped child agent |
 | `todo_write` | Replace the session todo list |
 | `exit_plan_mode` | Submit a plan for approval |
-| `schedule_create/list/delete` | Timer reminders |
+| `schedule_create/list/update/delete` | Timer reminders, daily/weekly sugar, and Vixie cron (`cron` + `timezone`) |
 | `run_code` | **PTC**: execute JavaScript in a Node.js process |
 | `spill_read` | Retrieve a spilled oversized tool output |
 | `workflow_run` | Execute a named workflow |
@@ -160,15 +164,20 @@ passwordless SSH; POSIX remote hosts only.
 
 ## Safety model
 
-- Sensitive tools (`calc`, `read_file`, `run_shell`, `run_command`,
-  `web_search`, `web_fetch`, `workflow_run`) are **approval-gated** by
-  default — the model calls them, you see an approval card and Allow/Deny.
+- Sensitive tools (`calc`, the fs family `read_file`/`write_file`/
+  `edit_file`/`glob`/`grep`, `run_shell`, `run_command`, `web_search`,
+  `web_fetch`, `workflow_run`) are **approval-gated** by default — the
+  model calls them, you see an approval card and Allow/Deny.
 - Session-level policy: `session.approval.<tool-id>` = `ask|never|auto`.
 - Approval audit pairs (`APPROVAL_REQUESTED`/`APPROVAL_DECIDED`) persist in
   the session log for every gated call.
 - MCP env/header values reference env-var **names** only — credentials
   never appear in profile files.
 - MCP stdio children get a scrubbed environment (allowlist only).
+- A running turn can be cancelled cooperatively:
+  `POST /api/sessions/{id}/abort` closes it with reason `aborted` at the
+  next step boundary (no mid-request interruption). Every finished turn
+  ends with a durable `TURN_END` reason (`completed`/`aborted`).
 
 ## Gates
 

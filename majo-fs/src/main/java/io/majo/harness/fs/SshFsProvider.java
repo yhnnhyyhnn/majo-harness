@@ -40,25 +40,64 @@ public final class SshFsProvider implements FsProvider {
         }
     }
 
+    /**
+     * Recursive glob on the remote world: one {@code find root -type f}
+     * listing, filtered in-memory with the shared glob dialect
+     * ({@link FsProvider#globToRegex}) so local and remote semantics are
+     * identical (find's own {@code -path} wildcards would cross directories
+     * differently).
+     */
     @Override
     public List<String> glob(String root, String pattern) {
-        // find -path with glob metacharacters converted: * → *, ? → ?
-        // (find -path already uses shell-style wildcards)
-        String globPath = root + "/" + pattern;
-        var result = ssh.exec("find " + SshExec.shQuote(root)
-                + " -path " + SshExec.shQuote(globPath) + " -type f");
+        var result = ssh.exec("find " + SshExec.shQuote(root) + " -type f");
         if (result.exitCode() != 0) {
             throw new FsException("cannot glob " + root + "/" + pattern + ": "
                     + result.stderr().strip());
         }
-        List<String> paths = new ArrayList<>();
+        java.util.regex.Pattern matcher = FsProvider.globToRegex(pattern);
+        List<String> matches = new ArrayList<>();
         for (String line : result.stdout().split("\n")) {
-            String trimmed = line.strip();
-            if (!trimmed.isEmpty()) {
-                paths.add(trimmed);
+            String path = line.strip();
+            if (path.isEmpty()) {
+                continue;
+            }
+            String relative = path.startsWith(root + "/")
+                    ? path.substring(root.length() + 1) : path;
+            if (matcher.matcher(relative).matches()) {
+                matches.add(path);
             }
         }
-        paths.sort(String::compareTo);
-        return List.copyOf(paths);
+        matches.sort(String::compareTo);
+        return List.copyOf(matches);
+    }
+
+    /**
+     * Remote recursive grep ({@code grep -rn}, GNU {@code --include} when an
+     * include glob is given). Exit code 1 means "no matches", not an error;
+     * "Binary file … matches" lines carry no text and are dropped.
+     */
+    @Override
+    public List<String> grep(String path, String regex, String include, int headLimit) {
+        StringBuilder command = new StringBuilder("grep -rn -e ")
+                .append(SshExec.shQuote(regex));
+        if (include != null && !include.isBlank()) {
+            command.append(" --include=").append(SshExec.shQuote(include));
+        }
+        command.append(' ').append(SshExec.shQuote(path));
+        var result = ssh.exec(command.toString());
+        if (result.exitCode() != 0 && result.exitCode() != 1) {
+            throw new FsException("cannot grep " + path + ": " + result.stderr().strip());
+        }
+        List<String> hits = new ArrayList<>();
+        for (String line : result.stdout().split("\n")) {
+            if (line.isBlank() || line.startsWith("Binary file ")) {
+                continue;
+            }
+            hits.add(line);
+            if (hits.size() >= headLimit) {
+                break;
+            }
+        }
+        return List.copyOf(hits);
     }
 }

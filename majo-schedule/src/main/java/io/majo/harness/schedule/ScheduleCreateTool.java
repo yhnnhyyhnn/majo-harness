@@ -21,9 +21,9 @@ import java.util.Map;
 /**
  * {@code schedule_create} (dsh schedule): arms a per-session reminder —
  * {@code after_seconds} one-shot, {@code every_seconds} repeat (≥ 300), an
- * ISO local {@code at}, or a {@code daily}/{@code weekly} recurring
- * schedule (dsh v0.2.0 daily/weekly/cron parity — cron deferred).
- * The prompt is delivered as a follow-up turn.
+ * ISO local {@code at}, a {@code daily}/{@code weekly} recurring sugar, or a
+ * Vixie five-field {@code cron} evaluated in an explicit IANA {@code timezone}
+ * (dsh v0.2.0 parity). The prompt is delivered as a follow-up turn.
  */
 public final class ScheduleCreateTool implements Tool {
 
@@ -35,8 +35,9 @@ public final class ScheduleCreateTool implements Tool {
             "Schedule a reminder for this session: the prompt is sent back to you as a new "
                     + "turn at the due time. Pass exactly one timing shape: after_seconds "
                     + "(one-shot delay), every_seconds (repeat, minimum 300), at (ISO local "
-                    + "date-time), daily (\"HH:mm\" — fires every day at that time), or "
-                    + "weekly ({\"day\":\"MONDAY\",\"time\":\"HH:mm\"} — fires every week).",
+                    + "date-time), daily (\"HH:mm\" — fires every day at that time), weekly "
+                    + "({\"day\":\"MONDAY\",\"time\":\"HH:mm\"}), or cron (Vixie five-field "
+                    + "expression, e.g. \"30 9 * * 1-5\", with optional timezone \"Asia/Shanghai\").",
             schema());
 
     private final ScheduleService schedules;
@@ -59,6 +60,12 @@ public final class ScheduleCreateTool implements Tool {
                 .put("description", "Day of week (MONDAY…SUNDAY)");
         weekly.putObject("properties").putObject("time").put("type", "string");
         weekly.putArray("required").add("day").add("time");
+        properties.putObject("cron").put("type", "string")
+                .put("description",
+                        "Vixie five-field cron: minute hour day-of-month month day-of-week "
+                                + "(*, lists, ranges, */step). Paired with optional timezone.");
+        properties.putObject("timezone").put("type", "string")
+                .put("description", "IANA timezone for cron (default: the host zone).");
         ObjectNode schema = MAPPER.createObjectNode();
         schema.put("type", "object");
         schema.set("properties", properties);
@@ -90,6 +97,11 @@ public final class ScheduleCreateTool implements Tool {
             Long everySeconds = args.get("every_seconds") != null
                     && args.get("every_seconds").isNumber()
                     ? args.get("every_seconds").asLong() : null;
+            String cronSpec = args.get("cron") != null && !args.get("cron").isNull()
+                    ? args.get("cron").asText() : null;
+            String timezoneId = args.get("timezone") != null && !args.get("timezone").isNull()
+                    && !args.get("timezone").asText().isBlank()
+                    ? args.get("timezone").asText() : null;
             Long atEpochMs = null;
             if (args.get("at") != null && !args.get("at").isNull()) {
                 String at = args.get("at").asText();
@@ -114,10 +126,21 @@ public final class ScheduleCreateTool implements Tool {
                     + (everySeconds != null ? 1 : 0)
                     + (atEpochMs != null ? 1 : 0)
                     + (daily != null && daily.isTextual() ? 1 : 0)
-                    + (weekly != null && weekly.isObject() ? 1 : 0);
+                    + (weekly != null && weekly.isObject() ? 1 : 0)
+                    + (cronSpec != null ? 1 : 0);
             if (timingShapes > 1) {
                 return ToolResult.error(
                         "schedule_create: pass exactly one timing shape");
+            }
+            if (cronSpec != null) {
+                ScheduleService.Schedule schedule = schedules.create(
+                        sessionId, prompt, null, null, null, cronSpec, timezoneId);
+                return ToolResult.ok("cron schedule " + schedule.id + " ("
+                        + cronSpec + (timezoneId == null ? "" : ", " + timezoneId)
+                        + ") fires next at "
+                        + java.time.Instant.ofEpochMilli(schedule.dueAtMs),
+                        Map.of("id", schedule.id, "dueAt", schedule.dueAtMs,
+                                "cron", schedule.cron));
             }
             if (daily != null && daily.isTextual()) {
                 return createDaily(sessionId, prompt, daily.asText());

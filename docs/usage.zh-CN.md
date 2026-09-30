@@ -40,19 +40,23 @@ profile 里加一行：
 
 在头部模型选择器里选，或用 `/model my-model`。
 
-## 20 个工具
+## 26 个工具
 
 | 工具 | 功能 |
 |---|---|
 | `calc` | 整数运算（门控→审批卡） |
 | `read_file` | 读文件（门控） |
+| `write_file` | 创建/覆盖文件（门控） |
+| `edit_file` | 文件内精确字符串替换，唯一性校验（门控） |
+| `glob` | 按 glob 模式递归搜文件（`**` 跨目录）（门控） |
+| `grep` | 正则内容搜索，带 include 过滤与条数上限（门控） |
 | `run_shell` / `run_command` | Shell/命令执行（门控） |
 | `run_background` | 后台执行 + `job_output/list/kill` |
 | `web_search` / `web_fetch` | 网页搜索与抓取 |
 | `delegate_task` | 扇出 scoped 子代理 |
 | `todo_write` | 替换会话待办列表 |
 | `exit_plan_mode` | 提交计划等审批 |
-| `schedule_create/list/delete` | 定时提醒 |
+| `schedule_create/list/update/delete` | 定时提醒，daily/weekly 糖与 Vixie cron（`cron` + `timezone`） |
 | `run_code` | **PTC**：在 Node.js 进程执行 JavaScript |
 | `spill_read` | 取回外置存储的超长工具输出 |
 | `workflow_run` | 执行命名工作流 |
@@ -153,14 +157,18 @@ onFailure: abort
 
 ## 安全模型
 
-- 敏感工具（`calc`、`read_file`、`run_shell`、`run_command`、
-  `web_search`、`web_fetch`、`workflow_run`）**默认门控**——模型调用时
+- 敏感工具（`calc`、fs 家族 `read_file`/`write_file`/`edit_file`/`glob`/
+  `grep`、`run_shell`、`run_command`、`web_search`、`web_fetch`、
+  `workflow_run`）**默认门控**——模型调用时
   你看到审批卡，Allow/Deny。
 - 会话级策略：`session.approval.<tool-id>` = `ask|never|auto`。
 - 审批审计对（`APPROVAL_REQUESTED`/`APPROVAL_DECIDED`）为每次门控调用
   持久写入会话日志。
 - MCP env/header 值只引用环境变量**名**——凭证永不进入 profile 文件。
 - MCP stdio 子进程获得脱敏环境（仅白名单项）。
+- 运行中的回合可协作取消：`POST /api/sessions/{id}/abort` 在下一个步
+  边界以 `aborted` 收回合（不做请求中途打断）。每个完成的回合都以
+  持久 `TURN_END` 原因收尾（`completed`/`aborted`）。
 
 ## 门禁
 

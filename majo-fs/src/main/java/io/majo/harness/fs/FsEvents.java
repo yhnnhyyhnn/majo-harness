@@ -18,6 +18,11 @@ public final class FsEvents {
     public static final String WRITE = "fs/write";
     /** Waterfall {@code (String root, String pattern)} before a glob. */
     public static final String GLOB = "fs/glob";
+    /**
+     * Waterfall {@code (String path, String regex, String include, Integer
+     * headLimit)} before a content grep.
+     */
+    public static final String GREP = "fs/grep";
 
     private FsEvents() {}
 }

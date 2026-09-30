@@ -219,7 +219,7 @@ class HeadlessIntegrationTest {
 
         io.majo.harness.tools.ToolRegistry tools = boot.service("tools");
         assertThat(tools.specs()).extracting(spec -> spec.name())
-                .containsExactlyInAnyOrder("read_file", "git_status");
+                .containsExactlyInAnyOrder("read_file", "write_file", "edit_file", "glob", "grep", "git_status");
         boot.dispose();
     }
 

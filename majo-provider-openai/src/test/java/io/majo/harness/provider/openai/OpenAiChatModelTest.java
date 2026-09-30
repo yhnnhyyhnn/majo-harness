@@ -152,6 +152,53 @@ class OpenAiChatModelTest {
     }
 
     @Test
+    void mapsUsageFromNonStreamResponses() throws IOException {
+        start(request -> """
+                {"choices":[{"message":{"role":"assistant","content":"ok"}}],
+                 "usage":{"prompt_tokens":120,"completion_tokens":30,
+                          "prompt_tokens_details":{"cached_tokens":100}}}
+                """);
+        OpenAiChatModel model = new OpenAiChatModel(Map.of("baseUrl", baseUrl(), "model", "m"));
+        ChatResponse response = model.complete(ChatRequest.of(List.of(ChatMessage.user("hi"))));
+        assertThat(response.usage()).isNotNull();
+        assertThat(response.usage().inputTokens()).isEqualTo(120);
+        assertThat(response.usage().outputTokens()).isEqualTo(30);
+        assertThat(response.usage().cacheReadTokens()).isEqualTo(100);
+        assertThat(response.usage().cacheWriteTokens()).isNull();
+    }
+
+    @Test
+    void mapsUsageFromTheFinalStreamChunk() throws IOException {
+        start(request -> """
+                data: {"choices":[{"delta":{"content":"he"}}]}
+
+                data: {"choices":[{"delta":{"content":"llo"}}]}
+
+                data: {"choices":[{"delta":{}}],"usage":{"prompt_tokens":7,"completion_tokens":2}}
+
+                data: [DONE]
+
+                """);
+        OpenAiChatModel model = new OpenAiChatModel(Map.of("baseUrl", baseUrl(), "model", "m"));
+        StringBuilder streamed = new StringBuilder();
+        ChatResponse response = model.completeStream(
+                ChatRequest.of(List.of(ChatMessage.user("hi"))), streamed::append);
+        assertThat(response.content()).isEqualTo("hello");
+        assertThat(streamed.toString()).isEqualTo("hello");
+        assertThat(response.usage()).isNotNull();
+        assertThat(response.usage().inputTokens()).isEqualTo(7);
+        assertThat(response.usage().outputTokens()).isEqualTo(2);
+    }
+
+    @Test
+    void absentUsageStaysNull() throws IOException {
+        start(request -> "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}]}");
+        OpenAiChatModel model = new OpenAiChatModel(Map.of("baseUrl", baseUrl(), "model", "m"));
+        assertThat(model.complete(ChatRequest.of(List.of(ChatMessage.user("hi")))).usage())
+                .isNull();
+    }
+
+    @Test
     void mapsHttpErrorsLoudly() throws IOException {
         scriptErrorStatus = "401";
         start(request -> "{\"error\":{\"message\":\"bad key\"}}");

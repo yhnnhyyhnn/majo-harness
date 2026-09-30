@@ -86,3 +86,117 @@ one of **adopted** (code landed), **divergence** (deliberate, keep), or
   composition), `storage`/`workspace`/`webhook`/`feedback`/`identity`,
   `lsp`, `extensions` (agent-modifiable runtime), `bundle` profile
   layering, `experimental/agent-team`.
+
+---
+
+# Round 2 — 2026-09-30: deep diff against dsh 0.2.0-rc.1
+
+The reference moved ~1,961 commits and three releases (0.1.5-rc.3 →
+0.1.7-rc.x → 0.2.0-rc.1) since Round 1; packages 58 → 61. A five-domain
+parallel audit (core loop / LLM+context / tools / session+workflow / web+runtime)
+produced this consolidation. The center of gravity upstream has shifted to
+**core hardening** (goal system, cancellation, multimodal LLM vocabulary) and
+a **host product layer** (storage/workspace/session-query/hooks/webhook/
+preset/desktop) that majo deliberately does not chase at its scale.
+
+## 1. Upstream-new, majo-whitespace
+
+- **Goal family** (largest new theme): event-sourced goal domain
+  (`packages/goal/goal/src/index.ts` — phases, CAS revision, maxGoalRounds),
+  auto-continue driver (`goal-round-driver`), `get_goal`/`create_goal`/
+  `update_goal` tools (`tool-goal`), `/goal` command (`command-goal`).
+  Nothing in majo; not on any roadmap yet.
+- **Cancellation system**: typed `TurnEndReason` with `aborted(cause)` +
+  `CancelOptions.keepInbox` (`packages/core/session/src/types.ts`), synthetic
+  `TOOL_ABORTED_BEFORE_DISPATCH` results keeping replay valid
+  (`core/agent-loop/src/tool-calls.ts`), archive-admission auto-cancel
+  (`core/agent/src/archive-admission.ts`). majo has zero cancel/abort code.
+- **Multimodal + metering LLM vocabulary**: content blocks (Text/Reasoning/
+  Image/File) + StreamChunk protocol (`packages/llm/llm/src/types.ts`),
+  `TokenUsage` with cacheRead/cacheWrite, image token pricing
+  (`llm-deepseek/src/image-tokens.ts`), Files API, model discovery, retry
+  executor (`packages/llm/llm-retry`). majo `ChatMessage` is String content,
+  `ChatResponse` carries no usage, no retry.
+- **Host product layer**: `storage` (non-session KV persistence with schema +
+  change events, `packages/storage/storage-domain/`), `workspace` (durable
+  project registry, archive-not-delete), `session-query` (SQLite FTS5 +
+  lineage trace, `packages/session-query/session-query-sqlite/`),
+  `hooks` compatibility bridges for Claude Code/Codex hooks.json
+  (`packages/hooks/hook-protocol/`), `webhook` (signed GitHub intake),
+  `feedback`, `identity` (anonymous UUID), `preset`/`persona` (per-session
+  agent composition), desktop (Electron shell).
+- **Extended tool families**: browser-use/computer-use (experimental,
+  capability-slot registries + MCP providers, unpacked), terminal PTY
+  (6 tools, `packages/terminal/tool-terminal/`), lsp (1 tool, 4 read
+  operations), document office→pdf service, attachment admission +
+  `read_image`.
+
+## 2. Both sides present, upstream deeper (alignment debt)
+
+- **FS write family — the hardest practical gap**: majo's `majo-fs` ships
+  only `read_file` + `git_status`; dsh has read/write/edit/glob/grep/
+  read_image/str_replace_editor (`packages/fs/tool-fs/`). The majo model can
+  write **nothing**.
+- **Dual inbox**: persistent splice events + message ids + dedup
+  (`core/agent-loop/src/inbox.ts`) vs majo's in-memory string queues
+  (`AgentInbox.java`).
+- **Turn end reasons**: typed map (error/max-tokens/aborted/forked) vs
+  majo's fieldless TURN_END.
+- **Approval**: durable policy events + abort-withdraw + late-answer discard
+  (`packages/interaction/user-approval/`) vs ask/auto/never pairs, no
+  withdraw.
+- **Repeat-call reminder**: normalized deep keys, denied calls count, user
+  interruption resets the chain (`packages/guard/repeat-tool-reminder/`) vs
+  simple counting.
+- **Compaction**: region selection with priced tail retention + tool-pairing
+  guard + start/end transaction + checkpoints
+  (`packages/compaction/compaction-basic/src/region.ts`) vs whole-history
+  summary.
+- **Instruction context**: user-global + project chain, fs-triggered refresh,
+  65,536-byte budget (`packages/context/agent-instructions/`) vs one-shot
+  root injection.
+- **Skill**: scope chain + rank + bundled + a single `skill` tool with a
+  persistent catalog message (`packages/skill/tool-skill/`) vs folder scan +
+  two tools.
+- **PTC**: programs call host tools via `tools.name(args)` nested dispatch,
+  sandbox integration, escalation approval
+  (`packages/core/tools/src/ptc.ts`) vs majo's "tools are NOT callable in v1"
+  (`PtcService.java`).
+- **Jobs**: absolute-offset ring buffer with arbitrary-offset reads +
+  archive-admission kill (`packages/jobs/jobs-local/src/ring.ts`) vs tail
+  truncation.
+- **Schedule**: every/daily/weekly/**cron** (Vixie 5-field + IANA tz) +
+  delivery history + host-level persistence + cold wake
+  (`packages/schedule/schedule/src/types.ts`) vs after/every/at + daily/
+  weekly sugar, no cron.
+- **Subagent**: continuable children (send_message/interrupt/list,
+  `packages/subagent/tool-subagent-control/`) + experimental agent-team
+  (mailbox/task DAG/roster) vs one-shot sync `delegate_task`.
+- **Session format**: upstream is at **v4** (v3→v4 landed:
+  `packages/session/session-format-v3-to-v4/README.md`) — Round 1's "v3"
+  note was already stale; plus checkpoint policy and persistent projection
+  caches majo lacks.
+
+## 3. Deliberate divergences (keep)
+
+- **Workflow shape, inverted**: majo = declarative YAML steps + virtual-thread
+  parallel groups + **in-process resume**; dsh = model-authored JS on the PTC
+  runtime (`agent()/parallel()/pipeline()`), no resume. Both valid; majo
+  leads on resume.
+- **majo-only strengths**: in-loop credential redaction (`safe()`), the
+  `ALLOW_MODEL_TRIGGER_TAG` approval exemption, OpenAPI contract + metrics +
+  generated web types (drift-proof), spill fail-open + registered
+  `spill_read`, headroom cap at half-budget.
+- **Naming**: `read_file`/`run_shell`/`run_command` vs dsh `read`/`bash` —
+  kept for session/test stability; documented.
+- **Simplifications that hold**: maxSteps=8 hard fail, steer-while-idle →
+  followup, non-persistent pending inbox, step-boundary-only abort checks
+  (no mid-request cancellation).
+
+## Disposition
+
+Round 2 fed `docs/roadmap-0.6.md`: P1 fs write family, P2 TokenUsage,
+P3 minimal cancellation (typed TURN_END + abort), P4 cron schedules;
+P5 hooks bridge, P6 skill/PTC deepening, P7 goal-system design study.
+The host product layer (storage/workspace/session-query/preset/desktop) is
+explicitly out of scope for majo's single-user-local positioning.

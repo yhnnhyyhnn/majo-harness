@@ -571,4 +571,71 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
-Working area for the next iteration.
+### fs write family (dsh tool-fs parity — audit Round 2 P1)
+
+- **`write_file`** tool: creates or overwrites a UTF-8 text file (parents
+  created) — until now the model had no way to write files at all.
+- **`edit_file`** tool: exact-string replace that fails loudly unless
+  `old_string` is unique (`replace_all` opt-in); composed on the provider's
+  read/write so the SSH world gets it for free.
+- **`glob`** tool: recursive file search under a root with the shared glob
+  dialect (`**` crosses directories, `**/` matches zero of them; `*`/`?`
+  stay inside one segment; `[...]`/`{a,b}` pass through). Both providers
+  (local/SSH) share one semantics implementation (`FsProvider.globToRegex`),
+  replacing the Windows-broken `getPathMatcher` approach and find's
+  `*`-crosses-`/` mismatch.
+- **`grep`** tool + new `FsProvider.grep` seam method and `fs/grep`
+  waterfall: regex content search (file or directory, recursed) with an
+  include-name glob and head limit; local provider skips binary files
+  (NUL probe) and >8 MiB files, SSH provider maps to remote
+  `grep -rn --include`.
+- Tool catalog regenerated: **26 tools**. Web profiles gate the mutating
+  tools (`write_file`, `edit_file`) alongside the read family.
+
+### Token usage metering (dsh TokenUsage parity — audit Round 2 P2)
+
+- **`TokenUsage`** on `ChatResponse`: input/output plus the provider's
+  cache-read/cache-write counts when reported (OpenAI
+  `prompt_tokens_details` naming; nullable, back-compat constructors
+  preserved).
+- The OpenAI-compatible provider maps `usage` from both non-stream
+  responses and the final stream chunk (nothing is sent to opt in —
+  servers that report it just flow through).
+- Assistant rounds log the usage durably (`ASSISTANT_MESSAGE` gains
+  `inputTokens`/`outputTokens`/`cacheReadTokens`/`cacheWriteTokens`
+  fields), so per-request consumption is observable from the session log
+  alone. Content blocks and the StreamChunk protocol stay deferred (no
+  multimodal provider yet).
+
+### Minimal cancellation (dsh abort analog — audit Round 2 P3)
+
+- **`TURN_END` carries a durable `reason`**: `completed` (converged) or
+  `aborted` (cancelled). Failed turns keep the pinned failure contract —
+  they stay open (no TURN_END), as FaultTurnTest documents.
+- **`AgentLoopService.abort(sessionId)`**: cooperative cancel — the
+  running turn closes `aborted` at the next step boundary or before its
+  next tool dispatch and returns the answer produced so far; the flag is
+  cleared at turn open so a stale abort on an idle session is a no-op.
+- **`POST /api/sessions/{id}/abort`** (documented in openapi.json).
+  Documented limitation: no mid-request/mid-tool interruption.
+
+### Cron schedules (dsh v0.2.0 cron parity — audit Round 2 P4)
+
+- **`CronExpression`**: Vixie five-field parser (minute hour dom month dow)
+  with `*`, lists, ranges, `*/step`, month/dow names, dow 0 and 7 = Sunday,
+  the Vixie dom/dow OR rule, and an explicit IANA timezone; six-field
+  (seconds) input is rejected loudly. `next()` scans smartly (month/day/
+  hour jumps) with a four-year bound (Feb 29 reachable).
+- **`schedule_create`/`schedule_update` gain `cron` + `timezone`** as a
+  fifth timing shape; the durable `SCHEDULE_SET` record carries the
+  expression, restart rescan restores it, and each fire recomputes the
+  next occurrence (no fixed-interval drift).
+
+### Reference alignment
+
+- Audit Round 2 recorded (docs/audit-dsh-2026-09*, against dsh
+  0.2.0-rc.1, ~1,961 commits since Round 1) and dispositioned into
+  **docs/roadmap-0.6** (P1 fs family, P2 usage, P3 cancellation, P4 cron
+  shipped here; P5 hooks bridge, P6 skill/PTC deepening, P7 goal-system
+  design study queued; the host product layer — storage/workspace/
+  session-query/preset/desktop — explicitly out of scope).

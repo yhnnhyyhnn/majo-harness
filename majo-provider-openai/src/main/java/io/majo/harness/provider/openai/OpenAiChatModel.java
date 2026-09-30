@@ -205,6 +205,7 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel, io.
             throws IOException {
         StringBuilder text = new StringBuilder();
         java.util.TreeMap<Integer, MutableCall> calls = new java.util.TreeMap<>();
+        io.majo.harness.llm.TokenUsage usage = null;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(body, StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -219,6 +220,11 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel, io.
                 JsonNode error = root.path("error");
                 if (!error.isMissingNode()) {
                     throw new ModelException("provider stream error: " + error.path("message").asText());
+                }
+                // usage rides the final chunk when the provider reports it
+                io.majo.harness.llm.TokenUsage chunkUsage = usageOf(root);
+                if (chunkUsage != null) {
+                    usage = chunkUsage;
                 }
                 JsonNode choice = root.path("choices").path(0);
                 if (choice.isMissingNode()) {
@@ -248,7 +254,7 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel, io.
         }
         String content = text.length() == 0 ? null : text.toString();
         if (calls.isEmpty()) {
-            return ChatResponse.text(content);
+            return ChatResponse.text(content, usage);
         }
         java.util.List<ToolCall> toolCalls = new java.util.ArrayList<>();
         for (MutableCall call : calls.values()) {
@@ -257,7 +263,28 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel, io.
                     call.name == null ? "" : call.name,
                     call.arguments.toString()));
         }
-        return new ChatResponse(content, java.util.List.copyOf(toolCalls));
+        return new ChatResponse(content, java.util.List.copyOf(toolCalls), usage);
+    }
+
+    /**
+     * Maps the wire {@code usage} object onto {@link TokenUsage}; missing or
+     * null on the wire means "not reported" and yields {@code null}. Cache
+     * accounting rides {@code prompt_tokens_details} (OpenAI naming;
+     * DeepSeek-compatible gateways map their cache fields onto the same slot).
+     */
+    private static io.majo.harness.llm.TokenUsage usageOf(JsonNode root) {
+        JsonNode usage = root.path("usage");
+        if (usage.isMissingNode() || usage.isNull()) {
+            return null;
+        }
+        long input = usage.path("prompt_tokens").asLong(0);
+        long output = usage.path("completion_tokens").asLong(0);
+        JsonNode details = usage.path("prompt_tokens_details");
+        Long cacheRead = details.path("cached_tokens").isNumber()
+                ? details.path("cached_tokens").asLong() : null;
+        Long cacheWrite = details.path("cache_creation_input_tokens").isNumber()
+                ? details.path("cache_creation_input_tokens").asLong() : null;
+        return new io.majo.harness.llm.TokenUsage(input, output, cacheRead, cacheWrite);
     }
 
     private static String readBody(InputStream stream) throws IOException {
@@ -346,7 +373,7 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel, io.
                 String id = call.hasNonNull("id") ? call.get("id").asText() : UUID.randomUUID().toString();
                 calls.add(new ToolCall(id, function.path("name").asText(), function.path("arguments").asText()));
             }
-            return new ChatResponse(content, List.copyOf(calls));
+            return new ChatResponse(content, List.copyOf(calls), usageOf(root));
         } catch (IOException e) {
             throw new ModelException("cannot parse provider response: " + snippet(body), e);
         }

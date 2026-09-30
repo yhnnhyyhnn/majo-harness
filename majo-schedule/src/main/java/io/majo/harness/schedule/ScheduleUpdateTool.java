@@ -33,10 +33,14 @@ public final class ScheduleUpdateTool implements Tool {
         props.putObject("after_seconds").put("type", "number");
         props.putObject("at_epoch_ms").put("type", "number");
         props.putObject("every_seconds").put("type", "number");
+        props.putObject("cron").put("type", "string")
+                .put("description", "Vixie five-field cron expression.");
+        props.putObject("timezone").put("type", "string")
+                .put("description", "IANA timezone for cron (default: the host zone).");
         schema.putArray("required").add("id");
         return new ToolSpec("schedule_update",
                 "Updates an existing scheduled reminder: change the prompt and/or timing "
-                        + "(exactly one of after_seconds, at_epoch_ms, every_seconds).",
+                        + "(exactly one of after_seconds, at_epoch_ms, every_seconds, cron).",
                 schema);
     }
 
@@ -61,10 +65,12 @@ public final class ScheduleUpdateTool implements Tool {
                     ? args.get("at_epoch_ms").asLong() : null;
             Long everySeconds = args.hasNonNull("every_seconds")
                     ? args.get("every_seconds").asLong() : null;
+            String cronSpec = args.hasNonNull("cron") ? args.get("cron").asText() : null;
+            String timezoneId = args.hasNonNull("timezone") ? args.get("timezone").asText() : null;
             ScheduleService.Schedule updated = schedule.update(sessionId, id, prompt,
-                    afterSeconds, atEpochMs, everySeconds);
+                    afterSeconds, atEpochMs, everySeconds, cronSpec, timezoneId);
             return ToolResult.ok("schedule " + id + " updated: next due "
-                    + updated.dueAtMs, Map.of());
+                    + java.time.Instant.ofEpochMilli(updated.dueAtMs), Map.of());
         } catch (IOException e) {
             return ToolResult.error("schedule_update: cannot parse arguments: " + e.getMessage());
         } catch (IllegalArgumentException e) {

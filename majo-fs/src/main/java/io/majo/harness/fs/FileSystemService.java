@@ -48,4 +48,14 @@ public final class FileSystemService extends Service {
                 args -> provider.glob((String) args[0], (String) args[1]));
         return matches;
     }
+
+    /** Greps content under {@code path} through the {@code fs/grep} waterfall. */
+    public List<String> grep(String path, String regex, String include, int headLimit) {
+        @SuppressWarnings("unchecked")
+        List<String> hits = (List<String>) ctx.waterfall(null, FsEvents.GREP,
+                new Object[] {path, regex, include, headLimit},
+                args -> provider.grep((String) args[0], (String) args[1],
+                        (String) args[2], (Integer) args[3]));
+        return hits;
+    }
 }
