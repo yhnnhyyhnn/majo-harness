@@ -182,6 +182,93 @@ class CompactionTest {
                 .hasMessageContaining("maxTokens must be >= 100");
     }
 
+    /**
+     * Region selection (roadmap-0.7 P1): the summary covers only the region
+     * up to the cut; a priced tail survives verbatim; and the cut never
+     * splits an assistant tool round — the whole round lands in the tail.
+     */
+    @Test
+    void regionSelectionKeepsThePricedTailAndWholeToolRounds() {
+        Context ctx = harness(Map.of("maxTokens", 100_000, "retainTokens", 200));
+        SessionService sessions = ctx.get(SessionService.NAME);
+        LLMService llm = ctx.get(LLMService.NAME);
+        llm.registerModel("model", request ->
+                ChatResponse.text("summary-of-the-region"));
+
+        String sessionId = sessions.createSession();
+        // region: an old wall of text well past the 200-token (800 char) tail
+        sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
+        sessions.append(sessionId, SessionEventType.USER_MESSAGE,
+                Map.of(io.majo.harness.session.SessionEvent.FIELD_CONTENT,
+                        "ancient " + "old ".repeat(400)));
+        // the tail: a recent tool round + a final answer
+        sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
+        sessions.append(sessionId, SessionEventType.USER_MESSAGE,
+                Map.of(io.majo.harness.session.SessionEvent.FIELD_CONTENT, "recent question"));
+        sessions.append(sessionId, SessionEventType.ASSISTANT_MESSAGE, Map.of(
+                io.majo.harness.session.SessionEvent.FIELD_TOOL_CALLS, List.of(Map.of(
+                        io.majo.harness.session.SessionEvent.FIELD_TOOL_CALL_ID, "c1",
+                        io.majo.harness.session.SessionEvent.FIELD_TOOL_NAME, "grep",
+                        io.majo.harness.session.SessionEvent.FIELD_ARGUMENTS, "{}"))));
+        sessions.append(sessionId, SessionEventType.TOOL_RESULT, Map.of(
+                io.majo.harness.session.SessionEvent.FIELD_TOOL_CALL_ID, "c1",
+                io.majo.harness.session.SessionEvent.FIELD_CONTENT, "grep hit"));
+        sessions.append(sessionId, SessionEventType.ASSISTANT_MESSAGE,
+                Map.of(io.majo.harness.session.SessionEvent.FIELD_CONTENT, "recent answer"));
+
+        CompactionService compaction = ctx.get(CompactionService.NAME);
+        assertThat(compaction.compactNow(sessionId)).isEqualTo("summary-of-the-region");
+
+        List<ChatMessage> derived = MessageDeriver.derive(sessions.events(sessionId));
+        // summary + "recent question" + assistant(toolCalls) + tool result + final answer
+        assertThat(derived).hasSize(5);
+        assertThat(derived.get(0).content()).contains("[conversation summary] summary-of-the-region");
+        // the tail survived verbatim, tool round intact
+        assertThat(derived.get(1).content()).isEqualTo("recent question");
+        assertThat(derived.get(2).toolCalls()).hasSize(1);
+        assertThat(derived.get(3).content()).isEqualTo("grep hit");
+        assertThat(derived.get(4).content()).isEqualTo("recent answer");
+        // the ancient wall is gone from the derivation
+        assertThat(derived.stream().noneMatch(message ->
+                message.content() != null && message.content().contains("ancient"))).isTrue();
+        // the durable log still carries everything (model-visible means logged)
+        assertThat(sessions.events(sessionId).stream()
+                .anyMatch(event -> event.content() != null
+                        && event.content().startsWith("ancient"))).isTrue();
+    }
+
+    /** Two compactions compose: the second keeps the tail after its own cut. */
+    @Test
+    void multipleCompactionsCompose() {
+        Context ctx = harness(Map.of("maxTokens", 100_000, "retainTokens", 100));
+        SessionService sessions = ctx.get(SessionService.NAME);
+        LLMService llm = ctx.get(LLMService.NAME);
+        java.util.concurrent.atomic.AtomicInteger summaries =
+                new java.util.concurrent.atomic.AtomicInteger();
+        llm.registerModel("model", request ->
+                ChatResponse.text("summary-" + summaries.incrementAndGet()));
+
+        String sessionId = sessions.createSession();
+        sessions.append(sessionId, SessionEventType.TURN_START, Map.of());
+        sessions.append(sessionId, SessionEventType.USER_MESSAGE,
+                Map.of(io.majo.harness.session.SessionEvent.FIELD_CONTENT,
+                        "first " + "a ".repeat(400)));
+        CompactionService compaction = ctx.get(CompactionService.NAME);
+        assertThat(compaction.compactNow(sessionId)).isEqualTo("summary-1");
+
+        sessions.append(sessionId, SessionEventType.USER_MESSAGE,
+                Map.of(io.majo.harness.session.SessionEvent.FIELD_CONTENT,
+                        "second " + "b ".repeat(400)));
+        assertThat(compaction.compactNow(sessionId)).isEqualTo("summary-2");
+
+        List<ChatMessage> derived = MessageDeriver.derive(sessions.events(sessionId));
+        // the second summary replaces the first + the first region; the
+        // second region's tail survives
+        assertThat(derived.get(0).content()).contains("summary-2");
+        assertThat(derived.stream().noneMatch(message -> message.content() != null
+                && message.content().contains("summary-1"))).isTrue();
+    }
+
     @Test
     void negativePruneCharsFailsLoud() {
         Context ctx = Context.create();

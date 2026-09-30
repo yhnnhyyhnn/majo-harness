@@ -21,9 +21,33 @@ public final class MessageDeriver {
 
     /** Derives the model history for {@code events} in log order. */
     public static List<ChatMessage> derive(List<SessionEvent> events) {
+        return fold(events, Long.MAX_VALUE);
+    }
+
+    /**
+     * Derives only the messages contributed by events at or before
+     * {@code upToSeq} — the compaction region (dsh region parity: the
+     * summarizer sees exactly what the summary is allowed to cover).
+     */
+    public static List<ChatMessage> deriveRegion(List<SessionEvent> events, long upToSeq) {
+        return fold(events, upToSeq);
+    }
+
+    private static List<ChatMessage> fold(List<SessionEvent> events, long seqCap) {
         List<ChatMessage> messages = new ArrayList<>();
+        // parallel to messages: the seq of the event that contributed each one
+        List<Long> seqs = new ArrayList<>();
         for (SessionEvent event : events) {
-            switch (event.type()) {
+            if (event.seq() > seqCap) {
+                continue; // outside the region cap
+            }
+            foldEvent(event, messages, seqs);
+        }
+        return List.copyOf(messages);
+    }
+
+    private static void foldEvent(SessionEvent event, List<ChatMessage> messages, List<Long> seqs) {
+        switch (event.type()) {
                 case TURN_START, TURN_END, REQUEST_HEADER, APPROVAL_REQUESTED, APPROVAL_DECIDED,
                         TODO_SET, PLAN_SET, SCHEDULE_SET,
                         WORKFLOW_START, WORKFLOW_STEP, WORKFLOW_END,
@@ -36,23 +60,51 @@ public final class MessageDeriver {
                     // hook context reaches the model as CONTEXT_NOTE)
                 }
                 case CONTEXT_COMPACTION -> {
-                    // dsh compaction: everything logged before this event is
-                    // replaced by its summary — the summary itself is durable
-                    // model-visible content, so the invariant still holds
-                    messages.clear();
+                    // dsh compaction with region selection: messages
+                    // contributed at or before upToSeq are replaced by the
+                    // summary; the priced tail (events after the cut, logged
+                    // before this compaction event) survives verbatim. A
+                    // missing/zero upToSeq keeps the legacy whole-history
+                    // semantics. Filtering is IN PLACE — the caller owns the
+                    // list references.
+                    long upToSeq = upToSeq(event);
+                    if (upToSeq <= 0) {
+                        messages.clear();
+                        seqs.clear();
+                    } else {
+                        for (int i = messages.size() - 1; i >= 0; i--) {
+                            if (seqs.get(i) <= upToSeq) {
+                                messages.remove(i);
+                                seqs.remove(i);
+                            }
+                        }
+                    }
                     if (event.content() != null && !event.content().isBlank()) {
-                        messages.add(ChatMessage.user("[conversation summary] " + event.content()));
+                        messages.add(0, ChatMessage.user("[conversation summary] " + event.content()));
+                        seqs.add(0, event.seq());
                     }
                 }
-                case USER_MESSAGE, CONTEXT_NOTE -> messages.add(ChatMessage.user(event.content()));
-                case ASSISTANT_MESSAGE -> messages.add(ChatMessage.assistant(
-                        event.content(), toToolCalls(event.fields())));
-                case TOOL_RESULT -> messages.add(ChatMessage.toolResult(
-                        stringField(event.fields(), SessionEvent.FIELD_TOOL_CALL_ID),
-                        event.content()));
+                case USER_MESSAGE, CONTEXT_NOTE -> {
+                    messages.add(ChatMessage.user(event.content()));
+                    seqs.add(event.seq());
+                }
+                case ASSISTANT_MESSAGE -> {
+                    messages.add(ChatMessage.assistant(
+                            event.content(), toToolCalls(event.fields())));
+                    seqs.add(event.seq());
+                }
+                case TOOL_RESULT -> {
+                    messages.add(ChatMessage.toolResult(
+                            stringField(event.fields(), SessionEvent.FIELD_TOOL_CALL_ID),
+                            event.content()));
+                    seqs.add(event.seq());
+                }
             }
-        }
-        return List.copyOf(messages);
+    }
+
+    private static long upToSeq(SessionEvent event) {
+        Object value = event.fields().get(SessionEvent.FIELD_UP_TO_SEQ);
+        return value == null ? 0 : Long.parseLong(String.valueOf(value));
     }
 
     @SuppressWarnings("unchecked")

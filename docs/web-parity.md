@@ -74,6 +74,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 | Session file generations (`session-persistence-jsonl`) | `majo-session` | ✅ `<id>.v1.jsonl` + format header; header-only stat/list; one-step migration; tail repair |
 | LLM fault injection (`llm-mock-server`) | `majo-llm.fault` | ✅ `FaultLlmServer` (raw-socket scripted HTTP incl. mid-body disconnects) + `FaultChatModel`; wire + turn failure contracts pinned |
 | Tool-result pruning (`compaction-tool-result-pruner`) | `majo-compaction` | ✅ head+tail retention behind a marker; threshold aligned 8192/4096/1024 |
+| Compaction region selection (`compaction-basic` region) | `majo-compaction` | ✅ priced tail retention (`retainTokens`, default maxTokens/4) via the durable upToSeq fold; tool-round cut guard; region-scoped summarizer request; compactions compose |
 | Guard: timeout + repeat reminder (`guard`) | tools seam config | ✅ `toolTimeoutSeconds` + `repeatReminder`; web profiles enable timeout at 600s |
 | Token usage metering (`llm` TokenUsage) | `majo-llm` | ✅ input/output (+cache read/write) on `ChatResponse`; OpenAI-compatible parsing (non-stream + final stream chunk); durable on ASSISTANT_MESSAGE |
 | Turn abort / TurnEndReason (`core/session`) | `majo-agent-loop` | ✅ minimal: durable `TURN_END` reason `completed`/`aborted`, cooperative `abort()` + `POST /api/sessions/{id}/abort` (mid-request interruption stays future work) |

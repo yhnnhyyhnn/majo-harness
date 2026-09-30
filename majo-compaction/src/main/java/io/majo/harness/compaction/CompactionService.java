@@ -53,6 +53,7 @@ public final class CompactionService extends io.jcordis.core.service.Service {
     private final LLMService llm;
     private final int maxTokens;
     private final int headroomTokens;
+    private final int retainTokens;
     private final int pruneChars;
     private final int pruneHeadChars;
     private final int pruneTailChars;
@@ -72,6 +73,10 @@ public final class CompactionService extends io.jcordis.core.service.Service {
         }
         this.maxTokens = tokens;
         this.headroomTokens = intConfig(config, "headroomTokens", DEFAULT_HEADROOM_TOKENS);
+        // the priced tail: default = a quarter of the budget (dsh region
+        // retention), floored so tiny test budgets still keep a tail
+        int retain = intConfig(config, "retainTokens", Math.max(64, maxTokens / 4));
+        this.retainTokens = Math.min(retain, maxTokens);
         int prune = DEFAULT_PRUNE_CHARS;
         if (config instanceof Map<?, ?> map && map.get("pruneChars") instanceof Number number) {
             prune = number.intValue();
@@ -96,6 +101,11 @@ public final class CompactionService extends io.jcordis.core.service.Service {
     /** The configured pressure budget in (estimated) tokens. */
     public int budget() {
         return maxTokens;
+    }
+
+    /** The priced-tail retention (tokens) the summary leaves verbatim. */
+    public int retainTokens() {
+        return retainTokens;
     }
 
     /** Rough token estimate: ~4 characters per token plus per-message overhead. */
@@ -209,6 +219,10 @@ public final class CompactionService extends io.jcordis.core.service.Service {
     /**
      * Summarizes and persists unconditionally ({@code /compact}); returns the
      * summary, or {@code null} when there is no history worth compacting.
+     * Region selection (dsh compaction-basic region parity): the summary
+     * covers only the region up to the cut point — a tail priced at
+     * {@code retainTokens} stays verbatim in the derived history, and the cut
+     * never splits an assistant tool round.
      */
     public String compactNow(String sessionId) {
         List<SessionEvent> events = sessions.events(sessionId);
@@ -216,8 +230,14 @@ public final class CompactionService extends io.jcordis.core.service.Service {
         if (derived.isEmpty()) {
             return null;
         }
-        long upToSeq = events.isEmpty() ? 0 : events.get(events.size() - 1).seq();
-        List<ChatMessage> summarizeRequest = new ArrayList<>(derived);
+        long upToSeq = selectRegionEnd(events);
+        List<ChatMessage> region = io.majo.harness.agent.loop.MessageDeriver.deriveRegion(
+                events, upToSeq);
+        if (region.isEmpty()) {
+            // the priced tail covers everything: nothing to summarize
+            return null;
+        }
+        List<ChatMessage> summarizeRequest = new ArrayList<>(region);
         summarizeRequest.add(ChatMessage.user(SUMMARIZE_INSTRUCTION));
         ChatResponse response = llm.complete(
                 new ChatRequest(List.copyOf(summarizeRequest), List.of(), null));
@@ -230,5 +250,69 @@ public final class CompactionService extends io.jcordis.core.service.Service {
                 io.majo.harness.session.SessionEvent.FIELD_CONTENT, summary,
                 io.majo.harness.session.SessionEvent.FIELD_UP_TO_SEQ, upToSeq));
         return summary;
+    }
+
+    /**
+     * The cut point of the compactable region: walk back from the end
+     * accumulating the priced tail (chars ≈ tokens·4, the same ratio as
+     * {@link #estimateTokens}); then the tool-pairing guard moves the cut to
+     * before an assistant tool round so a call and its results are never
+     * separated. Returns the seq of the last covered event (0 = the whole
+     * history is tail).
+     */
+    long selectRegionEnd(List<SessionEvent> events) {
+        long retainChars = (long) retainTokens() * 4;
+        long tailChars = 0;
+        int cut = events.size();
+        for (int index = events.size() - 1; index >= 0; index--) {
+            tailChars += derivedChars(events.get(index));
+            if (tailChars >= retainChars) {
+                cut = index + 1; // events[index] is the first tail event
+                break;
+            }
+        }
+        // tool-pairing guard: the region must not end inside an assistant
+        // tool round (its opening ASSISTANT_MESSAGE or any TOOL_RESULT)
+        while (cut > 0 && opensToolRound(events.get(cut - 1))) {
+            cut--;
+        }
+        return cut == 0 ? 0 : events.get(cut - 1).seq();
+    }
+
+    private static int stringLength(Object value) {
+        return value == null ? 0 : String.valueOf(value).length();
+    }
+
+    /** Whether the event belongs to the log block of an assistant tool round. */
+    private static boolean opensToolRound(SessionEvent event) {
+        if (event.type() == SessionEventType.TOOL_RESULT) {
+            return true;
+        }
+        Object calls = event.fields().get(io.majo.harness.session.SessionEvent.FIELD_TOOL_CALLS);
+        return event.type() == SessionEventType.ASSISTANT_MESSAGE
+                && calls instanceof List<?> list && !list.isEmpty();
+    }
+
+    /** The event's derived model-visible char cost (the token-estimate proxy). */
+    private static long derivedChars(SessionEvent event) {
+        long chars = 0;
+        switch (event.type()) {
+            case USER_MESSAGE, CONTEXT_NOTE, TOOL_RESULT -> chars = event.content() == null
+                    ? 0 : event.content().length();
+            case ASSISTANT_MESSAGE -> {
+                chars = event.content() == null ? 0 : event.content().length();
+                Object calls = event.fields().get(io.majo.harness.session.SessionEvent.FIELD_TOOL_CALLS);
+                if (calls instanceof List<?> list) {
+                    for (Object item : list) {
+                        if (item instanceof Map<?, ?> call) {
+                            chars += stringLength(call.get(
+                                    io.majo.harness.session.SessionEvent.FIELD_ARGUMENTS));
+                        }
+                    }
+                }
+            }
+            default -> chars = 0;
+        }
+        return chars;
     }
 }

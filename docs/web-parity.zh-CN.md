@@ -73,6 +73,7 @@
 | 会话文件代际（`session-persistence-jsonl`） | `majo-session` | ✅ `<id>.v1.jsonl` + 格式头；header-only stat/list；一步迁移；尾行修复 |
 | LLM 故障注入（`llm-mock-server`） | `majo-llm.fault` | ✅ `FaultLlmServer`（raw-socket 脚本 HTTP 含断流）+ `FaultChatModel`；线级 + 回合故障契约钉死 |
 | 工具结果裁剪（`compaction-tool-result-pruner`） | `majo-compaction` | ✅ 标记行 + head+tail 保留；阈值对齐 8192/4096/1024 |
+| 压缩区域选择（`compaction-basic` region） | `majo-compaction` | ✅ 定价尾段保留（`retainTokens`，默认 maxTokens/4），经持久 upToSeq 折叠；tool 轮切点保护；摘要请求仅见区域；多次压缩可组合 |
 | Guard：超时 + 重复提醒（`guard`） | tools 接缝配置 | ✅ `toolTimeoutSeconds` + `repeatReminder`；web profiles 启用超时 600s |
 | Token 用量计量（`llm` TokenUsage） | `majo-llm` | ✅ input/output（含 cache 读写）挂上 `ChatResponse`；OpenAI 兼容解析（非流式 + 流末块）；持久化到 ASSISTANT_MESSAGE |
 | 回合取消 / TurnEndReason（`core/session`） | `majo-agent-loop` | ✅ 最小版：持久 `TURN_END` 原因 `completed`/`aborted`，协作式 `abort()` + `POST /api/sessions/{id}/abort`（请求中途打断仍为未来项） |

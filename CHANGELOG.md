@@ -741,4 +741,19 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
+### Compaction region selection (dsh compaction-basic region parity — roadmap-0.7 P1)
+
+- **Priced tail retention**: the summary now covers only the region up to
+  a cut point — a tail priced at `retainTokens` (new config, default
+  maxTokens/4) stays verbatim in the derived history. The deriver folds a
+  CONTEXT_COMPACTION by discarding messages contributed at or before its
+  `upToSeq` and prepending the summary, so events after the cut (logged
+  before the compaction event) survive; missing/zero upToSeq keeps the
+  legacy whole-history semantics.
+- **Tool-pairing guard**: the cut never splits an assistant tool round —
+  it walks back to before the round opening ASSISTANT_MESSAGE.
+- **Region-scoped summarization**: the summarizer request carries only
+  the region (cheaper; the summary cannot hallucinate about the tail it
+  never saw). Multiple compactions compose.
+
 Working area for the next iteration.
