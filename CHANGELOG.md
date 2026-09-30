@@ -756,7 +756,7 @@ Working area for the next iteration.
   the region (cheaper; the summary cannot hallucinate about the tail it
   never saw). Multiple compactions compose.
 
-## [Unreleased]
+## [0.9.2] - 2026-09-30
 
 ### Continuable subagents (dsh tool-subagent-control parity — roadmap-0.7 P2)
 
@@ -771,5 +771,7 @@ Working area for the next iteration.
   child turn via the minimal-cancellation abort; the child stays
   continuable afterwards.
 - Tool count 29 → 32; depth guard applies to continuations too.
+
+## [Unreleased]
 
 Working area for the next iteration.
