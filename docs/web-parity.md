@@ -87,6 +87,7 @@ Legend: ✅ shipped · 🟡 partial · ⬜ not yet
 
 - Typed single source of truth: `WebApiModels` DTO records + `SessionEventType` enum → `WebTypesGenerator` → `web-ui/src/types.ts`; the backend serializes the same DTOs (`NON_NULL` for `@OptionalWire`).
 - Endpoints: `GET/POST /api/sessions` (`GET ?view=active|archived|all`), `GET/PUT/DELETE /api/sessions/:id` (`PUT …/title`, `PUT/DELETE …/model`, `PUT/DELETE …/archive`, `GET …/events?since=`, `GET …/feedback`, `GET …/export`, `POST …/abort` — cooperative turn cancellation), `POST /api/sessions/import`, `GET /api/search?q=`, `GET/PUT /api/settings/model`, `GET /api/skills`, `GET /api/subagents` (+ `POST /api/subagents/delegate`), `GET /api/plugins` (+ `POST …/:name/reload`, `DELETE …/:name`), `GET /api/commands` (+ `POST /api/commands/:name`), `GET /api/health`, `GET /api/metrics`, `GET /api/info`, `GET /api/openapi.json`, approvals/questions decisions, `PUT/DELETE /api/messages/:id/:seq/feedback`, SSE `/api/turn/stream` (per-stream `X-Turn-Id` + heartbeat).
+- Endpoint additions: `GET /api/sessions/:id/goal` (goal snapshot); `GET /api/subagents` response extended with the live-agents list.
 - Tool results carry optional structured `data` on the wire (exit codes, hits, child session ids…) so cards render without re-parsing text; text stays the model-visible truth.
 - UI assembly stays registration-only: `features/*` modules fill message-renderer/rail/sidebar/command slots through `FEATURES` (compile-time list); shell code only renders slots and injects runtime seats (`openSession`, `rate`, command `run`).
 

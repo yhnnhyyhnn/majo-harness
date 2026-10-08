@@ -160,6 +160,14 @@
         ]
       }
     },
+    "/api/sessions/{id}/goal": {
+      "get": {
+        "summary": "The session goal snapshot (dsh goal chip)",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/messages/{id}/{seq}/feedback": {
       "put": {
         "summary": "Rate a message up|down",

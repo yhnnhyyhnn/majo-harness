@@ -90,6 +90,15 @@ export interface FeedbackIndex {
   entries: FeedbackEntry[];
 }
 
+export interface GoalSnapshotView {
+  goalId?: string;
+  revision?: number;
+  objective?: string;
+  phase?: string;
+  maxRounds?: number;
+  roundsStarted: number;
+}
+
 export interface HealthInfo {
   ok: boolean;
   uptimeMs: number;
@@ -122,6 +131,16 @@ export interface JobInfo {
 
 export interface JobsIndex {
   jobs: JobInfo[];
+}
+
+export interface LiveAgent {
+  childSessionId: string;
+  task: string;
+  agent: string;
+  status: string;
+  lastAnswerPreview?: string;
+  createdAtMillis: number;
+  lastActivityMillis: number;
 }
 
 export interface MentionFile {
@@ -253,6 +272,7 @@ export interface SubagentRun {
 
 export interface SubagentsIndex {
   runs: SubagentRun[];
+  agents: LiveAgent[];
 }
 
 export interface TodoIndex {

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { SlotRoot, useSlots, type RailProps } from "./slots";
 import { Composer } from "./components/Composer";
 import { PlanChip } from "./components/PlanChip";
+import { GoalChip } from "./components/GoalChip";
 import { PluginFrame } from "./components/PluginFrame";
 import { JobsButton, ScheduleCatalog, ContextMeter } from "./components/SessionPanels";
 import { SessionSidebar } from "./components/SessionSidebar";
@@ -245,6 +246,7 @@ function AppShell() {
             )}
             <TodoPanel state={state} />
             <PlanChip state={state} />
+            <GoalChip state={state} />
             {view === "trajectory" ? (
               <Trajectory events={state.events} />
             ) : (

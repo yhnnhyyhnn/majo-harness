@@ -2,6 +2,7 @@ import type {
   CreateSession,
   DelegateResult,
   EventFrame,
+  GoalSnapshotView,
   EventsDelta,
   FeedbackIndex,
   ContextSnapshot,
@@ -178,6 +179,11 @@ export const api = {
   /** The session plan-mode snapshot (dsh plan-mode). */
   plan(sessionId: string): Promise<PlanSnapshot> {
     return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/plan");
+  },
+
+  /** The session goal snapshot (dsh goal chip). */
+  goal(sessionId: string): Promise<GoalSnapshotView> {
+    return rpc("/api/sessions/" + encodeURIComponent(sessionId) + "/goal");
   },
 
   /** The session's background jobs (dsh jobs). */

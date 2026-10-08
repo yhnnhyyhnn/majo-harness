@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { SubagentRun } from "../types";
+import type { LiveAgent, SubagentRun } from "../types";
 import type { Feature } from "../slots";
 import { usePollingSection } from "../usePollingSection";
 
@@ -30,6 +30,7 @@ const emptyForm = (): Form => ({
 function SubagentsPanel() {
   const [open, setOpen] = useState(false);
   const [runs, setRuns] = useState<SubagentRun[] | null>(null);
+  const [agents, setAgents] = useState<LiveAgent[]>([]);
   const [models, setModels] = useState<string[]>([]);
   const [hostIslands, setHostIslands] = useState<string[]>([]);
   const [form, setForm] = useState<Form>(emptyForm());
@@ -39,6 +40,7 @@ function SubagentsPanel() {
   const load = async () => {
     const index = await api.subagents();
     setRuns(index.runs || []);
+    setAgents(index.agents || []);
   };
 
   const loadOptions = async () => {
@@ -213,8 +215,28 @@ function SubagentsPanel() {
             {status && <div className="meta delegate-status">{status}</div>}
           </div>
 
+          {agents.length > 0 && (
+            <div className="meta section-label">live agents (send_message targets)</div>
+          )}
+          {agents.map((agent) => (
+            <div className="side-item" key={agent.childSessionId}>
+              <div className="side-item-title">
+                <span className={`status status-${agent.status}`}>{agent.status}</span>{" "}
+                <span title={agent.childSessionId}>{agent.childSessionId.slice(0, 8)}</span>
+              </div>
+              <div className="meta" title={agent.task}>
+                {agent.task}
+              </div>
+              {agent.lastAnswerPreview && (
+                <div className="meta">→ {agent.lastAnswerPreview}</div>
+              )}
+            </div>
+          ))}
+
           {runs === null && <div className="meta">loading…</div>}
-          {runs && runs.length === 0 && <div className="meta">no delegations yet</div>}
+          {runs && runs.length === 0 && agents.length === 0 && (
+            <div className="meta">no delegations yet</div>
+          )}
           {runs?.map((run, i) => (
             <div className="side-item" key={`${run.atMillis}-${i}`}>
               <div className="side-item-title">

@@ -87,13 +87,19 @@ public final class SubagentHandlers {
     public WebApiModels.SubagentsIndex subagentsIndex() {
         SubagentService subagent = ctx.boot.ctx().get(SubagentService.NAME);
         if (subagent == null) {
-            return new WebApiModels.SubagentsIndex(List.of());
+            return new WebApiModels.SubagentsIndex(List.of(), List.of());
         }
         return new WebApiModels.SubagentsIndex(subagent.recentRuns().stream()
                 .map(run -> new WebApiModels.SubagentRun(
                         run.task(), run.status(), run.detail(), run.atMillis(),
                         run.model(), run.maxSteps(), run.autoApprove(), run.allowedTools()))
-                .toList());
+                .toList(),
+                subagent.agents().stream()
+                        .map(agent -> new WebApiModels.LiveAgent(
+                                agent.childSessionId(), agent.task(), agent.agent(),
+                                agent.status(), agent.lastAnswerPreview(),
+                                agent.createdAtMillis(), agent.lastActivityMillis()))
+                        .toList());
     }
 
     public Map<String, Object> islands() {

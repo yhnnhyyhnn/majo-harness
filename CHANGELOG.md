@@ -852,4 +852,18 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
+### Goal chip + live-agents panel (goal design Phase C)
+
+- **`GET /api/sessions/{id}/goal`**: the session goal snapshot
+  (objective, phase, revision, round progress) for the UI; documented in
+  openapi.json.
+- **GoalChip** (composer affordance): renders while a goal is live —
+  phase + round progress, phase-tinted; click pauses an active goal
+  (aborting the running round) or resumes a paused/blocked one via the
+  host /goal command.
+- **Subagents panel** now lists live child agents (session id, task,
+  status, last-answer preview) above the delegation history — the
+  send_message target surface riding `GET /api/subagents`.
+- Web types regenerated; UI rebuilt and bundled.
+
 Working area for the next iteration.

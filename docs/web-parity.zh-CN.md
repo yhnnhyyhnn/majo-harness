@@ -85,7 +85,7 @@
 ## 线契约与面板机制
 
 - 类型单一真源：`WebApiModels` DTO + `SessionEventType` 枚举 → `WebTypesGenerator` → `web-ui/src/types.ts`；后端按同一 DTO 序列化（`@OptionalWire` 配合 `NON_NULL`）。
-- 端点：`GET/POST /api/sessions`（`GET ?view=active|archived|all`）、`GET/PUT/DELETE /api/sessions/:id`（`PUT …/title`、`PUT/DELETE …/model`、`PUT/DELETE …/archive`、`GET …/events?since=`、`GET …/feedback`、`GET …/export`、`POST …/abort`——回合协作取消）、`POST /api/sessions/import`、`GET /api/search?q=`、`GET/PUT /api/settings/model`、`GET /api/skills`、`GET /api/subagents`（+ `POST /api/subagents/delegate`）、`GET /api/plugins`（+ `POST …/:name/reload`、`DELETE …/:name`）、`GET /api/commands`（+ `POST /api/commands/:name`）、`GET /api/health`、`GET /api/metrics`、`GET /api/info`、`GET /api/openapi.json`、审批/问答决策、`PUT/DELETE /api/messages/:id/:seq/feedback`、SSE `/api/turn/stream`（每流 `X-Turn-Id` + 心跳）。
+- 端点：`GET/POST /api/sessions`（`GET ?view=active|archived|all`）、`GET/PUT/DELETE /api/sessions/:id`（`PUT …/title`、`PUT/DELETE …/model`、`PUT/DELETE …/archive`、`GET …/events?since=`、`GET …/feedback`、`GET …/export`、`POST …/abort`——回合协作取消）、`GET …/goal`（goal 快照）、`POST /api/sessions/import`、`GET /api/search?q=`、`GET/PUT /api/settings/model`、`GET /api/skills`、`GET /api/subagents`（+ `POST /api/subagents/delegate`）、`GET /api/plugins`（+ `POST …/:name/reload`、`DELETE …/:name`）、`GET /api/commands`（+ `POST /api/commands/:name`）、`GET /api/health`、`GET /api/metrics`、`GET /api/info`、`GET /api/openapi.json`、审批/问答决策、`PUT/DELETE /api/messages/:id/:seq/feedback`、SSE `/api/turn/stream`（每流 `X-Turn-Id` + 心跳）。
 - 工具结果在线路上携带可选结构化 `data`（退出码、hits、child 会话 id…），卡片无需再解析文本；文本仍是模型可见的唯一真源。
 - UI 装配仍只靠注册：`features/*` 填 message-renderer/rail/sidebar/command 槽（经 `FEATURES` 编译期列表）；壳层只渲染槽并在运行时注入座位（`openSession`、`rate`、command `run`）。
 

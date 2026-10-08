@@ -1232,3 +1232,37 @@ pre.code.seg.stderr { border-left: 2px solid rgba(242, 90, 90, 0.5); padding-lef
   color: inherit;
   cursor: pointer;
 }
+
+/* goal chip (dsh goal chip, design Phase C): phase-tinted composer affordance */
+#goal-chip {
+  margin: 0 auto 8px;
+  display: block;
+  max-width: 720px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 12px;
+  border: 1px solid #ffc36b;
+  border-radius: 8px;
+  background: rgba(255, 195, 107, 0.08);
+  color: #ffc36b;
+  cursor: pointer;
+  font-size: 12px;
+}
+#goal-chip:hover { background: rgba(255, 195, 107, 0.16); }
+#goal-chip.goal-phase-paused,
+#goal-chip.goal-phase-blocked {
+  border-color: #ff9d7a;
+  background: rgba(255, 157, 122, 0.08);
+  color: #ff9d7a;
+}
+#goal-chip.goal-phase-complete {
+  border-color: #8fd694;
+  background: rgba(143, 214, 148, 0.08);
+  color: #8fd694;
+}
+.side-item .meta.section-label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}

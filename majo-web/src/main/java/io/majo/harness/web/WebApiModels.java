@@ -104,7 +104,16 @@ public final class WebApiModels {
             @OptionalWire Boolean autoApprove,
             @OptionalWire java.util.List<String> allowedTools) {}
 
-    public record SubagentsIndex(List<SubagentRun> runs) {}
+    public record SubagentsIndex(List<SubagentRun> runs, List<LiveAgent> agents) {}
+
+    /** One live child agent (continuable via send_message). */
+    public record LiveAgent(String childSessionId, String task, String agent, String status,
+            @OptionalWire String lastAnswerPreview, long createdAtMillis, long lastActivityMillis) {}
+
+    /** The session goal snapshot (goal chip); goal absent → nulls. */
+    public record GoalSnapshotView(@OptionalWire String goalId, @OptionalWire Long revision,
+            @OptionalWire String objective, @OptionalWire String phase,
+            @OptionalWire Long maxRounds, long roundsStarted) {}
 
     /** Result of a direct scoped delegation (REST /delegate). */
     public record DelegateResult(String childSessionId, String answer) {}

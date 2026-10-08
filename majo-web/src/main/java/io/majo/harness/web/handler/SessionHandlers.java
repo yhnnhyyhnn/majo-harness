@@ -148,6 +148,25 @@ public final class SessionHandlers {
         return new WebApiModels.Ok(true);
     }
 
+    /** The session goal snapshot (goal chip); empty view when none is live. */
+    public WebApiModels.GoalSnapshotView goal(String sessionId) {
+        SessionService sessions = ctx.boot.service(SessionService.NAME);
+        SessionSupport.requireKnownSession(sessions, sessionId);
+        io.majo.harness.goal.GoalService goals =
+                ctx.boot.ctx().get(io.majo.harness.goal.GoalService.NAME);
+        if (goals == null) {
+            return new WebApiModels.GoalSnapshotView(null, null, null, null, null, 0);
+        }
+        io.majo.harness.goal.GoalService.Goal goal = goals.get(sessionId);
+        if (goal == null) {
+            return new WebApiModels.GoalSnapshotView(null, null, null, null, null, 0);
+        }
+        return new WebApiModels.GoalSnapshotView(
+                goal.goalId(), goal.revision(), goal.objective(),
+                goal.phase().name().toLowerCase(), goal.maxRounds(),
+                goals.roundsStarted(sessionId));
+    }
+
     /** Estimated context pressure (dsh Context Meter); unavailable when the module is unmounted. */    public WebApiModels.ContextSnapshot context(String sessionId) {
         SessionService sessions = ctx.boot.service(SessionService.NAME);
         SessionSupport.requireKnownSession(sessions, sessionId);
