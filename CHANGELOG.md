@@ -850,7 +850,7 @@ Working area for the next iteration.
   they are never mistaken for live human typing.
 - Regenerated web types (HOOK_*, GOAL_CHANGE); rebuilt the bundled UI.
 
-## [Unreleased]
+## [0.9.7] - 2026-10-08
 
 ### Goal chip + live-agents panel (goal design Phase C)
 
@@ -865,5 +865,7 @@ Working area for the next iteration.
   status, last-answer preview) above the delegation history — the
   send_message target surface riding `GET /api/subagents`.
 - Web types regenerated; UI rebuilt and bundled.
+
+## [Unreleased]
 
 Working area for the next iteration.
