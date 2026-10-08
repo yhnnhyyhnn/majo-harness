@@ -791,7 +791,7 @@ Working area for the next iteration.
   profile: self-driven goal rounds raised pressure and auto-compaction
   fired (region selection) on a live session.
 
-## [Unreleased]
+## [0.9.4] - 2026-10-08
 
 ### Audit Round 3: goal round withdrawal + reminder hardening (dsh 0.2.1-alpha.1 parity)
 
@@ -816,5 +816,7 @@ Working area for the next iteration.
 - Audit Round 3 recorded (docs/audit-dsh-2026-09*, ~453 commits, bulk
   web/desktop polish out of scope); user-questions timed waits queued as
   the next candidate.
+
+## [Unreleased]
 
 Working area for the next iteration.
