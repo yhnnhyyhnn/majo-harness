@@ -817,7 +817,7 @@ Working area for the next iteration.
   web/desktop polish out of scope); user-questions timed waits queued as
   the next candidate.
 
-## [Unreleased]
+## [0.9.5] - 2026-10-08
 
 ### Timed ask-user + late answers (dsh tool-ask-user timed parity — audit R3 queued item)
 
@@ -834,5 +834,7 @@ Working area for the next iteration.
 - Tests: AskUserTimedTest 4 (pending on timeout, in-window answer, child
   refusal, askTimed null-on-timeout), TimedAskDeliveryTest (late answer
   delivers as a marked user message; double-answer rejected).
+
+## [Unreleased]
 
 Working area for the next iteration.
