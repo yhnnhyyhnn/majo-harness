@@ -138,6 +138,7 @@ public final class HarnessBoot {
         loader.builtin(PLUGIN_SHELL_TOOLS, new ShellToolPlugin());
         loader.builtin(PLUGIN_SANDBOX, new SandboxPlugin());
         loader.builtin(PLUGIN_INTERACTIONS, new InteractionPlugin());
+        loader.builtin("ask-user", new io.majo.harness.interaction.AskUserPlugin());
         loader.builtin(PLUGIN_TOOL_APPROVAL, new ToolApprovalPlugin());
         loader.builtin(PLUGIN_SKILLS, new SkillPlugin());
         loader.builtin(PLUGIN_SKILL_FILES, new FileSkillPlugin());

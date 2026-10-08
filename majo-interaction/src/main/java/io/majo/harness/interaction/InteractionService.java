@@ -97,4 +97,34 @@ public final class InteractionService extends Service {
         }
         throw new InteractionException("no interaction handler answers questions; registered: " + handlerNames());
     }
+
+    /**
+     * Timed ask (dsh tool-ask-user timed parity): waits at most
+     * {@code timeoutSeconds} (-1 = indefinitely); {@code null} on timeout —
+     * the caller continues and the human's late answer may still arrive
+     * (the web handler's timed questions stay open for late delivery).
+     */
+    public String askTimed(Question question, long timeoutSeconds) {
+        ctx.emit(EVENT_QUESTION, question);
+        java.util.concurrent.CompletableFuture<String> resolution =
+                new java.util.concurrent.CompletableFuture<>();
+        Thread.ofVirtual().start(() -> {
+            try {
+                resolution.complete(ask(question));
+            } catch (RuntimeException e) {
+                resolution.completeExceptionally(e);
+            }
+        });
+        try {
+            String answer = timeoutSeconds < 0
+                    ? resolution.get()
+                    : resolution.get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
+            ctx.emit(EVENT_ANSWER, question, answer);
+            return answer;
+        } catch (java.util.concurrent.TimeoutException e) {
+            return null; // the turn continues; a late answer may still complete the ask
+        } catch (Exception e) {
+            return null; // fail-open: the model gets pending, not a crash
+        }
+    }
 }

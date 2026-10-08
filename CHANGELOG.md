@@ -819,4 +819,20 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
+### Timed ask-user + late answers (dsh tool-ask-user timed parity — audit R3 queued item)
+
+- **New `ask_user` tool** (`ask-user` profile row, majo-interaction): poses
+  a question and waits at most `timeout` seconds (default 120, -1 =
+  indefinitely). A timeout returns a `pending` notice — NOT a failure —
+  and the turn continues (the model proceeds with independent work);
+  delegated children cannot ask (they surface questions in their report).
+  `mode: blocking` keeps the legacy shape.
+- **Late-answer delivery** (dsh answer_to_pending_question parity): a
+  lapsed timed question stays open; the human's later answer through the
+  questions endpoint lands in the session as a marked
+  `[answer_to_pending_question]` user follow-up. Tool count 32 → 33.
+- Tests: AskUserTimedTest 4 (pending on timeout, in-window answer, child
+  refusal, askTimed null-on-timeout), TimedAskDeliveryTest (late answer
+  delivers as a marked user message; double-answer rejected).
+
 Working area for the next iteration.

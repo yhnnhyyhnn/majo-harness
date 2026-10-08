@@ -42,6 +42,8 @@
   name: interactions
   config:
     approval: deny
+- id: ask-user
+  name: ask-user
 - id: tool-approval
   name: tool-approval
   config:

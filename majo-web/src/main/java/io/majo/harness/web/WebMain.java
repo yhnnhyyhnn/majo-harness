@@ -123,6 +123,12 @@ public final class WebMain {
         if (interactions != null) {
             interactions.registerFront("web-ui", ctx.pending);
         }
+        // late answers for timed asks deliver through the loop's inbox
+        io.majo.harness.agent.loop.AgentLoopService loop =
+                root.get(io.majo.harness.agent.loop.AgentLoopService.NAME);
+        if (loop != null) {
+            ctx.pending.bindLoop(loop);
+        }
         CommandHandlers commands = new CommandHandlers(ctx, plugins);
         commands.registerBuiltins();
 
