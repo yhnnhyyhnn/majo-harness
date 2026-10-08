@@ -835,7 +835,7 @@ Working area for the next iteration.
   refusal, askTimed null-on-timeout), TimedAskDeliveryTest (late answer
   delivers as a marked user message; double-answer rejected).
 
-## [Unreleased]
+## [0.9.6] - 2026-10-08
 
 ### UI parity for the new event surface (usage-driven)
 
@@ -849,5 +849,7 @@ Working area for the next iteration.
   — goal round, scheduled reminder, late answer, compacted history — so
   they are never mistaken for live human typing.
 - Regenerated web types (HOOK_*, GOAL_CHANGE); rebuilt the bundled UI.
+
+## [Unreleased]
 
 Working area for the next iteration.
