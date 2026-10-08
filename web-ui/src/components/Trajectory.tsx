@@ -149,6 +149,8 @@ function firstTs(turn: TurnGroup): number | null {
 
 function kindCss(kind: string): string {
   if (kind.startsWith("APPROVAL")) return "audit";
+  if (kind.startsWith("HOOK_")) return "audit";
+  if (kind === "GOAL_CHANGE") return "compaction";
   if (kind === "CONTEXT_COMPACTION") return "compaction";
   if (kind === "REQUEST_HEADER") return "header";
   if (kind === "TOOL_RESULT") return "tool";
@@ -157,9 +159,27 @@ function kindCss(kind: string): string {
   return "bookkeeping";
 }
 
+/** A short origin label for producer-tagged user messages. */
+function producerLabel(event: EventFrame): string {
+  const data = event.data as Record<string, unknown> | undefined;
+  const producer = data?.producer;
+  if (producer === "goal") {
+    const round = data?.round;
+    return `[goal round ${round ?? "?"}]`;
+  }
+  return "";
+}
+
 /** One-line summary of an event for the ledger. */
 function summarize(event: EventFrame): string {
-  if (event.content) return clip(oneLine(event.content), 220);
+  if (event.kind === "TURN_END" && event.data) {
+    const reason = (event.data as Record<string, unknown>).reason;
+    return reason ? `turn closed (${String(reason)})` : "turn closed";
+  }
+  if (event.content) {
+    const label = producerLabel(event);
+    return clip((label ? label + " " : "") + oneLine(event.content), 220);
+  }
   if (event.kind === "REQUEST_HEADER") {
     const tools = event.toolNames?.length ? ` tools=[${event.toolNames.join(",")}]` : "";
     return clip(`model=${event.model ?? "?"}${tools}`, 220);
@@ -167,13 +187,38 @@ function summarize(event: EventFrame): string {
   if (event.kind === "TOOL_RESULT" && event.toolName) {
     return clip(`${event.toolName} → ${event.ok ? "ok" : "error"} ${event.content ?? ""}`, 220);
   }
+  if (event.kind === "GOAL_CHANGE" && event.data) {
+    const data = event.data as Record<string, unknown>;
+    const op = String(data.operation ?? "?");
+    if (op === "clear") return `goal cleared (${data.goalId ?? "?"})`;
+    return `goal ${op} ${data.goalId ?? "?"} r${data.goalRevision ?? "?"} → ${
+      data.phase ?? "?"
+    } (round budget ${data.maxRounds ?? "?"})`;
+  }
+  if (event.kind === "HOOK_INVOKED" && event.data) {
+    const data = event.data as Record<string, unknown>;
+    return `hook ${data.point ?? "?"} invoked (${data.handlerId ?? "?"})`;
+  }
+  if (event.kind === "HOOK_RESULT" && event.data) {
+    const data = event.data as Record<string, unknown>;
+    return `hook ${data.handlerId ?? "?"} → ${data.decision ?? "?"} (${
+      data.durationMs ?? "?"
+    }ms)`;
+  }
   if (event.kind === "TODO_SET" && event.data) {
     const items = (event.data as { items?: unknown[] }).items;
     return `todo list replaced (${Array.isArray(items) ? items.length : "?"} items)`;
   }
   if (event.kind === "SCHEDULE_SET" && event.data) {
     const data = event.data as Record<string, unknown>;
-    return `schedule ${data.scheduleId ?? "?"}: ${data.prompt ?? ""}`;
+    const shape = data.cron
+      ? `cron ${data.cron}`
+      : data.intervalSeconds
+        ? `every ${data.intervalSeconds}s`
+        : "one-shot";
+    return data.cancelled
+      ? `schedule ${data.scheduleId ?? "?"} (${shape}) cancelled`
+      : `schedule ${data.scheduleId ?? "?"} (${shape}): ${String(data.prompt ?? "")}`;
   }
   if (event.kind.startsWith("WORKFLOW_") && event.data) {
     const data = event.data as Record<string, unknown>;

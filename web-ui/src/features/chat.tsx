@@ -131,8 +131,10 @@ export async function copyText(text: string): Promise<void> {
 
 function UserRenderer({ event }: { event: { content?: string | null; ts?: number } }) {
   const content = event.content ?? "";
+  const frame = userMessageFrame(content);
   return (
     <div className="bubble">
+      {frame && <div className="frame-label">{frame}</div>}
       {content}
       {content && (
         <span className="icon-actions">
@@ -144,6 +146,19 @@ function UserRenderer({ event }: { event: { content?: string | null; ts?: number
       {typeof event.ts === "number" && <time>{clock(event.ts)}</time>}
     </div>
   );
+}
+
+/**
+ * The framing labels of machine-produced user messages (goal rounds,
+ * scheduled reminders, late answers, compaction summaries) so the chat
+ * never presents them as live human typing.
+ */
+export function userMessageFrame(content: string): string | null {
+  if (content.startsWith("<goal_round>")) return "goal round";
+  if (content.startsWith("[SCHEDULE REMINDER]")) return "scheduled reminder";
+  if (content.startsWith("[answer_to_pending_question]")) return "late answer";
+  if (content.startsWith("[conversation summary]")) return "compacted history";
+  return null;
 }
 
 export const clock = (ts: number): string => {

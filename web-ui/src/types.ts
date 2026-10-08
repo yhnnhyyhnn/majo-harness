@@ -18,6 +18,9 @@ export type EventKind =
   | "WORKFLOW_START"
   | "WORKFLOW_STEP"
   | "WORKFLOW_END"
+  | "HOOK_INVOKED"
+  | "HOOK_RESULT"
+  | "GOAL_CHANGE"
 
 export interface ApprovalDecision {
   decision?: string;

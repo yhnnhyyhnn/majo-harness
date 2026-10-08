@@ -837,4 +837,17 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
+### UI parity for the new event surface (usage-driven)
+
+- **Trajectory** renders the new durable events: GOAL_CHANGE (operation,
+  revision, phase, round budget; clear tombstones), HOOK_INVOKED/
+  HOOK_RESULT pairs (point, decision, duration), TURN_END close reasons
+  (completed vs aborted), goal-round producer labels on user messages,
+  and richer SCHEDULE_SET summaries (cron/recurring/one-shot, cancelled
+  state).
+- **Chat** labels machine-produced user messages with a quiet origin chip
+  — goal round, scheduled reminder, late answer, compacted history — so
+  they are never mistaken for live human typing.
+- Regenerated web types (HOOK_*, GOAL_CHANGE); rebuilt the bundled UI.
+
 Working area for the next iteration.
