@@ -163,6 +163,15 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
         }
     }
 
+    /** The scheduled-message framing prepended to every delivered reminder. */
+    static String renderReminderFraming(Schedule schedule) {
+        return "[SCHEDULE REMINDER] This is a scheduled message from the user "
+                + "(schedule_id=" + schedule.id
+                + ", due_at=" + java.time.Instant.ofEpochMilli(schedule.dueAtMs)
+                + (schedule.cron != null ? ", cron=" + schedule.cron : "")
+                + "). Treat its content as the user's standing instruction:\n";
+    }
+
     // package-private so in-package tests can drive a delivery directly
     void fire(String sessionId, Schedule schedule) {
         if (schedule.cancelled) {
@@ -170,7 +179,12 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
         }
         if (loop != null) {
             try {
-                loop.followup(sessionId, schedule.prompt);
+                // dsh af39300572 parity: the reminder is framed as a scheduled
+                // user message — a source declaration with JSON-encoded
+                // metadata, so the model never mistakes it for live human
+                // instruction or a prompt-injection surface
+                loop.followup(sessionId, renderReminderFraming(schedule)
+                        + schedule.prompt);
             } catch (RuntimeException e) {
                 LOG.error("schedule: delivery of {} failed", schedule.id, e);
             }

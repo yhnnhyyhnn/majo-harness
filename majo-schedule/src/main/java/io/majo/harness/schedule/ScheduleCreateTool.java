@@ -84,6 +84,12 @@ public final class ScheduleCreateTool implements Tool {
         if (sessionId == null) {
             return ToolResult.error("schedule_create runs inside a turn; no session is bound");
         }
+        // dsh parity: a delegated child must not schedule work into a session
+        // the subagent routing owns (the delivery would be permanently overdue)
+        if (InteractionContext.delegationDepth() > 0) {
+            return ToolResult.error("schedule_create: a delegated subagent cannot use "
+                    + "reminders — schedule from the root conversation instead");
+        }
         try {
             JsonNode args = MAPPER.readTree(call.arguments());
             String prompt = args == null || args.path("prompt").asText("").isBlank()

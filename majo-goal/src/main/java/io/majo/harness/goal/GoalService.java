@@ -88,9 +88,22 @@ public final class GoalService extends Service {
         // admission fence: validate the pending attempt before anything logs
         ctx.on(AgentLoopEvents.USER_SUBMIT, (thisArg, args) ->
                 admitRound((String) args[0], (String) args[1]));
-        // re-evaluate driving after every closed turn
+        // re-evaluate driving after every closed turn; a CANCELLED turn also
+        // withdraws its queued round and disarms (dsh goal-round-driver
+        // parity: a stale queued round must not be claimed ahead of a human
+        // prompt, and the human regains control after an interruption)
         ctx.on(AgentLoopEvents.TURN_CLOSED, (thisArg, args) -> {
-            maybeDrive((String) args[0]);
+            String sessionId = (String) args[0];
+            String reason = args.length > 1 && args[1] != null
+                    ? String.valueOf(args[1]) : "completed";
+            if ("aborted".equals(reason)) {
+                if (loop != null) {
+                    loop.withdrawQueuedGoalRounds(sessionId);
+                }
+                pending.remove(sessionId);
+                armed.put(sessionId, false);
+            }
+            maybeDrive(sessionId);
             return null;
         });
     }
@@ -392,6 +405,14 @@ public final class GoalService extends Service {
                 && goal.phase() == Phase.ACTIVE
                 && armed.getOrDefault(sessionId, false)
                 && roundsStarted(sessionId) == attempt.round() - 1;
+        // competing-at-admission fence (dsh parity): any other queued turn
+        // work outranks the round even when the goal state is still valid —
+        // the human prompt queued behind it must not wait a full goal round
+        if (valid && loop != null && loop.hasCompetingTurnWork(sessionId)) {
+            pending.remove(sessionId);
+            throw new GoalException("goal: round stands down — other turn work is "
+                    + "queued; the round will be re-offered once the session is idle");
+        }
         pending.remove(sessionId);
         if (!valid) {
             throw new GoalException("goal: round reservation is stale — the goal state "

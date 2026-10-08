@@ -793,4 +793,28 @@ Working area for the next iteration.
 
 ## [Unreleased]
 
+### Audit Round 3: goal round withdrawal + reminder hardening (dsh 0.2.1-alpha.1 parity)
+
+- **Goal round withdrawal on cancellation** (dsh goal-round-driver
+  9a8d21dfe7 parity): an aborted turn now withdraws its queued goal round
+  from the inbox AND disarms the goal — a stale queued round can never be
+  claimed ahead of a human prompt, and the human regains control after an
+  interruption (a fresh resume re-arms). Admission additionally stands
+  down when other turn work is queued: the human outranks the goal at
+  every point, not just at offer time.
+- **Reminders refused for delegated children** (dsh schedule cluster
+  parity): InteractionContext tracks the delegation depth (0 = root);
+  `schedule_create`/`schedule_update` refuse depth > 0 — a child-created
+  reminder would deliver into a session the subagent routing owns,
+  permanently overdue. `list`/`delete` stay allowed (old tasks remain
+  cleanable).
+- **Reminder framing as scheduled user messages** (dsh af39300572
+  parity): every delivered reminder now opens with `[SCHEDULE REMINDER]
+  This is a scheduled message from the user` + JSON-ish metadata
+  (schedule id, due time, cron) — the model never mistakes it for live
+  human instruction.
+- Audit Round 3 recorded (docs/audit-dsh-2026-09*, ~453 commits, bulk
+  web/desktop polish out of scope); user-questions timed waits queued as
+  the next candidate.
+
 Working area for the next iteration.

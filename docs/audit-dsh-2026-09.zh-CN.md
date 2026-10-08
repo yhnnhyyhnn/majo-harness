@@ -177,3 +177,48 @@ P2 TokenUsage、P3 最小取消体系（类型化 TURN_END + abort）、
 P4 cron schedule；P5 hooks 桥、P6 skill/PTC 深化、P7 goal 系统设计
 研究。宿主产品层（storage/workspace/session-query/preset/desktop）与
 majo 单用户本地定位有张力，明确不做。
+
+---
+
+# 第三轮 — 2026-09-30：对照 dsh 0.2.1-alpha.1 的增量审计
+
+参考项目前进约 453 个提交（0.2.0-rc.1 → 0.2.0-rc.2 → 0.2.1-alpha.1）。
+大头是 web/desktop/UI 打磨与打包（npm channels、插件管理页）——不在
+majo 范围。有三个内核簇重要；两个本周期采纳，一个排队。
+
+## 采纳
+
+1. **取消后撤回 goal 轮**（`goal-round-driver` 9a8d21dfe7）：Stop/取消
+   之后，排队中的 goal 轮若留在 inbox，会被下一条人类 prompt **先**
+   认领——陈旧轮被准入、人类被压后。dsh 在 idle 时撤回排队的轮。majo
+   采纳同一语义：被中止回合的 pending attempt 从 inbox 撤回，且准入时
+   若有其他回合工作排队即让位——人类在**每个点**上都优先于 goal，
+   不只在 offer 时。
+2. **schedule 提醒拒绝委派子代理**（`schedule` 7 提交簇）：从委派
+   子代理创建的提醒会投递到 subagent routing 持有的会话——永久
+   overdue 反复重试。dsh 在工具层按委派深度拒绝。majo 采纳：子轮以
+   委派深度运行（InteractionContext），`schedule_create`/
+   `schedule_update` 在深度 > 0 时拒绝（list/delete 保留——旧任务
+   仍可清理）。
+3. **提醒定性为 scheduled user messages**（af39300572）：到期提醒的
+   投递文本现在以 `[SCHEDULE REMINDER] This is a scheduled message
+   from the user` + JSON 编码元数据（防伪造）开头，不再裸信原始
+   prompt。
+
+## 排队（下一周期候选）
+
+- **user-questions 定时等待 + 迟到回答**（3a316b16b4）：opt-in 的
+  timed ask 立即返回 `{pending}`、轮继续，用户的迟到回答以带标记的
+  user 消息（`answer_to_pending_question`）抵达。相较 majo 的同步
+  阻塞 ask（30s 即拒）是真实能力升级，但是一次更大的交互模型改造
+  ——值得单独一个周期。
+
+## 记录（不动作）
+
+- **上游移除运行时 invariant**（f028f25667）：dsh 删除了 dev 契约
+  invariant 插件，把检查折进普通测试——印证了 majo 一直以来的
+  纯测试路线（ModelVisibleMeansLoggedTest 等）。
+- **PTC 参数顺序引导进 schema 描述**：轻微 prompt 卫生；majo 的
+  `run_code` 动态绑定工具。
+- 会话列表时间切片、ssh 错误名匹配、bundle manifest 卫生：dsh 规模
+  的宿主关切；无可移植项。

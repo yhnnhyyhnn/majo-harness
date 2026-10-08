@@ -348,7 +348,7 @@ public final class AgentLoopService extends Service {
         }
         sessions.append(sessionId, SessionEventType.TURN_END,
                 Map.of(SessionEvent.FIELD_REASON, "completed"));
-        fireTurnClosed(sessionId);
+        fireTurnClosed(sessionId, "completed");
         return lastFinalText(sessions.events(sessionId));
     }
 
@@ -356,17 +356,45 @@ public final class AgentLoopService extends Service {
     private String closeAborted(String sessionId) {
         sessions.append(sessionId, SessionEventType.TURN_END,
                 Map.of(SessionEvent.FIELD_REASON, "aborted"));
-        fireTurnClosed(sessionId);
+        fireTurnClosed(sessionId, "aborted");
         return lastFinalText(sessions.events(sessionId));
     }
 
     /** Fires the {@code agent/turn-closed} event (Stop-bridge seam); never breaks the turn. */
-    private void fireTurnClosed(String sessionId) {
+    private void fireTurnClosed(String sessionId, String reason) {
         try {
-            ctx.emit(AgentLoopEvents.TURN_CLOSED, new Object[] {sessionId});
+            ctx.emit(AgentLoopEvents.TURN_CLOSED, new Object[] {sessionId, reason});
         } catch (RuntimeException e) {
             LOG.warn("agent-loop: turn-closed listener failed on session \"{}\"", sessionId, e);
         }
+    }
+
+    /**
+     * Whether a goal-produced round entry is queued for the session (the
+     * withdrawal check — dsh inbox.remove parity).
+     */
+    public boolean hasQueuedGoalRound(String sessionId) {
+        return inbox(sessionId).hasTurnStart(entry ->
+                "goal".equals(entry.producer().get(SessionEvent.FIELD_PRODUCER)));
+    }
+
+    /**
+     * Withdraws queued goal-produced round entries (dsh goal-round-driver
+     * parity: after a cancellation the stale round must not be claimed ahead
+     * of a human prompt). Returns how many were removed.
+     */
+    public int withdrawQueuedGoalRounds(String sessionId) {
+        return inbox(sessionId).removeTurnStartIf(entry ->
+                "goal".equals(entry.producer().get(SessionEvent.FIELD_PRODUCER)));
+    }
+
+    /**
+     * Whether other turn work is queued behind the entry currently being
+     * submitted (the admission-time competing check — the human outranks the
+     * goal at every point).
+     */
+    public boolean hasCompetingTurnWork(String sessionId) {
+        return inbox(sessionId).size() > 0;
     }
 
     /** Fires the {@code agent/turn-opened} event (repeat-chain reset seam); never breaks the turn. */

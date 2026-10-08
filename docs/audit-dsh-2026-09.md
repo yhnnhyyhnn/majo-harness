@@ -200,3 +200,54 @@ P3 minimal cancellation (typed TURN_END + abort), P4 cron schedules;
 P5 hooks bridge, P6 skill/PTC deepening, P7 goal-system design study.
 The host product layer (storage/workspace/session-query/preset/desktop) is
 explicitly out of scope for majo's single-user-local positioning.
+
+---
+
+# Round 3 — 2026-09-30: incremental against dsh 0.2.1-alpha.1
+
+The reference moved ~453 commits (0.2.0-rc.1 → 0.2.0-rc.2 →
+0.2.1-alpha.1). The bulk is web/desktop/UI polish and packaging (npm
+channels, plugin-manager pages) — out of majo's scope. Three kernel
+clusters matter; two are adopted this cycle, one queued.
+
+## Adopted
+
+1. **Goal round withdrawal on cancellation** (`goal-round-driver`
+   9a8d21dfe7): after a Stop/cancel, a queued goal round left in the
+   inbox would be claimed FIRST by the next human prompt — admitting a
+   stale round and parking the human behind it. dsh withdraws the queued
+   round at idle. majo adopts the same semantics: an aborted turn's
+   pending attempt is withdrawn from the inbox, and admission now also
+   stands down when other turn work is queued (the human outranks the
+   goal at every point, not just at offer time).
+2. **Schedule reminders denied to delegated children** (`schedule` 7-commit
+   cluster): reminders created from a delegated child would fire into a
+   session the subagent routing owns — permanently overdue retries. dsh
+   refuses at the tool layer by delegation depth. majo adopts: child
+   turns run with a delegation depth (InteractionContext), and
+   `schedule_create`/`schedule_update` refuse depth > 0 (list/delete
+   stay allowed — old tasks can still be cleaned up).
+3. **Reminder framing as scheduled user messages** (af39300572): due
+   reminders are now framed as `[SCHEDULE REMINDER] This is a scheduled
+   message from the user` + JSON-encoded metadata (spoof-resistant) in
+   the delivered text, instead of trusting the raw prompt.
+
+## Queued (candidate for the next cycle)
+
+- **User-questions timed waits + late replies** (3a316b16b4): an opt-in
+  timed ask returns `{pending}` immediately, the turn continues, and the
+  user's late answer arrives as a marked user message
+  (`answer_to_pending_question`). A real capability upgrade over majo's
+  sync-blocking ask (30s → deny) but a bigger interaction-model rework —
+  its own cycle.
+
+## Recorded (no action)
+
+- **Runtime invariants removed upstream** (f028f25667): dsh deleted its
+  dev-contract invariant plugin, folding the checks into plain tests —
+  validating majo's test-only approach (ModelVisibleMeansLoggedTest et
+  al.) all along.
+- **PTC argument-order guidance in schema descriptions**: minor prompt
+  hygiene; majo's `run_code` binds tools dynamically.
+- Session-list time slicing, ssh error-name matching, bundle manifest
+  hygiene: dsh-scale hosting concerns; nothing to port.

@@ -62,7 +62,8 @@ class ScheduleTest {
             List<SessionEvent> events = sessions.events(sessionId);
             delivered = events.stream()
                     .anyMatch(event -> event.type() == SessionEventType.USER_MESSAGE
-                            && "check the nightly build".equals(event.content()));
+                            && "check the nightly build".equals(event.content())
+                            || (event.content() != null && event.content().endsWith("check the nightly build")));
             if (!delivered) {
                 Thread.sleep(50);
             }
@@ -194,5 +195,69 @@ class ScheduleTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Mars/Olympus");
         schedules.close();
+    }
+
+    /** dsh 0.2.1 parity: delegated children cannot create or edit reminders. */
+    @Test
+    void reminderToolsRefuseDelegatedChildren() {
+        Context ctx = harness();
+        ctx.plugin(new SchedulePlugin(), null).await().join();
+        io.majo.harness.tools.ToolRegistry tools = ctx.get(io.majo.harness.tools.ToolRegistry.NAME);
+        String sessionId = ((SessionService) ctx.get(SessionService.NAME)).createSession();
+
+        // root depth: allowed (session-bound, no delegation)
+        io.majo.harness.tools.ToolResult created =
+                io.majo.harness.interaction.InteractionContext.runSession(sessionId, () ->
+                        tools.execute(io.majo.harness.tools.ToolCall.of("schedule_create",
+                                "{\"prompt\":\"standup\",\"after_seconds\":3600}")));
+        assertThat(created.ok()).isTrue();
+
+        // a delegated child (depth 1): refused at the tool layer
+        io.majo.harness.interaction.InteractionContext.runSession(sessionId, () ->
+                io.majo.harness.interaction.InteractionContext.run("subagent-child", false, () -> {
+                    io.majo.harness.tools.ToolResult refused = tools.execute(
+                            io.majo.harness.tools.ToolCall.of("schedule_create",
+                                    "{\"prompt\":\"child\",\"after_seconds\":3600}"));
+                    assertThat(refused.ok()).isFalse();
+                    assertThat(refused.error())
+                            .contains("delegated subagent cannot use reminders");
+                    io.majo.harness.tools.ToolResult edited = tools.execute(
+                            io.majo.harness.tools.ToolCall.of("schedule_update",
+                                    "{\"id\":\"sched-1\",\"prompt\":\"x\"}"));
+                    assertThat(edited.ok()).isFalse();
+                    return null;
+                }));
+        ctx.fiber().disposeAsync().join();
+    }
+
+    /** The delivered reminder is framed as a scheduled user message (dsh parity). */
+    @Test
+    void deliveredRemindersCarryTheScheduledMessageFraming() throws Exception {
+        Context ctx = harness();
+        ctx.plugin(new SchedulePlugin(), null).await().join();
+        SessionService sessions = ctx.get(SessionService.NAME);
+        ScheduleService schedules = ctx.get(ScheduleService.NAME);
+        ((io.majo.harness.llm.LLMService) ctx.get(io.majo.harness.llm.LLMService.NAME))
+                .registerModel("model", request -> io.majo.harness.llm.ChatResponse.text("noted"));
+        String sessionId = sessions.createSession();
+
+        ScheduleService.Schedule created = schedules.create(
+                sessionId, "check the nightly build", 1L, null, null);
+        created.dueAtMs = System.currentTimeMillis() - 1000; // due now
+        schedules.fire(sessionId, created);
+
+        long deadline = System.currentTimeMillis() + 5000;
+        boolean framed = false;
+        while (System.currentTimeMillis() < deadline && !framed) {
+            framed = sessions.events(sessionId).stream()
+                    .anyMatch(event -> event.type() == SessionEventType.USER_MESSAGE
+                            && event.content() != null
+                            && event.content().startsWith("[SCHEDULE REMINDER]")
+                            && event.content().contains("scheduled message from the user")
+                            && event.content().endsWith("check the nightly build"));
+            java.util.concurrent.TimeUnit.MILLISECONDS.sleep(50);
+        }
+        assertThat(framed).as("framed reminder delivery").isTrue();
+        ctx.fiber().disposeAsync().join();
     }
 }

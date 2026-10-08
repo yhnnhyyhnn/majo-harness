@@ -16,6 +16,7 @@ public final class InteractionContext {
     private static final ThreadLocal<Boolean> AUTO_APPROVE = new ThreadLocal<>();
     private static final ThreadLocal<List<String>> ALLOWED_TOOLS = new ThreadLocal<>();
     private static final ThreadLocal<String> SESSION = new ThreadLocal<>();
+    private static final ThreadLocal<Integer> DELEGATION_DEPTH = new ThreadLocal<>();
 
     private InteractionContext() {}
 
@@ -43,6 +44,17 @@ public final class InteractionContext {
         return SESSION.get();
     }
 
+    /**
+     * How many delegation hops the current scope sits below the root (0 =
+     * root turn; dsh delegationDepth parity). Reminder tools refuse depth
+     * &gt; 0 — a delegated child must not schedule work into a session the
+     * subagent routing owns.
+     */
+    public static int delegationDepth() {
+        Integer depth = DELEGATION_DEPTH.get();
+        return depth == null ? 0 : depth;
+    }
+
     /** Runs {@code body} bound to a session; always restores state. */
     public static <T> T runSession(String sessionId, Supplier<T> body) {
         SESSION.set(sessionId);
@@ -68,12 +80,19 @@ public final class InteractionContext {
         if (allowedTools != null) {
             ALLOWED_TOOLS.set(List.copyOf(allowedTools));
         }
+        Integer previousDepth = DELEGATION_DEPTH.get();
+        DELEGATION_DEPTH.set((previousDepth == null ? 0 : previousDepth) + 1);
         try {
             return body.get();
         } finally {
             AGENT.remove();
             AUTO_APPROVE.remove();
             ALLOWED_TOOLS.remove();
+            if (previousDepth == null) {
+                DELEGATION_DEPTH.remove();
+            } else {
+                DELEGATION_DEPTH.set(previousDepth);
+            }
         }
     }
 }

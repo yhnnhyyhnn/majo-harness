@@ -48,6 +48,32 @@ final class AgentInbox {
         return turnStarters.poll();
     }
 
+    /**
+     * Withdraws queued turn entries matching the predicate (dsh
+     * inbox.remove parity — a cancelled goal round must not stay queued
+     * ahead of a human prompt). Returns how many entries were removed.
+     */
+    int removeTurnStartIf(java.util.function.Predicate<TurnEntry> predicate) {
+        int removed = 0;
+        for (java.util.Iterator<TurnEntry> it = turnStarters.iterator(); it.hasNext();) {
+            if (predicate.test(it.next())) {
+                it.remove();
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    /** Whether any queued turn entry matches the predicate. */
+    boolean hasTurnStart(java.util.function.Predicate<TurnEntry> predicate) {
+        for (TurnEntry entry : turnStarters) {
+            if (predicate.test(entry)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Drains every queued note (delivery order preserved). */
     Queue<Note> drainNotes() {
         Queue<Note> delivered = new ConcurrentLinkedQueue<>();

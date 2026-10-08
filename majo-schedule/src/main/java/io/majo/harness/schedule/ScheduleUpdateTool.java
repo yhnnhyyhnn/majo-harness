@@ -58,6 +58,11 @@ public final class ScheduleUpdateTool implements Tool {
             if (sessionId == null) {
                 return ToolResult.error("schedule_update: no active session");
             }
+            // dsh parity: delegated children cannot create or reschedule reminders
+            if (io.majo.harness.interaction.InteractionContext.delegationDepth() > 0) {
+                return ToolResult.error("schedule_update: a delegated subagent cannot use "
+                        + "reminders — schedule from the root conversation instead");
+            }
             String prompt = args.hasNonNull("prompt") ? args.get("prompt").asText() : null;
             Long afterSeconds = args.hasNonNull("after_seconds")
                     ? args.get("after_seconds").asLong() : null;
