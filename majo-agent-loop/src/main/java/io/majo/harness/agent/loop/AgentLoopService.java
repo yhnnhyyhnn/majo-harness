@@ -80,6 +80,13 @@ public final class AgentLoopService extends Service {
      */
     private final Map<String, AtomicBoolean> aborts = new ConcurrentHashMap<>();
     /**
+     * Clean turn-end requests (dsh {@code concludeTurn} parity): a tool asked
+     * to end the turn after its batch — the turn closes {@code completed}
+     * instead of dispatching another model request. Cleared at turn open,
+     * like {@link #aborts}.
+     */
+    private final Map<String, AtomicBoolean> concludes = new ConcurrentHashMap<>();
+    /**
      * Lazily-evaluated system-prompt sections contributed by plugins (dsh
      * server-context analog), assembled in id order after the configured
      * prompt — and recorded verbatim in every REQUEST_HEADER, so the
@@ -211,6 +218,18 @@ public final class AgentLoopService extends Service {
         aborts.computeIfAbsent(sessionId, ignored -> new AtomicBoolean()).set(true);
     }
 
+    /**
+     * Requests a clean end of the session's running turn (dsh
+     * {@code concludeTurn} analog): after the current tool batch the turn
+     * closes with reason {@code completed} — no further model request —
+     * returning the answer produced so far. Unlike {@link #abort} this is
+     * not cancellation: the tool results stay durable and model-visible,
+     * and the next user message simply starts the next request.
+     */
+    public void requestConclude(String sessionId) {
+        concludes.computeIfAbsent(sessionId, ignored -> new AtomicBoolean()).set(true);
+    }
+
     /** Inbox depth for the session (turn starters + undelivered notes). */
     public int queuedCount(String sessionId) {
         AgentInbox inbox = inboxes.get(sessionId);
@@ -303,6 +322,8 @@ public final class AgentLoopService extends Service {
         // a stale abort on an idle session must not kill this fresh turn
         AtomicBoolean aborted = aborts.computeIfAbsent(sessionId, ignored -> new AtomicBoolean());
         aborted.set(false);
+        AtomicBoolean concluded = concludes.computeIfAbsent(sessionId, ignored -> new AtomicBoolean());
+        concluded.set(false);
         // notes queued while nobody was driving land before the user message
         deliverQueuedNotes(sessionId);
         appendUserMessage(sessionId, userText, producer);
@@ -345,6 +366,11 @@ public final class AgentLoopService extends Service {
                 return closeAborted(sessionId);
             }
             executeTools(sessionId, response.toolCalls());
+            // a tool requested a clean end (dsh concludeTurn parity): close
+            // completed without spending another model request
+            if (concluded.get()) {
+                break;
+            }
         }
         sessions.append(sessionId, SessionEventType.TURN_END,
                 Map.of(SessionEvent.FIELD_REASON, "completed"));

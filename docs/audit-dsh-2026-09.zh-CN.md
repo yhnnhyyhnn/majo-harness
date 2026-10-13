@@ -222,3 +222,50 @@ majo 范围。有三个内核簇重要；两个本周期采纳，一个排队。
   `run_code` 动态绑定工具。
 - 会话列表时间切片、ssh 错误名匹配、bundle manifest 卫生：dsh 规模
   的宿主关切；无可移植项。
+
+---
+
+# Round 4 — 2026-10-13：对照 dsh 0.2.1-alpha.2 的增量
+
+参考项目前进约 450 个提交（0.2.1-alpha.1 → 0.2.1-alpha.2，master 截至
+2026-10-09）。大头仍是 web/desktop/UI 打磨、打包与 experimental 包
+重组（`b48384223a`）——不在范围内。一个内核簇采纳；其余记录。
+
+## 采纳
+
+1. **被否决的 plan review 结束回合**（`plan-mode` 18a4bc4093 +
+   0155017b73）：dsh 中选 "Request changes"/关闭评审原本会 reject
+   问题，`exit_plan_mode` 把它变成一个要求模型停下的失败工具结果
+   ——白白多花一次模型请求只为听到"我等"。现在否决以成功的调用
+   返回 `{approved: false}` 并**结束回合**，用户下一条消息开启下一
+   个请求；plan 策略只在 `approved: true` 时退出 plan mode。majo 的
+   洞更尖：无人应答的评审（web 处理器超时/关闭时返回 `""`）直接落
+   进 approve 分支——**被无视的评审会自动批准计划**。现在空回复按
+   否决处理：不批准、不当反馈、plan 保持 active，并经新的
+   `AgentLoopService.requestConclude`（dsh `concludeTurn` 的对应物，
+   区别于 `abort`：工具结果保持持久且模型可见）以 `completed` 关闭
+   回合、不再多花一次模型请求。`majo-plan` 新增对
+   `majo-agent-loop` 的依赖（与 goal/hooks/compaction 同构）。
+
+## 记录（不动作）
+
+- **session-title 保留**（1d37aabe99, 353fe00d63）：dsh 的
+  `all-prompts` 自动模式现在把现有标题连同"主题没实质变化就原样
+  返回"的指令回传模型，止住每次追问都改写标题的抖动。majo 的
+  标题一次成功即缓存，不存在抖动模式；保留分歧（仅当 majo 将来
+  做重生成时再评估）。
+- **acp 簇**（释放被取消子任务的等待、取消绑定到被中断的根活动）：
+  Agent Client Protocol 包在 majo 无对应物；相邻的 subagent 修复
+  （`b730d6c0c9`，parked inbox 拖延宿主完成）针对可续行子代理——
+  majo 的 `delegate_task` 是一次性同步。
+- **agent-loop 关停所有权 / teardown 聚合**（bff2d40dee 一簇）：
+  dsh cordis fiber 生命周期内部事务；属于 jcordis 一侧，不属于 majo。
+- **LLM prepared-call 控制 + 最小 reasoning 下限**（ffb88d331e,
+  32a561f3a6, 9e36f20675, c56fdb023e）：dsh 调用准备层里的
+  DeepSeek 专属 reasoning 协商。仅当 majo 将来支持按调用配置
+  reasoning 时再评估。
+- **同版本 session schema 评审流程**（5c5b51257a）与 format-status
+  API（a2dd724c60）：上游 v4 流程记录；majo 维持 v1 + 迁移链机制。
+- **插件 bundle 生命周期校验**（8a9767c25e）、混合工具呈现移除
+  （4359d3ee17）、request-extension 警告只记一次（7facb1cf65）：
+  bundle 层/文档整理/dsh 内部日志；majo 规模下无可移植项。

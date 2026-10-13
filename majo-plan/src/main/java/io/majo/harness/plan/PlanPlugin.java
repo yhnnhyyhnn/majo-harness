@@ -3,6 +3,7 @@ package io.majo.harness.plan;
 import io.jcordis.core.context.Context;
 import io.jcordis.core.registry.Plugin;
 import io.jcordis.core.util.Disposable;
+import io.majo.harness.agent.loop.AgentLoopService;
 import io.majo.harness.interaction.InteractionService;
 import io.majo.harness.session.SessionProjections;
 import io.majo.harness.session.SessionService;
@@ -26,11 +27,13 @@ public final class PlanPlugin implements Plugin {
     public Object apply(Context ctx, Object config) {
         SessionService sessions = ctx.get(SessionService.NAME);
         InteractionService interactions = ctx.get(InteractionService.NAME);
+        AgentLoopService loop = ctx.get(AgentLoopService.NAME);
         ToolRegistry tools = ctx.get(ToolRegistry.NAME);
         SessionProjections projections = ctx.get(SessionProjections.NAME);
         Disposable projection = projections.register(PlanState.KEY, new PlanState());
         Disposable tool = tools.register(
-                new ExitPlanModeTool(sessions, interactions, projections.require(PlanState.KEY)));
+                new ExitPlanModeTool(sessions, interactions,
+                        projections.require(PlanState.KEY), loop));
         return Disposables.composite(projection, tool);
     }
 
@@ -39,6 +42,7 @@ public final class PlanPlugin implements Plugin {
         Map<String, Object> inject = new HashMap<>();
         inject.put(SessionService.NAME, null);
         inject.put(InteractionService.NAME, null);
+        inject.put(AgentLoopService.NAME, null);
         inject.put(ToolRegistry.NAME, null);
         inject.put(SessionProjections.NAME, null);
         return inject;

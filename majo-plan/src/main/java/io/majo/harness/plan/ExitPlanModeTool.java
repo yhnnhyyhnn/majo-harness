@@ -3,6 +3,7 @@ package io.majo.harness.plan;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.majo.harness.agent.loop.AgentLoopService;
 import io.majo.harness.interaction.InteractionContext;
 import io.majo.harness.interaction.InteractionService;
 import io.majo.harness.interaction.Question;
@@ -20,9 +21,12 @@ import java.util.Map;
  * plan is ready. The plan text goes to the human through the interaction
  * seam — "approve" records the plan's deactivation (PLAN_SET active=false)
  * and green-lights implementation; any other answer is feedback: the plan
- * stays active and the text rides back to the model in the tool result.
- * Calling it with no plan active fails loudly so spurious calls teach
- * themselves.
+ * stays active and the text rides back to the model in the tool result. A
+ * dismissed review (no answer — the web handler returns {@code ""} on
+ * timeout/dismiss) neither approves nor feeds back: the turn ends cleanly
+ * (dsh concludeTurn parity) and the human's next message starts the next
+ * request. Calling it with no plan active fails loudly so spurious calls
+ * teach themselves.
  */
 public final class ExitPlanModeTool implements Tool {
 
@@ -33,19 +37,22 @@ public final class ExitPlanModeTool implements Tool {
             NAME,
             "Call this when your plan for the current task is complete. Your plan goes to "
                     + "the human for review: they approve it (proceed with implementation) or "
-                    + "reply with feedback (revise the plan and call this again). Never call it "
-                    + "with no plan active.",
+                    + "reply with feedback (revise the plan and call this again). If they "
+                    + "dismiss the review without answering, the turn ends and you wait for "
+                    + "their next message. Never call it with no plan active.",
             schema());
 
     private final SessionService sessions;
     private final InteractionService interactions;
     private final PlanState plans;
+    private final AgentLoopService loop;
 
     public ExitPlanModeTool(SessionService sessions, InteractionService interactions,
-            PlanState plans) {
+            PlanState plans, AgentLoopService loop) {
         this.sessions = sessions;
         this.interactions = interactions;
         this.plans = plans;
+        this.loop = loop;
     }
 
     private static JsonNode schema() {
@@ -81,7 +88,16 @@ public final class ExitPlanModeTool implements Tool {
                         + "Reply \"approve\" to accept this plan, or send your changes to keep planning.",
                 InteractionContext.agent()));
         String normalized = answer == null ? "" : answer.trim();
-        if (normalized.isEmpty() || normalized.equalsIgnoreCase("approve")
+        if (normalized.isEmpty()) {
+            // a dismissed review (dsh parity): no approval and no feedback —
+            // the human took the turn back, so it ends here instead of
+            // spending a model request on waiting
+            loop.requestConclude(sessionId);
+            return ToolResult.ok("the human dismissed the plan review to reply in their own "
+                    + "words; plan mode remains active — wait for their next message",
+                    Map.of("approved", false));
+        }
+        if (normalized.equalsIgnoreCase("approve")
                 || normalized.toLowerCase().startsWith("approve")) {
             sessions.append(sessionId, SessionEventType.PLAN_SET,
                     Map.of(SessionEvent.FIELD_ACTIVE, false,

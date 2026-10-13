@@ -21,7 +21,9 @@ import org.junit.jupiter.api.Test;
 /**
  * exit_plan_mode semantics (dsh plan-mode): review through the interaction
  * seam, approval records the deactivation, feedback keeps the plan active
- * and rides the tool result back to the model.
+ * and rides the tool result back to the model, and a dismissed review
+ * (empty answer) neither approves nor feeds back — it ends the turn
+ * cleanly without another model request (dsh concludeTurn parity).
  */
 class PlanTest {
 
@@ -30,6 +32,9 @@ class PlanTest {
         ctx.plugin(new SessionPlugin(), Map.of("store", "memory")).await().join();
         ctx.plugin(new SessionProjectionsPlugin(), null).await().join();
         ctx.plugin(new ToolsPlugin(), null).await().join();
+        ctx.plugin(new io.majo.harness.llm.LLMServicePlugin(), Map.of("defaultModel", "model"))
+                .await().join();
+        ctx.plugin(new io.majo.harness.agent.loop.AgentLoopPlugin(), null).await().join();
         ctx.plugin(new InteractionPlugin(), cannedAnswer == null
                 ? Map.of()
                 : Map.of("answer", cannedAnswer)).await().join();
@@ -99,5 +104,66 @@ class PlanTest {
         assertThat(plans.snapshot(sessionId).active()).isTrue();
         // no durable deactivation: the log still holds only the activation
         assertThat(sessions.events(sessionId)).hasSize(1);
+    }
+
+    @Test
+    void dismissedReviewNeitherApprovesNorFeedsBack() {
+        Context ctx = harness("canned:");
+        SessionService sessions = ctx.get(SessionService.NAME);
+        SessionProjections projections = ctx.get(SessionProjections.NAME);
+        String sessionId = sessions.createSession();
+        sessions.append(sessionId, SessionEventType.PLAN_SET,
+                Map.of(io.majo.harness.session.SessionEvent.FIELD_ACTIVE, true,
+                        io.majo.harness.session.SessionEvent.FIELD_PLAN, "1. measure"));
+        PlanState plans = projections.require(PlanState.KEY);
+
+        ToolResult result = callExit(ctx, sessionId);
+
+        assertThat(result.ok()).isTrue();
+        assertThat(result.data().get("approved")).isEqualTo(false);
+        assertThat(result.visibleText())
+                .contains("dismissed the plan review")
+                .contains("remains active");
+        // no approval, no feedback: the plan stays active and nothing durable
+        // was appended beyond the activation
+        assertThat(plans.snapshot(sessionId).active()).isTrue();
+        assertThat(sessions.events(sessionId)).hasSize(1);
+    }
+
+    @Test
+    void dismissedReviewEndsTheTurnWithoutAnotherModelRequest() {
+        Context ctx = harness("canned:");
+        SessionService sessions = ctx.get(SessionService.NAME);
+        SessionProjections projections = ctx.get(SessionProjections.NAME);
+        io.majo.harness.agent.loop.AgentLoopService loop =
+                ctx.get(io.majo.harness.agent.loop.AgentLoopService.NAME);
+        java.util.concurrent.atomic.AtomicInteger requests = new java.util.concurrent.atomic.AtomicInteger();
+        ((io.majo.harness.llm.LLMService) ctx.get(io.majo.harness.llm.LLMService.NAME))
+                .registerModel("model", request -> {
+                    // the second request happens only if the dismissal
+                    // regresses to "ask the model to wait"
+                    return requests.incrementAndGet() == 1
+                            ? io.majo.harness.llm.ChatResponse.toolCalls(java.util.List.of(
+                                    ToolCall.of("exit_plan_mode", "{\"summary\":\"refactor\"}")))
+                            : io.majo.harness.llm.ChatResponse.text("waiting for your message.");
+                });
+        String sessionId = sessions.createSession();
+        sessions.append(sessionId, SessionEventType.PLAN_SET,
+                Map.of(io.majo.harness.session.SessionEvent.FIELD_ACTIVE, true,
+                        io.majo.harness.session.SessionEvent.FIELD_PLAN, "1. measure"));
+        PlanState plans = projections.require(PlanState.KEY);
+
+        loop.runTurn(sessionId, "plan the storage refactor");
+
+        assertThat(requests.get()).isEqualTo(1);
+        assertThat(plans.snapshot(sessionId).active()).isTrue();
+        // the turn closed completed (not aborted) with the tool result durable
+        SessionEvent turnEnd = sessions.events(sessionId).stream()
+                .filter(event -> event.type() == SessionEventType.TURN_END)
+                .findFirst().orElseThrow();
+        assertThat(turnEnd.fields()
+                .get(io.majo.harness.session.SessionEvent.FIELD_REASON)).isEqualTo("completed");
+        assertThat(sessions.events(sessionId).stream()
+                .anyMatch(event -> event.type() == SessionEventType.TOOL_RESULT)).isTrue();
     }
 }

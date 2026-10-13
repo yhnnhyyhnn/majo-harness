@@ -251,3 +251,59 @@ clusters matter; two are adopted this cycle, one queued.
   hygiene; majo's `run_code` binds tools dynamically.
 - Session-list time slicing, ssh error-name matching, bundle manifest
   hygiene: dsh-scale hosting concerns; nothing to port.
+
+---
+
+# Round 4 — 2026-10-13: incremental against dsh 0.2.1-alpha.2
+
+The reference moved ~450 commits (0.2.1-alpha.1 → 0.2.1-alpha.2, master
+through 2026-10-09). The bulk is again web/desktop/UI polish, packaging,
+and an experimental-packages reorg (`b48384223a`) — out of scope. One
+kernel cluster is adopted; the rest is recorded.
+
+## Adopted
+
+1. **Dismissed plan review ends the turn** (`plan-mode` 18a4bc4093 +
+   0155017b73): in dsh, choosing "Request changes" / closing the review
+   used to reject the question, and `exit_plan_mode` turned that into a
+   failed tool result asking the model to stop — one wasted model request
+   just to hear "I'll wait". dsh now returns `{approved: false}` from a
+   successful call and *concludes the turn*, so the user's next message
+   starts the following request; the plan policy exits plan mode only on
+   `approved: true`. majo had the same hole, sharper: an unanswered
+   review (the web handler returns `""` on timeout/dismiss) fell into the
+   approve branch — **an ignored review auto-approved the plan**. majo now
+   treats an empty answer as dismissal: no approval, no feedback, plan
+   stays active, and the turn closes `completed` without another model
+   request via the new `AgentLoopService.requestConclude` (dsh
+   `concludeTurn` analog — unlike `abort`, tool results stay durable and
+   model-visible). `majo-plan` gains a dependency on `majo-agent-loop`
+   (same shape as goal/hooks/compaction).
+
+## Recorded (no action)
+
+- **Session-title preservation** (1d37aabe99, 353fe00d63): dsh's
+  `all-prompts` automatic mode now passes the current title back to the
+  model with "keep it unless the topic materially changed" instructions,
+  stopping per-follow-up title churn. majo memoizes a successful
+  derivation once per session, so the churn mode does not exist;
+  divergence kept (revisit only if majo ever regenerates titles).
+- **acp cluster** (release-cancelled-child waits, cancellation bound to
+  the interrupted root activity): the Agent Client Protocol package has
+  no majo counterpart; the adjacent subagent fix (`b730d6c0c9`, parked
+  inboxes delaying host completion) targets continuable children —
+  majo's `delegate_task` is one-shot sync.
+- **agent-loop shutdown ownership / teardown aggregation** (bff2d40dee
+  + friends): dsh cordis-fiber lifecycle internals; belongs to the
+  jcordis side of the house, not majo.
+- **LLM prepared-call controls + minimum-reasoning floor** (ffb88d331e,
+  32a561f3a6, 9e36f20675, c56fdb023e): DeepSeek-specific reasoning-effort
+  negotiation inside dsh's call-preparation layer. Candidate only if
+  majo ever grows per-call reasoning configuration.
+- **Same-version session schema review process** (5c5b51257a) and the
+  format-status API (a2dd724c60): upstream v4 process notes; majo stays
+  v1 with its migration-chain mechanism.
+- **Plugin bundle lifecycle validation** (8a9767c25e), mixed tool
+  presentation removal (4359d3ee17), request-extension warn-once
+  (7facb1cf65): bundle-layer / docs churn / dsh-internal logging; nothing
+  at majo's scale.
