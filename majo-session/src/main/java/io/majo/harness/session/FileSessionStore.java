@@ -202,10 +202,10 @@ public final class FileSessionStore implements SessionStore {
     }
 
     /**
-     * Cheap event count: non-blank lines minus the header, with no JSON
-     * parsing — valid because reads repair partial trailing lines, so a
-     * committed file is exactly header + one line per event. Equals
-     * {@code events(sessionId).size()} for existing sessions.
+     * Cheap event count: non-blank lines minus the header, with almost no JSON
+     * parsing — except that a crash-torn trailing line (no final newline,
+     * unparseable) is not committed and is excluded, mirroring the repair
+     * {@link #events} performs, so the count equals {@code events().size()}.
      */
     @Override
     public int eventCount(String sessionId) {
@@ -217,19 +217,34 @@ public final class FileSessionStore implements SessionStore {
                 }
                 List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
                 int count = 0;
+                String lastNonBlank = null;
                 for (int index = 0; index < lines.size(); index++) {
-                    if (lines.get(index).isBlank()) {
+                    String line = lines.get(index);
+                    if (line.isBlank()) {
                         continue;
                     }
-                    if (index == 0 && SessionFileFormat.parseHeader(lines.get(0)) != null) {
+                    if (index == 0 && SessionFileFormat.parseHeader(line) != null) {
                         continue;
                     }
                     count++;
+                    lastNonBlank = line;
+                }
+                if (lastNonBlank != null && endsWithoutNewline(file) && !parses(lastNonBlank)) {
+                    count--;
                 }
                 return count;
             } catch (IOException e) {
                 throw new IllegalStateException("cannot count session \"" + sessionId + "\"", e);
             }
+        }
+    }
+
+    private static boolean parses(String line) {
+        try {
+            MAPPER.readValue(line, SessionEvent.class);
+            return true;
+        } catch (IOException e) {
+            return false;
         }
     }
 

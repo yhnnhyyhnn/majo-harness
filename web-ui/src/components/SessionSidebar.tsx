@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
+import { api, downloadUrl } from "../api";
 import type { SearchHit, SessionInfo } from "../types";
 import type { useChat } from "../useChat";
 
@@ -333,8 +333,9 @@ export function SessionSidebar({
                   onClick={(event) => {
                     event.stopPropagation();
                     const anchor = document.createElement("a");
-                    anchor.href =
-                      "/api/sessions/" + encodeURIComponent(s.id) + "/export";
+                    anchor.href = downloadUrl(
+                      "/api/sessions/" + encodeURIComponent(s.id) + "/export"
+                    );
                     anchor.download = "";
                     document.body.appendChild(anchor);
                     anchor.click();

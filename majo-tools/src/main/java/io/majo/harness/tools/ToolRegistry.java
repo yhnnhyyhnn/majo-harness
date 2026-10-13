@@ -106,4 +106,12 @@ public final class ToolRegistry extends Service {
             return ToolResult.error("tool \"" + call.name() + "\" threw " + e);
         }
     }
+
+    /**
+     * Releases the bounded-call executor. Called when the owning plugin
+     * unloads; with the deadline disabled no thread was ever started.
+     */
+    public void shutdown() {
+        toolExecutor.shutdown();
+    }
 }

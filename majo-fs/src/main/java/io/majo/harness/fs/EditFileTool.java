@@ -88,15 +88,10 @@ public final class EditFileTool implements Tool {
                 return ToolResult.error("edit_file: old_string not found in " + path
                         + " — read the file and copy the text verbatim");
             }
-            int second = content.indexOf(oldText, first + 1);
+            int second = content.indexOf(oldText, first + oldText.length());
             if (second >= 0 && !replaceAll) {
-                int occurrences = 2;
-                int scan = content.indexOf(oldText, second + 1);
-                while (scan >= 0) {
-                    occurrences++;
-                    scan = content.indexOf(oldText, scan + 1);
-                }
-                return ToolResult.error("edit_file: old_string appears " + occurrences
+                return ToolResult.error("edit_file: old_string appears "
+                        + occurrences(content, oldText)
                         + " times in " + path + " — add surrounding context to make it "
                         + "unique, or pass replace_all=true");
             }
@@ -104,7 +99,7 @@ public final class EditFileTool implements Tool {
                     ? content.replace(oldText, newText)
                     : content.substring(0, first) + newText + content.substring(first + oldText.length());
             fs.writeText(path, updated);
-            int replaced = replaceAll ? Math.max(1, occurrences(content, oldText)) : 1;
+            int replaced = replaceAll ? occurrences(content, oldText) : 1;
             return ToolResult.ok("edited " + path + " (" + replaced
                     + (replaced == 1 ? " occurrence" : " occurrences") + " replaced)",
                     Map.of("path", path, "replacements", replaced));
@@ -115,12 +110,13 @@ public final class EditFileTool implements Tool {
         }
     }
 
+    /** Non-overlapping match count — mirrors what {@link String#replace} actually replaces. */
     private static int occurrences(String content, String text) {
         int count = 0;
         int index = content.indexOf(text);
         while (index >= 0) {
             count++;
-            index = content.indexOf(text, index + 1);
+            index = content.indexOf(text, index + text.length());
         }
         return count;
     }

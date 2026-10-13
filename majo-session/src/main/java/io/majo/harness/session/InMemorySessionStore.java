@@ -37,6 +37,13 @@ public final class InMemorySessionStore implements SessionStore {
         return List.copyOf(events);
     }
 
+    /** {@code 0} for unknown sessions, per the {@link SessionStore} contract. */
+    @Override
+    public synchronized int eventCount(String sessionId) {
+        List<SessionEvent> events = sessions.get(sessionId);
+        return events == null ? 0 : events.size();
+    }
+
     @Override
     public synchronized List<String> sessionIds() {
         return List.copyOf(sessions.keySet());

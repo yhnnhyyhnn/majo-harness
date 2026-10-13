@@ -274,7 +274,7 @@ public final class GoalToolPlugin implements Plugin {
                     }
                 }
                 wrapupIfAutonomous(action, human, sessionId, goal);
-                return ToolResult.ok("goal " + action + "d: " + describe(goal,
+                return ToolResult.ok("goal " + pastTense(action) + ": " + describe(goal,
                         goals.roundsStarted(sessionId)),
                         Map.of("goalId", goal.goalId(), "revision", goal.revision(),
                                 "phase", goal.phase().name().toLowerCase()));
@@ -342,6 +342,15 @@ public final class GoalToolPlugin implements Plugin {
         }
         text.append("\nobjective: ").append(goal.objective());
         return text.toString();
+    }
+
+    /** The action's model-visible past tense ("edit" → "edited", not "editd"). */
+    private static String pastTense(String action) {
+        return switch (action) {
+            case "edit" -> "edited";
+            case "blocked" -> "blocked";
+            default -> action + "d"; // pause/resume/complete → paused/resumed/completed
+        };
     }
 
     @Override

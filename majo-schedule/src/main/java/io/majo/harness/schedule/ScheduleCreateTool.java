@@ -15,7 +15,6 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.TemporalAdjusters;
 import java.util.Map;
 
 /**
@@ -180,17 +179,16 @@ public final class ScheduleCreateTool implements Tool {
         try {
             LocalTime time = LocalTime.parse(timeText,
                     DateTimeFormatter.ofPattern("HH:mm"));
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime next = now.with(time);
-            if (!next.isAfter(now)) {
-                next = next.plusDays(1);
-            }
-            long dueAtMs = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            // a cron row, not a fixed 24h interval: the fire time stays pinned
+            // to the local wall clock across DST transitions
+            String cron = time.getMinute() + " " + time.getHour() + " * * *";
             ScheduleService.Schedule schedule = schedules.create(
-                    sessionId, prompt, null, dueAtMs, 86_400L);
+                    sessionId, prompt, null, null, null, cron, null);
+            String next = java.time.Instant.ofEpochMilli(schedule.dueAtMs)
+                    .atZone(ZoneId.systemDefault()).toLocalDateTime().toString();
             return ToolResult.ok("daily schedule " + schedule.id + " fires at "
-                    + timeText + " (next: " + next.toLocalDate() + " "
-                    + timeText + ")", Map.of("id", schedule.id, "dueAt", schedule.dueAtMs));
+                    + timeText + " (next: " + next + ")",
+                    Map.of("id", schedule.id, "dueAt", schedule.dueAtMs, "cron", schedule.cron));
         } catch (java.time.format.DateTimeParseException e) {
             return ToolResult.error(
                     "schedule_create: daily must be \"HH:mm\" (e.g. \"09:00\")");
@@ -204,18 +202,16 @@ public final class ScheduleCreateTool implements Tool {
             DayOfWeek day = DayOfWeek.valueOf(dayText.toUpperCase());
             LocalTime time = LocalTime.parse(timeText,
                     DateTimeFormatter.ofPattern("HH:mm"));
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime next = now.with(java.time.temporal.TemporalAdjusters.nextOrSame(day))
-                    .with(time);
-            if (!next.isAfter(now)) {
-                next = next.with(TemporalAdjusters.next(day));
-            }
-            long dueAtMs = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            // a cron row (Vixie day-of-week, 0/7 = Sunday), not a fixed
+            // 604800s interval: DST-stable by construction
+            String cron = time.getMinute() + " " + time.getHour() + " * * " + day.getValue();
             ScheduleService.Schedule schedule = schedules.create(
-                    sessionId, prompt, null, dueAtMs, 604_800L);
+                    sessionId, prompt, null, null, null, cron, null);
+            String next = java.time.Instant.ofEpochMilli(schedule.dueAtMs)
+                    .atZone(ZoneId.systemDefault()).toLocalDateTime().toString();
             return ToolResult.ok("weekly schedule " + schedule.id + " fires every "
-                    + day + " at " + timeText + " (next: " + next.toLocalDate() + ")",
-                    Map.of("id", schedule.id, "dueAt", schedule.dueAtMs));
+                    + day + " at " + timeText + " (next: " + next + ")",
+                    Map.of("id", schedule.id, "dueAt", schedule.dueAtMs, "cron", schedule.cron));
         } catch (IllegalArgumentException e) {
             return ToolResult.error("schedule_create: weekly day must be MONDAY…SUNDAY, "
                     + "time must be \"HH:mm\"");

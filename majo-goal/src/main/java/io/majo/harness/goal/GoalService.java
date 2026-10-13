@@ -85,9 +85,24 @@ public final class GoalService extends Service {
                 && map.get("blockedAfterConsecutiveRounds") instanceof Number number
                 && number.intValue() > 0 ? number.intValue() : DEFAULT_BLOCKED_AFTER;
         rescan();
-        // admission fence: validate the pending attempt before anything logs
-        ctx.on(AgentLoopEvents.USER_SUBMIT, (thisArg, args) ->
-                admitRound((String) args[0], (String) args[1]));
+        // admission fence: validate the pending attempt before anything logs.
+        // A rejected round (stale state, competing work) fails the turn before
+        // TURN_START, so no turn-closed event follows — re-evaluate driving
+        // right here or a round-limit goal stays ACTIVE forever
+        ctx.on(AgentLoopEvents.USER_SUBMIT, (thisArg, args) -> {
+            String sessionId = (String) args[0];
+            try {
+                return admitRound(sessionId, (String) args[1]);
+            } catch (GoalException rejected) {
+                try {
+                    maybeDrive(sessionId);
+                } catch (RuntimeException redriveFailure) {
+                    LOG.warn("goal: post-rejection re-drive failed on session \"{}\"", sessionId,
+                            redriveFailure);
+                }
+                throw rejected;
+            }
+        });
         // re-evaluate driving after every closed turn; a CANCELLED turn also
         // withdraws its queued round and disarms (dsh goal-round-driver
         // parity: a stale queued round must not be claimed ahead of a human

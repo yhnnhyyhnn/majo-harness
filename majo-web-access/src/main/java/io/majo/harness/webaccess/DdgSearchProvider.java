@@ -72,7 +72,9 @@ public final class DdgSearchProvider implements SearchProvider {
             return parse(new String(response.body(), StandardCharsets.UTF_8), request.limit());
         } catch (WebAccessException e) {
             throw e;
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
+            throw new WebAccessException("duckduckgo search failed: " + e.getMessage());
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new WebAccessException("duckduckgo search failed: " + e.getMessage());
         }
@@ -123,11 +125,12 @@ public final class DdgSearchProvider implements SearchProvider {
         if (text == null) {
             return "";
         }
-        return text.replace("&amp;", "&")
-                .replace("&lt;", "<")
+        return text.replace("&lt;", "<")
                 .replace("&gt;", ">")
                 .replace("&quot;", "\"")
                 .replace("&#39;", "'")
-                .replace("&nbsp;", " ");
+                .replace("&nbsp;", " ")
+                // last: entities the provider escaped must not double-decode
+                .replace("&amp;", "&");
     }
 }

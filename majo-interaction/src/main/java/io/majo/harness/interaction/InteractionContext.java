@@ -55,13 +55,59 @@ public final class InteractionContext {
         return depth == null ? 0 : depth;
     }
 
+    /**
+     * Runs {@code body} with an explicit binding snapshot, restoring all five
+     * values on exit. The agent loop's parallel-delegate path uses it to carry
+     * the turn's bindings onto pool threads (a bare ThreadLocal does not
+     * survive the thread hop).
+     */
+    public static <T> T runBound(String agent, boolean autoApprove, List<String> allowedTools,
+            String sessionId, int delegationDepth, Supplier<T> body) {
+        String previousAgent = AGENT.get();
+        Boolean previousAuto = AUTO_APPROVE.get();
+        List<String> previousAllowed = ALLOWED_TOOLS.get();
+        String previousSession = SESSION.get();
+        Integer previousDepth = DELEGATION_DEPTH.get();
+        AGENT.set(agent);
+        if (autoApprove) {
+            AUTO_APPROVE.set(true);
+        }
+        if (allowedTools != null) {
+            ALLOWED_TOOLS.set(List.copyOf(allowedTools));
+        }
+        SESSION.set(sessionId);
+        DELEGATION_DEPTH.set(delegationDepth);
+        try {
+            return body.get();
+        } finally {
+            restore(AGENT, previousAgent);
+            restore(AUTO_APPROVE, previousAuto);
+            restore(ALLOWED_TOOLS, previousAllowed);
+            restore(SESSION, previousSession);
+            restore(DELEGATION_DEPTH, previousDepth);
+        }
+    }
+
+    private static <T> void restore(ThreadLocal<T> local, T previous) {
+        if (previous == null) {
+            local.remove();
+        } else {
+            local.set(previous);
+        }
+    }
+
     /** Runs {@code body} bound to a session; always restores state. */
     public static <T> T runSession(String sessionId, Supplier<T> body) {
+        String previous = SESSION.get();
         SESSION.set(sessionId);
         try {
             return body.get();
         } finally {
-            SESSION.remove();
+            if (previous == null) {
+                SESSION.remove();
+            } else {
+                SESSION.set(previous);
+            }
         }
     }
 
@@ -73,6 +119,9 @@ public final class InteractionContext {
     /** Runs {@code body} inside an agent scope with an allowed-tool whitelist. */
     public static <T> T run(String agent, boolean autoApprove, List<String> allowedTools,
             Supplier<T> body) {
+        String previousAgent = AGENT.get();
+        Boolean previousAuto = AUTO_APPROVE.get();
+        List<String> previousAllowed = ALLOWED_TOOLS.get();
         AGENT.set(agent);
         if (autoApprove) {
             AUTO_APPROVE.set(true);
@@ -85,9 +134,23 @@ public final class InteractionContext {
         try {
             return body.get();
         } finally {
-            AGENT.remove();
-            AUTO_APPROVE.remove();
-            ALLOWED_TOOLS.remove();
+            // restore, not remove: delegations nest on the same thread, and the
+            // enclosing scope's bindings must survive the child's teardown
+            if (previousAgent == null) {
+                AGENT.remove();
+            } else {
+                AGENT.set(previousAgent);
+            }
+            if (previousAuto == null) {
+                AUTO_APPROVE.remove();
+            } else {
+                AUTO_APPROVE.set(previousAuto);
+            }
+            if (previousAllowed == null) {
+                ALLOWED_TOOLS.remove();
+            } else {
+                ALLOWED_TOOLS.set(previousAllowed);
+            }
             if (previousDepth == null) {
                 DELEGATION_DEPTH.remove();
             } else {

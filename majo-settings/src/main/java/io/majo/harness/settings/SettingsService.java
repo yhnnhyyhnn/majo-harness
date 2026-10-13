@@ -73,20 +73,24 @@ public final class SettingsService extends Service {
         if (value == null) {
             throw new IllegalArgumentException("settings: value for \"" + key + "\" must not be null");
         }
-        values.put(key, value);
-        persist();
+        synchronized (this) {
+            values.put(key, value);
+            persist();
+        }
     }
 
     /** Removes {@code key} (no-op when unset). */
     public void unset(String key) {
         requireKey(key);
-        if (values.remove(key) != null) {
-            persist();
+        synchronized (this) {
+            if (values.remove(key) != null) {
+                persist();
+            }
         }
     }
 
     /** All stored keys starting with {@code prefix} (keys untouched). */
-    public synchronized Map<String, String> entries(String prefix) {
+    public Map<String, String> entries(String prefix) {
         Map<String, String> matches = new java.util.TreeMap<>();
         for (Map.Entry<String, String> entry : values.entrySet()) {
             if (entry.getKey().startsWith(prefix)) {
@@ -123,7 +127,12 @@ public final class SettingsService extends Service {
         if (previous != null) {
             merged.putAll(previous);
         }
-        merged.putAll(overrides);
+        for (Map.Entry<String, String> entry : overrides.entrySet()) {
+            if (entry.getValue() != null) {
+                // null values are ignored (documented: no key wins)
+                merged.put(entry.getKey(), entry.getValue());
+            }
+        }
         OVERRIDES.set(java.util.Collections.unmodifiableMap(merged));
         try {
             return body.get();

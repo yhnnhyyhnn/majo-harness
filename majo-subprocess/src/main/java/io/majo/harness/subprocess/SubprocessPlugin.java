@@ -20,13 +20,13 @@ public final class SubprocessPlugin implements Plugin {
         if (config instanceof java.util.Map<?, ?> map
                 && map.get("ssh") instanceof java.util.Map<?, ?> ssh) {
             var target = io.majo.harness.ssh.SshTarget.fromConfig(ssh);
-            long timeoutMillis = 60_000;
+            long timeoutSeconds = 60;
             if (map.get("defaultTimeoutSeconds") instanceof Number number
                     && number.longValue() > 0) {
-                timeoutMillis = number.longValue() * 1000;
+                timeoutSeconds = number.longValue();
             }
             provider = new SshSubprocessProvider(
-                    new io.majo.harness.ssh.SshExec(target, timeoutMillis));
+                    new io.majo.harness.ssh.SshExec(target, timeoutSeconds * 1000), timeoutSeconds);
         } else {
             provider = new LocalSubprocessProvider();
         }

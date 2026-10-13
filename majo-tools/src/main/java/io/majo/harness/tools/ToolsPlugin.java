@@ -17,8 +17,8 @@ public final class ToolsPlugin implements Plugin {
 
     @Override
     public Object apply(Context ctx, Object config) {
-        new ToolRegistry(ctx, config);
-        return null;
+        ToolRegistry tools = new ToolRegistry(ctx, config);
+        return (io.jcordis.core.util.Disposable) tools::shutdown; // release the bounded-call executor on unload
     }
 
     @Override

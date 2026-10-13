@@ -46,10 +46,17 @@ import { hostCommandPayload } from "./features/commands";
 
 describe("host command payload mapping", () => {
   it("sends the rest of the line as task for delegate", () => {
-    expect(hostCommandPayload("delegate", ["2+2", "and", "more"])).toEqual({ task: "2+2 and more" });
+    expect(hostCommandPayload("delegate", ["2+2", "and", "more"], "s1")).toEqual({
+      session: "s1",
+      task: "2+2 and more",
+    });
   });
 
-  it("sends an empty payload for other host commands", () => {
-    expect(hostCommandPayload("status", ["ignored"])).toEqual({});
+  it("carries the session id and passes typed args through for other host commands", () => {
+    expect(hostCommandPayload("status", ["ignored"], "s1")).toEqual({ session: "s1", args: ["ignored"] });
+  });
+
+  it("omits args when the line has none, blank session stays blank", () => {
+    expect(hostCommandPayload("goal", [], null)).toEqual({ session: "" });
   });
 });

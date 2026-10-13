@@ -272,36 +272,48 @@ public final class WebMain {
     }
 
     public static void main(String[] args) throws IOException {
-        int port = 8787;
-        String host = defaultHost();
-        String profile = "web";
-        String token = null;
-        List<String> plugins = new java.util.ArrayList<>();
-        for (int i = 0; i < args.length; i++) {
-            switch (args[i]) {
-                case "--port" -> port = Integer.parseInt(args[++i]);
-                case "--host" -> host = args[++i];
-                case "--profile" -> profile = args[++i];
-                case "--plugin" -> plugins.add(args[++i]);
-                case "--token" -> token = args[++i];
-                default -> {
-                    LOG.error("usage: majo-web [--host <addr>] [--port <n>]"
-                            + " [--profile web|<file.yml>] [--plugin name=jar] [--token <secret>]");
-                    System.exit(2);
+        try {
+            int port = 8787;
+            String host = defaultHost();
+            String profile = "web";
+            String token = null;
+            List<String> plugins = new java.util.ArrayList<>();
+            for (int i = 0; i < args.length; i++) {
+                switch (args[i]) {
+                    case "--port" -> port = Integer.parseInt(value(args, ++i, "--port"));
+                    case "--host" -> host = value(args, ++i, "--host");
+                    case "--profile" -> profile = value(args, ++i, "--profile");
+                    case "--plugin" -> plugins.add(value(args, ++i, "--plugin"));
+                    case "--token" -> token = value(args, ++i, "--token");
+                    default -> throw new IllegalArgumentException("unknown argument: " + args[i]);
                 }
             }
+            WebMain app = new WebMain(port, profile, plugins, host);
+            app.ctx.authToken = token;
+            if (token != null) {
+                LOG.info("API auth enabled (--token); pass ?token=... or Authorization: Bearer");
+            } else if (!isLoopback(host)) {
+                LOG.warn("binding {} without --token exposes every API to the network;"
+                        + " pass --token <secret> or bind 127.0.0.1", host);
+            }
+            LOG.info("majo web: http://{}:{}", host, app.port());
+            LOG.info("press Ctrl+C to stop");
+            Runtime.getRuntime().addShutdownHook(new Thread(app::close));
+        } catch (IllegalArgumentException | ArrayIndexOutOfBoundsException e) {
+            // NumberFormatException rides IllegalArgumentException
+            LOG.error(String.valueOf(e.getMessage()));
+            LOG.error("usage: majo-web [--host <addr>] [--port <n>]"
+                    + " [--profile web|<file.yml>] [--plugin name=jar] [--token <secret>]");
+            System.exit(2);
         }
-        WebMain app = new WebMain(port, profile, plugins, host);
-        app.ctx.authToken = token;
-        if (token != null) {
-            LOG.info("API auth enabled (--token); pass ?token=... or Authorization: Bearer");
-        } else if (!isLoopback(host)) {
-            LOG.warn("binding {} without --token exposes every API to the network;"
-                    + " pass --token <secret> or bind 127.0.0.1", host);
+    }
+
+    /** The option's value, failing with a usage error (exit 2) instead of a raw crash. */
+    private static String value(String[] args, int index, String option) {
+        if (index >= args.length) {
+            throw new IllegalArgumentException(option + " needs a value");
         }
-        LOG.info("majo web: http://{}:{}", host, app.port());
-        LOG.info("press Ctrl+C to stop");
-        Runtime.getRuntime().addShutdownHook(new Thread(app::close));
+        return args[index];
     }
 
     private static boolean isLoopback(String host) {

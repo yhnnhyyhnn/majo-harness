@@ -409,11 +409,17 @@ export function createChat(store: Store<ChatState>): ChatActions {
         if (!id && all.length) id = all[all.length - 1].id;
         if (id) {
           const detail = await api.session(id);
+          const cursor = detail.events.reduce(
+            (max, event) =>
+              typeof event.seq === "number" && event.seq > 0 ? Math.max(max, event.seq) : max,
+            0
+          );
           store.set({
             sessionId: id,
             title: detail.title || "New chat",
             sessionModel: detail.sessionModel ?? null,
             events: detail.events,
+            cursor,
             feedback: await feedbackOf(id),
           });
         }

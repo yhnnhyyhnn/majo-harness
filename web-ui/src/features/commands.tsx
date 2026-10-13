@@ -90,9 +90,23 @@ const commands: Command[] = [
   },
 ];
 
-/** Payload mapping for host commands (pure, tested). */
-export function hostCommandPayload(name: string, args: string[]): Record<string, unknown> {
-  return name === "delegate" ? { task: args.join(" ").trim() } : {};
+/**
+ * Payload mapping for host commands (pure, tested). Host handlers read the
+ * current session from {@code session} and the rest of the command line from
+ * {@code args}; {@code delegate} keeps its flat {@code task} shape.
+ */
+export function hostCommandPayload(
+  name: string,
+  args: string[],
+  sessionId: string | null
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = { session: sessionId ?? "" };
+  if (name === "delegate") {
+    payload.task = args.join(" ").trim();
+  } else if (args.length > 0) {
+    payload.args = args;
+  }
+  return payload;
 }
 
 /** Host backend commands (listCommands) surface here unless a client twin exists. */
@@ -102,8 +116,11 @@ function hostCommand(host: { name: string; description: string }): Command {
     usage: "",
     description: host.description || "host backend command",
     group: "host",
-    async run(_seat: CommandSeat, args: string[]) {
-      const result = await api.runCommand(host.name, hostCommandPayload(host.name, args));
+    async run(seat: CommandSeat, args: string[]) {
+      const result = await api.runCommand(
+        host.name,
+        hostCommandPayload(host.name, args, seat.state.sessionId)
+      );
       return (result.output || "").replace(/\s+/g, " ").trim().slice(0, 200)
         || "(host returned nothing)";
     },

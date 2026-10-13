@@ -35,7 +35,7 @@ public final class ShellService extends Service {
     /** Runs a script through the {@code shell/pre-execute} waterfall. */
     public ShellResult run(ShellCommand command) {
         ShellCommand resolved = command.timeoutSeconds() > 0 ? command
-                : new ShellCommand(command.script(), command.cwd(), command.env(), defaultTimeoutSeconds);
+                : command.withTimeoutSeconds(defaultTimeoutSeconds);
         return (ShellResult) ctx.waterfall(null, ShellEvents.PRE_EXECUTE, new Object[] {resolved},
                 args -> provider.run((ShellCommand) args[0]));
     }

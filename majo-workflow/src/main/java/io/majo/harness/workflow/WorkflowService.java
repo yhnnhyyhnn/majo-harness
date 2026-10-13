@@ -262,7 +262,9 @@ public final class WorkflowService extends Service {
     private RunRecord newRecord(String sessionId, String name) {
         RunRecord record = new RunRecord(
                 UUID.randomUUID().toString().substring(0, 8), sessionId, name);
-        synchronized (records) {
+        synchronized (this) {
+            // readers (records()/record()) lock the service instance too —
+            // ArrayDeque is not thread-safe and needs one shared monitor
             records.addFirst(record);
             while (records.size() > MAX_RECORDS) {
                 records.removeLast();

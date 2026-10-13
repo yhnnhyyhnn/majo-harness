@@ -145,7 +145,11 @@ public final class ContextPlugin implements Plugin {
             return null;
         }
         String text = note.toString();
-        return text.length() > maxChars ? text.substring(0, maxChars - 3) + "..." : text;
+        if (text.length() <= maxChars) {
+            return text;
+        }
+        int cut = Math.max(0, maxChars - 3); // maxChars < 3: hard cut, no room for the ellipsis
+        return text.substring(0, cut) + "...";
     }
 
     @Override

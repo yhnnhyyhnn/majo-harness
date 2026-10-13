@@ -50,8 +50,9 @@ public final class EnvCredentialProvider implements CredentialProvider {
                 }
                 String name = line.substring(0, equals).strip();
                 String value = line.substring(equals + 1).strip();
-                if ((value.startsWith("\"") && value.endsWith("\""))
-                        || (value.startsWith("'") && value.endsWith("'"))) {
+                if (value.length() > 1
+                        && ((value.startsWith("\"") && value.endsWith("\""))
+                                || (value.startsWith("'") && value.endsWith("'")))) {
                     value = value.substring(1, value.length() - 1);
                 }
                 entries.put(name, value);

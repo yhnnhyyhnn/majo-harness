@@ -257,14 +257,24 @@ public final class CompactionService extends io.jcordis.core.service.Service {
      * accumulating the priced tail (chars ≈ tokens·4, the same ratio as
      * {@link #estimateTokens}); then the tool-pairing guard moves the cut to
      * before an assistant tool round so a call and its results are never
-     * separated. Returns the seq of the last covered event (0 = the whole
-     * history is tail).
+     * separated. The cut never lands at or before an earlier
+     * {@code CONTEXT_COMPACTION} (priced at zero chars, the walk would slide
+     * straight through it): a region under the last summary's seq would
+     * re-summarize raw history the older summary already covers, and the
+     * derived history would carry both summaries. Returns the seq of the last
+     * covered event (0 = the whole history is tail).
      */
     long selectRegionEnd(List<SessionEvent> events) {
+        int floor = 0; // exclusive lower bound: the index after the last compaction
+        for (int index = 0; index < events.size(); index++) {
+            if (events.get(index).type() == SessionEventType.CONTEXT_COMPACTION) {
+                floor = index + 1;
+            }
+        }
         long retainChars = (long) retainTokens() * 4;
         long tailChars = 0;
         int cut = events.size();
-        for (int index = events.size() - 1; index >= 0; index--) {
+        for (int index = events.size() - 1; index >= floor; index--) {
             tailChars += derivedChars(events.get(index));
             if (tailChars >= retainChars) {
                 cut = index + 1; // events[index] is the first tail event
@@ -273,7 +283,7 @@ public final class CompactionService extends io.jcordis.core.service.Service {
         }
         // tool-pairing guard: the region must not end inside an assistant
         // tool round (its opening ASSISTANT_MESSAGE or any TOOL_RESULT)
-        while (cut > 0 && opensToolRound(events.get(cut - 1))) {
+        while (cut > floor && opensToolRound(events.get(cut - 1))) {
             cut--;
         }
         return cut == 0 ? 0 : events.get(cut - 1).seq();

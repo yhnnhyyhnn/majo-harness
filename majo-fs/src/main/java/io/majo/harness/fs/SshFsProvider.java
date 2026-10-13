@@ -54,6 +54,8 @@ public final class SshFsProvider implements FsProvider {
             throw new FsException("cannot glob " + root + "/" + pattern + ": "
                     + result.stderr().strip());
         }
+        // normalize the root so find's emitted paths always strip cleanly
+        String prefix = root.endsWith("/") ? root : root + "/";
         java.util.regex.Pattern matcher = FsProvider.globToRegex(pattern);
         List<String> matches = new ArrayList<>();
         for (String line : result.stdout().split("\n")) {
@@ -61,8 +63,8 @@ public final class SshFsProvider implements FsProvider {
             if (path.isEmpty()) {
                 continue;
             }
-            String relative = path.startsWith(root + "/")
-                    ? path.substring(root.length() + 1) : path;
+            String relative = path.startsWith(prefix)
+                    ? path.substring(prefix.length()) : path;
             if (matcher.matcher(relative).matches()) {
                 matches.add(path);
             }

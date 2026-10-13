@@ -65,7 +65,9 @@ public final class FaultChatModel implements ChatModel, io.majo.harness.llm.Stre
     private ChatResponse dispatch(int call, ChatRequest request, Consumer<String> onText, boolean streaming) {
         Failure failure = script.get(call);
         if (failure != null) {
-            for (int chunk = 0; chunk < failure.chunksBeforeDeath(); chunk++) {
+            // complete() passes no sink (non-streaming path): the scripted
+            // failure must surface as the ModelException, not an NPE
+            for (int chunk = 0; onText != null && chunk < failure.chunksBeforeDeath(); chunk++) {
                 onText.accept("chunk-" + (chunk + 1) + " ");
             }
             throw new ModelException("fault-injection call " + call + ": " + failure.message());

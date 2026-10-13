@@ -99,6 +99,19 @@ public final class InteractionService extends Service {
     }
 
     /**
+     * The remaining timed-ask window bound for the current ask ({@code null} =
+     * plain ask). Inheritable so the handler chain running on the virtual
+     * thread spawned by {@link #askTimed} sees the caller's window — handlers
+     * with their own shorter timeout honor this one instead.
+     */
+    private static final InheritableThreadLocal<Long> ASK_WINDOW = new InheritableThreadLocal<>();
+
+    /** The timed-ask window in seconds bound on this thread, or {@code null}. */
+    public static Long askWindowSeconds() {
+        return ASK_WINDOW.get();
+    }
+
+    /**
      * Timed ask (dsh tool-ask-user timed parity): waits at most
      * {@code timeoutSeconds} (-1 = indefinitely); {@code null} on timeout —
      * the caller continues and the human's late answer may still arrive
@@ -108,6 +121,7 @@ public final class InteractionService extends Service {
         ctx.emit(EVENT_QUESTION, question);
         java.util.concurrent.CompletableFuture<String> resolution =
                 new java.util.concurrent.CompletableFuture<>();
+        ASK_WINDOW.set(timeoutSeconds);
         Thread.ofVirtual().start(() -> {
             try {
                 resolution.complete(ask(question));
@@ -116,15 +130,19 @@ public final class InteractionService extends Service {
             }
         });
         try {
-            String answer = timeoutSeconds < 0
+            return timeoutSeconds < 0
                     ? resolution.get()
                     : resolution.get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
-            ctx.emit(EVENT_ANSWER, question, answer);
-            return answer;
+            // EVENT_ANSWER fires inside ask() when a handler answers — exactly once
         } catch (java.util.concurrent.TimeoutException e) {
             return null; // the turn continues; a late answer may still complete the ask
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null; // fail-open: the model gets pending, not a crash
         } catch (Exception e) {
             return null; // fail-open: the model gets pending, not a crash
+        } finally {
+            ASK_WINDOW.remove();
         }
     }
 }

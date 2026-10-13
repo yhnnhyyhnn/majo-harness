@@ -198,12 +198,17 @@ public final class ScheduleService extends io.jcordis.core.service.Service {
             schedule.dueAtMs = System.currentTimeMillis() + schedule.intervalSeconds * 1000;
             arm(sessionId, schedule);
         } else {
-            // one-shot delivered: drop it from the active registry (the log
-            // keeps the creation record)
+            // one-shot delivered: mark it durably so a restart rescan does not
+            // resurrect it as active, drop it from the live registry, and
+            // release its armed-timer entry
+            schedule.cancelled = true;
+            sessions.append(sessionId, SessionEventType.SCHEDULE_SET,
+                    eventFields(schedule, true));
             Map<String, Schedule> schedules = bySession.get(sessionId);
             if (schedules != null) {
                 schedules.remove(schedule.id);
             }
+            cancelTimer(sessionId, schedule.id);
         }
     }
 

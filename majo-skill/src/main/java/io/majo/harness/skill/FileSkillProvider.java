@@ -70,19 +70,31 @@ public final class FileSkillProvider implements SkillProvider {
         static FrontMatter parse(String content) {
             content = content.replace("\r\n", "\n"); // tolerate CRLF skill files
             if (content.startsWith("---\n")) {
-                int end = content.indexOf("\n---", 4);
-                if (end > 0) {
-                    String header = content.substring(4, end);
-                    String body = content.substring(end + 4).stripLeading();
+                // the closer is a line of exactly "---": scan line-wise so an
+                // empty header ("---\n---\n...") and longer dash runs don't
+                // defeat an index search
+                String[] lines = content.split("\n", -1);
+                for (int closer = 1; closer < lines.length; closer++) {
+                    if (!lines[closer].equals("---")) {
+                        continue;
+                    }
                     String description = null;
-                    for (String line : header.split("\n")) {
+                    for (int i = 1; i < closer; i++) {
+                        String line = lines[i];
                         int colon = line.indexOf(':');
                         if (colon > 0 && line.substring(0, colon).trim().equals("description")) {
                             description = line.substring(colon + 1).trim();
                             break;
                         }
                     }
-                    return new FrontMatter(description, body);
+                    StringBuilder body = new StringBuilder();
+                    for (int i = closer + 1; i < lines.length; i++) {
+                        body.append(lines[i]);
+                        if (i < lines.length - 1) {
+                            body.append('\n');
+                        }
+                    }
+                    return new FrontMatter(description, body.toString().stripLeading());
                 }
             }
             return new FrontMatter(null, content);

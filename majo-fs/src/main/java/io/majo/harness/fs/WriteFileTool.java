@@ -63,9 +63,10 @@ public final class WriteFileTool implements Tool {
             }
             String path = arguments.get("path").asText();
             String content = arguments.get("content").asText("");
+            int bytes = content.getBytes(StandardCharsets.UTF_8).length;
             fs.writeText(path, content);
-            return ToolResult.ok("wrote " + content.getBytes(StandardCharsets.UTF_8).length
-                    + " bytes to " + path, Map.of("path", path, "bytes", content.length()));
+            return ToolResult.ok("wrote " + bytes + " bytes to " + path,
+                    Map.of("path", path, "bytes", bytes));
         } catch (FsException e) {
             return ToolResult.error("write_file: " + e.getMessage());
         } catch (Exception e) {

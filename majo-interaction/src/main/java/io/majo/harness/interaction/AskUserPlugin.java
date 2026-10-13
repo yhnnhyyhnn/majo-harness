@@ -56,8 +56,8 @@ public final class AskUserPlugin implements Plugin {
         /**
          * Waits for the human's answer; {@code null} on timeout (the turn
          * continues). Default implementation routes through the front
-         * interaction handler synchronously (the web handler's timed mode
-         * honors the window); headless fallbacks answer canned text.
+         * interaction handler synchronously (the web handler honors the
+         * caller's window); headless fallbacks answer canned text.
          */
         public String await(Question question, long timeoutSeconds) {
             InteractionService interactions = ctx.get(InteractionService.NAME);
@@ -65,6 +65,18 @@ public final class AskUserPlugin implements Plugin {
                 return "";
             }
             return interactions.askTimed(question, timeoutSeconds);
+        }
+
+        /**
+         * Blocking ask (legacy semantics): no timeout window of its own — an
+         * unanswered question fails loudly instead of returning pending.
+         */
+        public String blockingAsk(Question question) {
+            InteractionService interactions = ctx.get(InteractionService.NAME);
+            if (interactions == null) {
+                return "";
+            }
+            return interactions.ask(question);
         }
 
         /** Whether the caller may ask at all (a session must be bound). */
@@ -128,7 +140,7 @@ public final class AskUserPlugin implements Plugin {
                 Question asked = Question.ask(question, InteractionContext.agent());
                 String answer = timed
                         ? asks.await(asked, timeout)
-                        : nullOnBlank(asks.await(asked, defaultTimeout));
+                        : asks.blockingAsk(asked);
                 if (answer == null) {
                     return ToolResult.ok("pending: the human has not answered within "
                             + (timeout < 0 ? "the wait window" : timeout + "s")
@@ -141,10 +153,6 @@ public final class AskUserPlugin implements Plugin {
             } catch (Exception e) {
                 return ToolResult.error("ask_user: " + e.getMessage());
             }
-        }
-
-        private static String nullOnBlank(String answer) {
-            return answer == null || answer.isBlank() ? null : answer;
         }
     }
 

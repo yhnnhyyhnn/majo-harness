@@ -2,7 +2,6 @@ package io.majo.harness.provider.openai;
 
 import io.jcordis.core.context.Context;
 import io.jcordis.core.registry.Plugin;
-import io.majo.harness.llm.ChatModel;
 import io.majo.harness.llm.LLMService;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,9 +23,17 @@ public final class OpenAiProviderPlugin implements Plugin {
     @Override
     public Object apply(Context ctx, Object config) {
         LLMService llm = ctx.get(LLMService.NAME);
-        ChatModel model = new OpenAiChatModel(config); // validates loudly
+        OpenAiChatModel model = new OpenAiChatModel(config); // validates loudly
         String registryKey = registryKey(config);
-        return llm.registerModel(registryKey, model);
+        io.jcordis.core.util.Disposable registration = llm.registerModel(registryKey, model);
+        // closing the registration also releases the client's selector thread
+        return (io.jcordis.core.util.Disposable) () -> {
+            try {
+                registration.dispose();
+            } finally {
+                model.close();
+            }
+        };
     }
 
     private static String registryKey(Object config) {

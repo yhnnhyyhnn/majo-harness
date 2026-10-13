@@ -415,12 +415,14 @@ public final class AgentLoopService extends Service {
     }
 
     /**
-     * Whether other turn work is queued behind the entry currently being
-     * submitted (the admission-time competing check — the human outranks the
-     * goal at every point).
+     * Whether other turn-starting work is queued behind the entry currently
+     * being submitted (the admission-time competing check — the human outranks
+     * the goal at every point). Inject notes never start a turn, so they are
+     * not competing work: counting them would stand down every offered round
+     * forever (nothing delivers them while rounds keep standing down).
      */
     public boolean hasCompetingTurnWork(String sessionId) {
-        return inbox(sessionId).size() > 0;
+        return inbox(sessionId).hasTurnWork();
     }
 
     /** Fires the {@code agent/turn-opened} event (repeat-chain reset seam); never breaks the turn. */
@@ -549,6 +551,17 @@ public final class AgentLoopService extends Service {
         return inboxes.computeIfAbsent(sessionId, ignored -> new AgentInbox());
     }
 
+    /**
+     * Releases the loop's virtual-thread executors (parallel delegates, inbox
+     * driver). Called when the owning plugin unloads; a live service calling
+     * into a shut-down loop fails with the executor's rejection — the loud
+     * failure the framework prefers over silently abandoned threads.
+     */
+    public void shutdown() {
+        delegates.shutdown();
+        turnDriver.shutdown();
+    }
+
     private Object turnMutex(String sessionId) {
         return turnMutexes.computeIfAbsent(sessionId, ignored -> new Object());
     }
@@ -558,16 +571,27 @@ public final class AgentLoopService extends Service {
     }
 
     /** Executes one tool round: delegate_task calls run concurrently when
-     * {@code parallelDelegates} is enabled; results append in call order. */
+     * {@code parallelDelegates} is enabled; results append in call order.
+     * Pool threads re-bind the turn's interaction snapshot (session, agent
+     * scope, allowed tools, delegation depth) — a bare ThreadLocal does not
+     * survive the thread hop. */
     private void executeTools(String sessionId, java.util.List<ToolCall> calls) {
         java.util.List<ToolResult> results;
         if (parallelDelegates
                 && calls.stream().anyMatch(call -> call.name().equals("delegate_task"))) {
+            String agent = InteractionContext.agent();
+            boolean autoApprove = InteractionContext.autoApprove();
+            List<String> allowedTools = InteractionContext.allowedTools();
+            String boundSession = InteractionContext.sessionId();
+            int delegationDepth = InteractionContext.delegationDepth();
             java.util.List<java.util.concurrent.CompletableFuture<ToolResult>> futures =
                     calls.stream()
                             .map(call -> call.name().equals("delegate_task")
                                     ? java.util.concurrent.CompletableFuture.supplyAsync(
-                                            () -> tools.execute(call), delegates)
+                                            () -> InteractionContext.runBound(agent, autoApprove,
+                                                    allowedTools, boundSession, delegationDepth,
+                                                    () -> tools.execute(call)),
+                                            delegates)
                                     : java.util.concurrent.CompletableFuture.completedFuture(
                                             tools.execute(call)))
                             .toList();

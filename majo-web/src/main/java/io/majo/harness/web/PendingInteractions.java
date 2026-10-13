@@ -9,9 +9,12 @@ import java.util.List;
 /**
  * Web-facing {@link InteractionHandler}: approval and ask-user requests are
  * surfaced to the connected SSE client and park until a decision arrives
- * (timeout via {@code majo.approvalTimeoutSeconds}), then fail safe
- * (deny / empty answer). Registered at the front so it always decides before
- * static fallback handlers.
+ * (timeout via {@code majo.approvalTimeoutSeconds}, overridden by a timed
+ * ask's caller window), then abstain — an unanswered approval denies, an
+ * unanswered question fails loudly upstream. Timed questions that expired
+ * stay registered, so a late answer delivers into the session as a marked
+ * follow-up. Registered at the front so it always decides before static
+ * fallback handlers.
  */
 public final class PendingInteractions implements InteractionHandler {
     private final long timeoutSeconds;
@@ -70,13 +73,30 @@ public final class PendingInteractions implements InteractionHandler {
         if (active != null) {
             active.question(question);
         }
+        // a timed ask carries its caller's window (the tool's requested
+        // timeout, possibly indefinite); a plain ask keeps the approval window
+        Long window = io.majo.harness.interaction.InteractionService.askWindowSeconds();
+        long waitSeconds = window == null ? timeoutSeconds : window;
         try {
-            String answer = future.get(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
+            String answer = waitSeconds < 0
+                    ? future.get()
+                    : future.get(waitSeconds, java.util.concurrent.TimeUnit.SECONDS);
+            questions.remove(question.id(), future);
             return answer == null ? "" : answer;
+        } catch (java.util.concurrent.TimeoutException e) {
+            // the ask stays open: the human's late answer delivers into the
+            // session as a marked follow-up instead of dying with a 400
+            timedQuestions.putIfAbsent(question.id(), new TimedQuestion(question.id(),
+                    question.text(), System.currentTimeMillis(),
+                    io.majo.harness.interaction.InteractionContext.sessionId()));
+            return null; // abstain: fallbacks decide; none → the ask fails loudly
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            questions.remove(question.id(), future);
+            return null;
         } catch (Exception e) {
-            return "";
-        } finally {
-            questions.remove(question.id());
+            questions.remove(question.id(), future);
+            return null;
         }
     }
 

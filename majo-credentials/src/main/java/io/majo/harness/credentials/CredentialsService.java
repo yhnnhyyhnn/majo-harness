@@ -18,7 +18,9 @@ public final class CredentialsService extends Service {
 
     public static final String NAME = "credentials";
 
-    private final Map<String, CredentialProvider> providers = new LinkedHashMap<>();
+    /** Provider registry: insertion-ordered and safe to mutate while readers iterate. */
+    private final Map<String, CredentialProvider> providers =
+            java.util.Collections.synchronizedMap(new LinkedHashMap<>());
     private final java.util.Map<String, String> knownValues = new java.util.concurrent.ConcurrentHashMap<>();
 
     public CredentialsService(Context ctx) {
@@ -62,13 +64,18 @@ public final class CredentialsService extends Service {
      * Redacts every resolved credential value (length ≥ 4) from {@code text}
      * with {@code [redacted]} — applied by harness boundaries before durable
      * logging, SSE or console output so secrets never surface accidentally.
+     * Longest values go first: redacting a shorter secret that is a substring
+     * of a longer one would splice the longer secret and leave its fragments.
      */
     public String redact(String text) {
         if (text == null) {
             return null;
         }
         String sanitized = text;
-        for (String value : knownValues.values()) {
+        List<String> values = new java.util.ArrayList<>(knownValues.values());
+        values.sort((a, b) -> Integer.compare(b == null ? 0 : b.length(),
+                a == null ? 0 : a.length()));
+        for (String value : values) {
             if (value != null && value.length() >= 4 && sanitized.contains(value)) {
                 sanitized = sanitized.replace(value, "[redacted]");
             }

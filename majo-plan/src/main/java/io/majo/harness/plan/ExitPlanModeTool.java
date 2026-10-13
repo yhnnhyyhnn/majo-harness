@@ -97,8 +97,9 @@ public final class ExitPlanModeTool implements Tool {
                     + "words; plan mode remains active — wait for their next message",
                     Map.of("approved", false));
         }
-        if (normalized.equalsIgnoreCase("approve")
-                || normalized.toLowerCase().startsWith("approve")) {
+        if (normalized.equalsIgnoreCase("approve")) {
+            // exact word only: a reply like "approve it after you fix X" is
+            // feedback, not approval
             sessions.append(sessionId, SessionEventType.PLAN_SET,
                     Map.of(SessionEvent.FIELD_ACTIVE, false,
                             SessionEvent.FIELD_PLAN, String.valueOf(snapshot.plan())));

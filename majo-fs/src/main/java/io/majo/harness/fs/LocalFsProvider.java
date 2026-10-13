@@ -70,6 +70,11 @@ public final class LocalFsProvider implements FsProvider {
             return List.copyOf(matches);
         } catch (IOException e) {
             throw new FsException("fs: cannot glob \"" + root + "\" for \"" + pattern + "\": " + e.getMessage(), e);
+        } catch (java.io.UncheckedIOException e) {
+            // Files.walk visits directories lazily: a denied/locked directory
+            // surfaces from the terminal operation, not from walk() itself
+            throw new FsException("fs: cannot glob \"" + root + "\" for \"" + pattern
+                    + "\": " + e.getCause().getMessage(), e.getCause());
         }
     }
 
@@ -104,6 +109,10 @@ public final class LocalFsProvider implements FsProvider {
             return List.copyOf(hits);
         } catch (IOException e) {
             throw new FsException("fs: cannot grep \"" + path + "\": " + e.getMessage(), e);
+        } catch (java.io.UncheckedIOException e) {
+            // lazy directory iteration: see glob
+            throw new FsException("fs: cannot grep \"" + path + "\": " + e.getCause().getMessage(),
+                    e.getCause());
         }
     }
 

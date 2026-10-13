@@ -3,6 +3,7 @@ package io.majo.harness.session;
 import io.jcordis.core.context.Context;
 import io.jcordis.core.service.Service;
 import io.jcordis.core.util.Disposable;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,6 +32,12 @@ public final class SessionProjections extends Service {
     private final Map<String, SessionProjection> units = new ConcurrentHashMap<>();
     /** last folded seq per session per unit (live and replay share it) */
     private final Map<String, Map<SessionProjection, Long>> watermarks = new ConcurrentHashMap<>();
+    /**
+     * Serializes dispatch, per the SessionProjection contract: live folds
+     * (append thread) and replays (caller thread) must not interleave, or the
+     * check-then-act on the watermark double-delivers an event.
+     */
+    private final Object foldLock = new Object();
 
     public SessionProjections(Context ctx, SessionService sessions) {
         super(ctx, NAME);
@@ -82,11 +89,16 @@ public final class SessionProjections extends Service {
 
     /**
      * Folds every stored event of {@code sessionId} into all units (idempotent
-     * via per-unit sequence watermarks), so late-attached units converge.
+     * via per-unit sequence watermarks), so late-attached units converge. The
+     * snapshot is taken before the fold lock is held so reading the store never
+     * inverts into the append path's lock ordering.
      */
     public void replay(String sessionId) {
-        for (SessionEvent event : sessions.events(sessionId)) {
-            fold(sessionId, event);
+        List<SessionEvent> stored = sessions.events(sessionId);
+        synchronized (foldLock) {
+            for (SessionEvent event : stored) {
+                foldLocked(sessionId, event);
+            }
         }
     }
 
@@ -96,6 +108,12 @@ public final class SessionProjections extends Service {
     }
 
     private void fold(String sessionId, SessionEvent event) {
+        synchronized (foldLock) {
+            foldLocked(sessionId, event);
+        }
+    }
+
+    private void foldLocked(String sessionId, SessionEvent event) {
         TypedSessionEvent typed = TypedSessionEvent.of(event);
         for (Map.Entry<String, SessionProjection> entry : units.entrySet()) {
             SessionProjection unit = entry.getValue();

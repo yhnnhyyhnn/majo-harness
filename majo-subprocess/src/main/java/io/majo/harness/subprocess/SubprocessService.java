@@ -39,7 +39,7 @@ public final class SubprocessService extends Service {
     /** Runs a command through the {@code subprocess/pre-execute} waterfall. */
     public ProcessResult run(Command command) {
         Command resolved = command.timeoutSeconds() > 0 ? command
-                : new Command(command.argv(), command.cwd(), command.env(), defaultTimeoutSeconds);
+                : command.withTimeoutSeconds(defaultTimeoutSeconds);
         return (ProcessResult) ctx.waterfall(null, SubprocessEvents.PRE_EXECUTE, new Object[] {resolved},
                 args -> provider.run((Command) args[0]));
     }

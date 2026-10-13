@@ -6,7 +6,6 @@ import io.majo.harness.agent.loop.AgentLoopService;
 import io.majo.harness.session.SessionService;
 import java.util.ArrayDeque;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The subagent service ({@code ctx.subagent}): delegation into a child agent.
@@ -30,11 +29,17 @@ public final class SubagentService extends Service {
     private final int maxDepth;
     /** Host-registered island plugins by policy name (not model-chosen classes). */
     private final java.util.Map<String, AgentScope.Island> hostIslands = new java.util.concurrent.ConcurrentHashMap<>();
-    private final AtomicInteger depth = new AtomicInteger();
 
     /** Bounded recent-delegation log surfaced to UI ({@code /api/subagents}). */
     private static final int MAX_RECENT = 25;
     private final ArrayDeque<Delegation> recent = new ArrayDeque<>();
+
+    /**
+     * Terminal child entries (and their continuations) older than this bound
+     * are evicted as new delegations arrive, so long-lived hosts do not grow
+     * the registries without limit; live children are never evicted.
+     */
+    private static final int MAX_TRACKED = 200;
 
     /** One live child agent (dsh list_agents parity). */
     public record AgentEntry(String childSessionId, String task, String agent, String status,
@@ -210,40 +215,38 @@ public final class SubagentService extends Service {
 
     private DelegationOutcome guarded(String task, AgentSpec spec, boolean scoped,
             java.util.List<AgentScope.Island> islands) {
-        int entered = depth.incrementAndGet();
+        // nesting depth, not concurrency: sibling delegations fan out in
+        // parallel and must not trip the guard for each other
+        int entered = io.majo.harness.interaction.InteractionContext.delegationDepth() + 1;
+        if (entered > maxDepth) {
+            SubagentException blocked = new SubagentException("subagent: delegation depth " + entered
+                    + " exceeds maxDepth " + maxDepth);
+            record(new Delegation(task, "blocked", blocked.getMessage(),
+                    System.currentTimeMillis(), spec.model(), spec.maxSteps(),
+                    spec.autoApprove(), spec.allowedTools()));
+            throw blocked;
+        }
+        String childSessionId = sessions.createSession();
         try {
-            if (entered > maxDepth) {
-                SubagentException blocked = new SubagentException("subagent: delegation depth " + entered
-                        + " exceeds maxDepth " + maxDepth);
-                record(new Delegation(task, "blocked", blocked.getMessage(),
-                        System.currentTimeMillis(), spec.model(), spec.maxSteps(),
-                        spec.autoApprove(), spec.allowedTools()));
-                throw blocked;
-            }
-            String childSessionId = sessions.createSession();
-            try {
-                String agent = "subagent-" + childSessionId.substring(0, Math.min(8, childSessionId.length()));
-                boolean auto = spec.autoApprove() != null && spec.autoApprove();
-                remember(childSessionId, task, agent, spec, islands, scoped, auto);
-                String answer = io.majo.harness.interaction.InteractionContext.run(agent, auto,
-                        spec.allowedTools(),
-                        () -> io.majo.harness.settings.SettingsService.scoped(spec.settings(),
-                                () -> scoped ? runScoped(childSessionId, task, spec, islands)
-                                        : loop.runTurn(childSessionId, task, null,
-                                                spec.model(), spec.systemPrompt())));
-                finished(childSessionId, answer);
-                record(new Delegation(task, "done", preview(answer), System.currentTimeMillis(),
-                        spec.model(), spec.maxSteps(), spec.autoApprove(), spec.allowedTools()));
-                return new DelegationOutcome(childSessionId, answer);
-            } catch (RuntimeException failure) {
-                markStatus(childSessionId, "failed");
-                record(new Delegation(task, "failed", String.valueOf(failure.getMessage()),
-                        System.currentTimeMillis(), spec.model(), spec.maxSteps(),
-                        spec.autoApprove(), spec.allowedTools()));
-                throw failure;
-            }
-        } finally {
-            depth.decrementAndGet();
+            String agent = "subagent-" + childSessionId.substring(0, Math.min(8, childSessionId.length()));
+            boolean auto = spec.autoApprove() != null && spec.autoApprove();
+            remember(childSessionId, task, agent, spec, islands, scoped, auto);
+            String answer = io.majo.harness.interaction.InteractionContext.run(agent, auto,
+                    spec.allowedTools(),
+                    () -> io.majo.harness.settings.SettingsService.scoped(spec.settings(),
+                            () -> scoped ? runScoped(childSessionId, task, spec, islands)
+                                    : loop.runTurn(childSessionId, task, null,
+                                            spec.model(), spec.systemPrompt())));
+            finished(childSessionId, answer);
+            record(new Delegation(task, "done", preview(answer), System.currentTimeMillis(),
+                    spec.model(), spec.maxSteps(), spec.autoApprove(), spec.allowedTools()));
+            return new DelegationOutcome(childSessionId, answer);
+        } catch (RuntimeException failure) {
+            markStatus(childSessionId, "failed");
+            record(new Delegation(task, "failed", String.valueOf(failure.getMessage()),
+                    System.currentTimeMillis(), spec.model(), spec.maxSteps(),
+                    spec.autoApprove(), spec.allowedTools()));
+            throw failure;
         }
     }
 
@@ -255,6 +258,24 @@ public final class SubagentService extends Service {
                 java.util.List.copyOf(islands), scoped, agent, auto));
         agents.put(childSessionId, new AgentEntry(childSessionId, task, agent, "running",
                 null, System.currentTimeMillis(), System.currentTimeMillis()));
+        trimRegistries();
+    }
+
+    /** Evicts the oldest terminal entries past {@link #MAX_TRACKED}; live ones stay. */
+    private void trimRegistries() {
+        int size = agents.size();
+        if (size <= MAX_TRACKED) {
+            return;
+        }
+        agents.values().stream()
+                .filter(entry -> !"running".equals(entry.status())
+                        && !"interrupt-requested".equals(entry.status()))
+                .sorted(java.util.Comparator.comparingLong(AgentEntry::lastActivityMillis))
+                .limit(size - MAX_TRACKED)
+                .forEach(entry -> {
+                    agents.remove(entry.childSessionId());
+                    continuations.remove(entry.childSessionId());
+                });
     }
 
     private void finished(String childSessionId, String answer) {
@@ -288,37 +309,33 @@ public final class SubagentService extends Service {
             throw new IllegalArgumentException("subagent: unknown child session \""
                     + childSessionId + "\" — list_agents shows continuable agents");
         }
-        int entered = depth.incrementAndGet();
+        int entered = io.majo.harness.interaction.InteractionContext.delegationDepth() + 1;
+        if (entered > maxDepth) {
+            throw new SubagentException("subagent: delegation depth " + entered
+                    + " exceeds maxDepth " + maxDepth);
+        }
+        AgentSpec spec = continuation.spec();
+        markStatus(childSessionId, "running");
         try {
-            if (entered > maxDepth) {
-                throw new SubagentException("subagent: delegation depth " + entered
-                        + " exceeds maxDepth " + maxDepth);
-            }
-            AgentSpec spec = continuation.spec();
-            markStatus(childSessionId, "running");
-            try {
-                String answer = io.majo.harness.interaction.InteractionContext.run(
-                        continuation.agent(), continuation.auto(), spec.allowedTools(),
-                        () -> io.majo.harness.settings.SettingsService.scoped(spec.settings(),
-                                () -> continuation.scoped()
-                                        ? runScoped(childSessionId, message, spec,
-                                                continuation.islands())
-                                        : loop.runTurn(childSessionId, message, null,
-                                                spec.model(), spec.systemPrompt())));
-                finished(childSessionId, answer);
-                record(new Delegation(message, "done", preview(answer),
-                        System.currentTimeMillis(), spec.model(), spec.maxSteps(),
-                        spec.autoApprove(), spec.allowedTools()));
-                return new DelegationOutcome(childSessionId, answer);
-            } catch (RuntimeException failure) {
-                markStatus(childSessionId, "failed");
-                record(new Delegation(message, "failed", String.valueOf(failure.getMessage()),
-                        System.currentTimeMillis(), spec.model(), spec.maxSteps(),
-                        spec.autoApprove(), spec.allowedTools()));
-                throw failure;
-            }
-        } finally {
-            depth.decrementAndGet();
+            String answer = io.majo.harness.interaction.InteractionContext.run(
+                    continuation.agent(), continuation.auto(), spec.allowedTools(),
+                    () -> io.majo.harness.settings.SettingsService.scoped(spec.settings(),
+                            () -> continuation.scoped()
+                                    ? runScoped(childSessionId, message, spec,
+                                            continuation.islands())
+                                    : loop.runTurn(childSessionId, message, null,
+                                            spec.model(), spec.systemPrompt())));
+            finished(childSessionId, answer);
+            record(new Delegation(message, "done", preview(answer),
+                    System.currentTimeMillis(), spec.model(), spec.maxSteps(),
+                    spec.autoApprove(), spec.allowedTools()));
+            return new DelegationOutcome(childSessionId, answer);
+        } catch (RuntimeException failure) {
+            markStatus(childSessionId, "failed");
+            record(new Delegation(message, "failed", String.valueOf(failure.getMessage()),
+                    System.currentTimeMillis(), spec.model(), spec.maxSteps(),
+                    spec.autoApprove(), spec.allowedTools()));
+            throw failure;
         }
     }
 

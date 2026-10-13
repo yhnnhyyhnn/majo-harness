@@ -66,9 +66,10 @@ public final class SkillRegistry extends Service {
             }
         }
         Entry entry = new Entry(provider, source, rank, order.getAndIncrement());
+        Map<String, Entry> winnerEntries = winnerEntriesByName();
         for (Skill skill : provider.skills()) {
-            Skill winner = currentWinner(skill.name());
-            if (winner != null && rank > rankOf(skill.name())) {
+            Entry incumbent = winnerEntries.get(skill.name());
+            if (incumbent != null && rank > incumbent.rank()) {
                 LOG.warn("skill \"{}\" from {} ignored because a higher-priority skill already exists",
                         skill.name(), source);
             }
@@ -107,14 +108,11 @@ public final class SkillRegistry extends Service {
     private Map<String, Skill> winnersByName() {
         Map<String, Skill> winners = new HashMap<>();
         Map<String, Entry> winnerEntries = new HashMap<>();
-        List<Entry> sorted = new ArrayList<>(entries);
-        sorted.sort(java.util.Comparator.comparingInt(Entry::order));
-        for (Entry entry : sorted) {
+        for (Entry entry : sortedEntries()) {
             for (Skill skill : entry.provider().skills()) {
-                Skill tagged = skill.withSource(entry.source());
                 Entry incumbent = winnerEntries.get(skill.name());
                 if (incumbent == null || entry.rank() < incumbent.rank()) {
-                    winners.put(skill.name(), tagged);
+                    winners.put(skill.name(), skill.withSource(entry.source()));
                     winnerEntries.put(skill.name(), entry);
                 }
             }
@@ -122,18 +120,23 @@ public final class SkillRegistry extends Service {
         return winners;
     }
 
-    private Skill currentWinner(String name) {
-        return winnersByName().get(name);
-    }
-
-    private int rankOf(String name) {
-        for (Entry entry : entries) {
+    /** The winning entry per name: min rank, then earliest arrival. */
+    private Map<String, Entry> winnerEntriesByName() {
+        Map<String, Entry> winnerEntries = new HashMap<>();
+        for (Entry entry : sortedEntries()) {
             for (Skill skill : entry.provider().skills()) {
-                if (skill.name().equals(name)) {
-                    return entry.rank();
+                Entry incumbent = winnerEntries.get(skill.name());
+                if (incumbent == null || entry.rank() < incumbent.rank()) {
+                    winnerEntries.put(skill.name(), entry);
                 }
             }
         }
-        return Integer.MAX_VALUE;
+        return winnerEntries;
+    }
+
+    private List<Entry> sortedEntries() {
+        List<Entry> sorted = new ArrayList<>(entries);
+        sorted.sort(java.util.Comparator.comparingInt(Entry::order));
+        return sorted;
     }
 }

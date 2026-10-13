@@ -77,6 +77,11 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel, io.
 
     private final Duration requestTimeout;
 
+    /** Releases the client's selector thread and connection pool (Java 21 AutoCloseable). */
+    public void close() {
+        client.close();
+    }
+
     private static String required(Map<?, ?> map, String key, String where) {
         Object value = map.get(key);
         if (value == null) {
@@ -172,7 +177,9 @@ public final class OpenAiChatModel implements io.majo.harness.llm.ChatModel, io.
             return readStream(response.body(), onText);
         } catch (ModelException e) {
             throw e;
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
+            throw new ModelException("provider request to " + endpoint + " failed: " + e, e);
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ModelException("provider request to " + endpoint + " failed: " + e, e);
         }

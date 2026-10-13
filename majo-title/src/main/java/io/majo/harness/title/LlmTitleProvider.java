@@ -68,7 +68,11 @@ public final class LlmTitleProvider implements SessionTitleProvider {
             return null;
         }
         failedAt.remove(first);
-        return title.length() > maxChars ? title.substring(0, maxChars - 3) + "..." : title;
+        if (title.length() <= maxChars) {
+            return title;
+        }
+        int cut = Math.max(0, maxChars - 3); // maxChars < 3: hard cut, no room for the ellipsis
+        return title.substring(0, cut) + "...";
     }
 
     /** The first non-blank user message, or {@code null}. */

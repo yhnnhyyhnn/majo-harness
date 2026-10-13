@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../api";
 import { commandHintsFor } from "../commands-helpers";
 import { useSlots, type CommandSeat } from "../slots";
@@ -26,6 +26,7 @@ export function Composer({
   const [cmdSelected, setCmdSelected] = useState(0);
   const [mentionHints, setMentionHints] = useState<MentionHint[]>([]);
   const [mentionSelected, setMentionSelected] = useState(0);
+  const mentionRequestRef = useRef(0);
 
   const flash = (message: string) => actions.setNotice(message);
 
@@ -98,13 +99,18 @@ export function Composer({
   })();
 
   const refreshMentions = (query: string) => {
+    const request = ++mentionRequestRef.current;
     api
       .mentionSuggest(query)
       .then((index) => {
+        if (request !== mentionRequestRef.current) return; // a newer keystroke superseded this response
         setMentionHints(index.files.slice(0, 8).map((file) => ({ path: file.path })));
         setMentionSelected(0);
       })
-      .catch(() => setMentionHints([]));
+      .catch(() => {
+        if (request !== mentionRequestRef.current) return;
+        setMentionHints([]);
+      });
   };
 
   const pickMention = (hint: MentionHint) => {

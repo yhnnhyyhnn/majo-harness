@@ -14,9 +14,15 @@ import java.util.Map;
 public final class SshSubprocessProvider implements SubprocessProvider {
 
     private final SshExec ssh;
+    private final long defaultTimeoutSeconds;
 
     public SshSubprocessProvider(SshExec ssh) {
+        this(ssh, 60);
+    }
+
+    public SshSubprocessProvider(SshExec ssh, long defaultTimeoutSeconds) {
         this.ssh = ssh;
+        this.defaultTimeoutSeconds = defaultTimeoutSeconds;
     }
 
     @Override
@@ -32,11 +38,13 @@ public final class SshSubprocessProvider implements SubprocessProvider {
         for (String arg : command.argv()) {
             remote.append(SshExec.shQuote(arg)).append(" ");
         }
-        long timeout = command.timeoutSeconds() > 0
-                ? command.timeoutSeconds() : 60;
+        // the command's own timeout governs (the service resolves defaults
+        // before the provider); a bare ssh default only backstops misuse
+        long timeoutMillis = 1000L * (command.timeoutSeconds() > 0
+                ? command.timeoutSeconds() : defaultTimeoutSeconds);
         var result = command.stdin() == null
-                ? ssh.exec(remote.toString().strip())
-                : ssh.execWithStdin(remote.toString().strip(), command.stdin());
+                ? ssh.exec(remote.toString().strip(), timeoutMillis)
+                : ssh.execWithStdin(remote.toString().strip(), command.stdin(), timeoutMillis);
         return new ProcessResult(result.exitCode(), result.stdout(), result.stderr());
     }
 }

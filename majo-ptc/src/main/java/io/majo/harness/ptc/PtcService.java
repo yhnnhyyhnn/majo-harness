@@ -180,6 +180,9 @@ public final class PtcService extends Service {
             if (explicitResult) {
                 return new Outcome(format(resultValue, note), toolCalls);
             }
+            // the fallback answer IS the captured stderr: the drain thread must
+            // have finished before its capture is trusted
+            stderrDrain.join(TimeUnit.SECONDS.toMillis(2));
             String printed = stderr.get().strip();
             if (process.exitValue() != 0) {
                 if (System.currentTimeMillis() >= deadline) {

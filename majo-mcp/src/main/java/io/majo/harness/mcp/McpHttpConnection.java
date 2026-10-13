@@ -15,6 +15,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -30,6 +36,13 @@ final class McpHttpConnection implements McpConnection {
 
     static final String PROTOCOL_VERSION = "2025-06-18";
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    /**
+     * Body readers: {@code HttpRequest.timeout} only bounds time-to-headers,
+     * so the response body (and any SSE stream carrying the answer) is read
+     * off-thread and bounded by the same timeout — a server that sends
+     * headers and then never answers cannot hang the calling turn.
+     */
+    private static final ExecutorService BODY_READERS = Executors.newVirtualThreadPerTaskExecutor();
 
     private final String serverName;
     private final URI endpoint;
@@ -187,32 +200,89 @@ final class McpHttpConnection implements McpConnection {
             HttpResponse<InputStream> response = client.send(builder.build(),
                     HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() >= 400) {
+                drainQuietly(response.body()); // release the pooled connection
                 throw new McpException("MCP HTTP " + response.statusCode() + " from \""
                         + serverName + "\"");
             }
             response.headers().firstValue("Mcp-Session-Id").ifPresent(id -> sessionId = id);
             String contentType = response.headers().firstValue("Content-Type").orElse("");
             InputStream body = response.body();
+            long expectedId = message.path("id").asLong(-1);
             if (contentType.contains("text/event-stream")) {
-                return readSseResponse(body, message.path("id").asLong(-1));
+                return readBounded(body, () -> readSseResponse(body, expectedId));
             }
-            String text = new String(body.readAllBytes(), StandardCharsets.UTF_8);
-            if (text.isBlank()) {
-                return null;
-            }
-            JsonNode answer = MAPPER.readTree(text);
-            JsonNode error = answer.get("error");
-            if (error != null && !error.isNull()) {
-                throw new McpException("MCP error " + error.path("code").asInt() + " from \""
-                        + serverName + "\": " + error.path("message").asText());
-            }
-            return answer.get("result");
+            return readBounded(body, () -> readJsonResponse(body));
         } catch (IOException e) {
             throw new McpException("MCP HTTP request to \"" + serverName + "\" failed: "
                     + e.getMessage(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new McpException("MCP HTTP request to \"" + serverName + "\" interrupted", e);
+        }
+    }
+
+    /** Reads a single JSON response body, parsing the envelope. */
+    private JsonNode readJsonResponse(InputStream body) throws IOException {
+        String text = new String(body.readAllBytes(), StandardCharsets.UTF_8);
+        if (text.isBlank()) {
+            return null;
+        }
+        JsonNode answer = MAPPER.readTree(text);
+        JsonNode error = answer.get("error");
+        if (error != null && !error.isNull()) {
+            throw new McpException("MCP error " + error.path("code").asInt() + " from \""
+                    + serverName + "\": " + error.path("message").asText());
+        }
+        return answer.get("result");
+    }
+
+    /**
+     * Reads the response body on a worker thread bounded by the request
+     * timeout; on expiry the body stream is closed, which unblocks a reader
+     * parked in {@code read()} and releases the connection.
+     */
+    private JsonNode readBounded(InputStream body, BodyRead read) {
+        Future<JsonNode> future = BODY_READERS.submit(read::run);
+        try {
+            return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            try (InputStream stream = body) {
+                // closing unblocks the reader thread parked on this stream
+            } catch (IOException ignored) {
+                // stream already dead
+            }
+            throw new McpException("MCP response from \"" + serverName
+                    + "\" did not arrive within " + timeoutMillis + " ms");
+        } catch (InterruptedException e) {
+            future.cancel(true);
+            try {
+                body.close();
+            } catch (IOException ignored) {
+                // stream already dead
+            }
+            Thread.currentThread().interrupt();
+            throw new McpException("MCP HTTP request to \"" + serverName + "\" interrupted", e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            if (cause instanceof McpException mcpe) {
+                throw mcpe;
+            }
+            throw new McpException("MCP response body from \"" + serverName
+                    + "\" failed: " + cause, cause);
+        }
+    }
+
+    /** Callback that consumes a response body and returns the JSON-RPC result. */
+    private interface BodyRead {
+        JsonNode run() throws IOException;
+    }
+
+    private static void drainQuietly(InputStream body) {
+        try (InputStream stream = body) {
+            stream.readAllBytes();
+        } catch (IOException ignored) {
+            // best-effort connection reclaim
         }
     }
 

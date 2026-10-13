@@ -49,6 +49,15 @@ function authInit(init?: RequestInit): RequestInit {
   return { ...(init ?? {}), headers: { ...init?.headers, Authorization: "Bearer " + AUTH_TOKEN } };
 }
 
+/**
+ * URL for plain browser navigation (downloads) — carries the auth token as a
+ * query parameter because such requests cannot set an Authorization header.
+ */
+export function downloadUrl(path: string): string {
+  if (!AUTH_TOKEN) return path;
+  return path + (path.includes("?") ? "&" : "?") + "token=" + encodeURIComponent(AUTH_TOKEN);
+}
+
 async function rpc<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, authInit(options));
   let body: unknown;
@@ -146,7 +155,7 @@ export const api = {
   },
 
   setModel(model: string): Promise<ModelState> {
-    return postJson("/api/settings/model", { model });
+    return putJson("/api/settings/model", { model });
   },
 
   decideApproval(id: string, granted: boolean): Promise<Ok> {
