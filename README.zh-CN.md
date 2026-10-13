@@ -69,7 +69,7 @@
 
 - JDK 21
 - Maven 3.x
-- 本地 Maven 仓库中存在 `io.jcordis:jcordis-all:1.0.0`
+- `io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.2`（Maven Central）
 
 ## 快速开始（像 CLI 一样启动，对标 dsh）
 

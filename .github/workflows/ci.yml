@@ -37,7 +37,7 @@ jobs:
         run: npx eslint src
         working-directory: web-ui
 
-      # jcordis (io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.1) now comes
+      # jcordis (io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.2) now comes
       # straight from Maven Central — no vendoring step needed.
 
       - name: Build and test (mvn clean verify incl. web-ui + ToolCatalog drift)

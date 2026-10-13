@@ -191,7 +191,7 @@ mvn -f examples/<name>-plugin/pom.xml package
 # -> examples/<name>-plugin/target/<name>-plugin-0.7.0.jar
 ```
 
-The pom declares jcordis (`io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.1`,
+The pom declares jcordis (`io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.2`,
 Maven Central) and harness modules as **provided** — the host supplies them
 through the plugin class loader's parent at runtime, so the jar ships only
 its own classes plus the SPI line and `static-web/…` resources. The shipped

@@ -12,20 +12,20 @@ fi
 SRC="examples/${NAME}-plugin"
 [ -d "$SRC/src/main/java" ] || { echo "error: $SRC not found (scaffold it first)" >&2; exit 1; }
 
-JCORDIS_CORE="${JCORDIS_CORE:-$HOME/.m2/repository/io/github/yhnnhyyhnn/jcordis-core/1.0.1/jcordis-core-1.0.1.jar}"
+JCORDIS_CORE="${JCORDIS_CORE:-$HOME/.m2/repository/io/github/yhnnhyyhnn/jcordis-core/1.0.2/jcordis-core-1.0.2.jar}"
 if [ ! -f "$JCORDIS_CORE" ]; then
-  JCORDIS_CORE="/d/mvn_repository/io/github/yhnnhyyhnn/jcordis-core/1.0.1/jcordis-core-1.0.1.jar"
+  JCORDIS_CORE="/d/mvn_repository/io/github/yhnnhyyhnn/jcordis-core/1.0.2/jcordis-core-1.0.2.jar"
 fi
 if [ ! -f "$JCORDIS_CORE" ]; then
-  echo "jcordis-core jar not found; set JCORDIS_CORE (io.github.yhnnhyyhnn:jcordis-core:1.0.1 from Central)" >&2
+  echo "jcordis-core jar not found; set JCORDIS_CORE (io.github.yhnnhyyhnn:jcordis-core:1.0.2 from Central)" >&2
   exit 1
 fi
-JCORDIS_LOADER="${JCORDIS_LOADER:-$HOME/.m2/repository/io/github/yhnnhyyhnn/jcordis-loader/1.0.1/jcordis-loader-1.0.1.jar}"
+JCORDIS_LOADER="${JCORDIS_LOADER:-$HOME/.m2/repository/io/github/yhnnhyyhnn/jcordis-loader/1.0.2/jcordis-loader-1.0.2.jar}"
 if [ ! -f "$JCORDIS_LOADER" ]; then
-  JCORDIS_LOADER="/d/mvn_repository/io/github/yhnnhyyhnn/jcordis-loader/1.0.1/jcordis-loader-1.0.1.jar"
+  JCORDIS_LOADER="/d/mvn_repository/io/github/yhnnhyyhnn/jcordis-loader/1.0.2/jcordis-loader-1.0.2.jar"
 fi
 if [ ! -f "$JCORDIS_LOADER" ]; then
-  echo "jcordis-loader jar not found; set JCORDIS_LOADER (io.github.yhnnhyyhnn:jcordis-loader:1.0.1 from Central)" >&2
+  echo "jcordis-loader jar not found; set JCORDIS_LOADER (io.github.yhnnhyyhnn:jcordis-loader:1.0.2 from Central)" >&2
   exit 1
 fi
 

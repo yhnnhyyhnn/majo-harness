@@ -69,7 +69,7 @@ The shipped plugins are already registered as loader builtins by `majo-boot.Harn
 
 - JDK 21
 - Maven 3.x
-- `io.jcordis:jcordis-all:1.0.0` in the local Maven repository
+- `io.github.yhnnhyyhnn:jcordis-core/-loader:1.0.2` (Maven Central)
 
 ## Quick start (launch like a CLI, dsh-style)
 
